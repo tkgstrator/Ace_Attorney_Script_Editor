@@ -1,0 +1,11 @@
+Use your built-in image generation tool (the imagegen skill) to create exactly ONE image, then copy the generated PNG to {{OUT}} in this workspace. Do not create or modify any other files.
+
+Image specification:
+- Subject: {{SUBJECT}}.
+- Style: retro pixel-art item icon, like an evidence item in a 2000s handheld courtroom adventure game. Original design. Single object only, centered, three-quarter view from slightly above.
+- It must look like a 64x64 pixel sprite enlarged with nearest-neighbor scaling: large uniform square pixels on a strict grid, hard edges, no anti-aliasing, no blur, no gradients, no dithering noise.
+- Clean 1-pixel dark outline around the object, 3 to 4 tone cel shading, limited palette of about 16 to 24 colors.
+- Background: perfectly flat solid pure green #00FF00 filling the entire canvas. No shadow, no floor, no vignette, no border.
+- Do not use bright green anywhere on the object itself.
+- Square 1024x1024 canvas. The object fills about 80 percent of the canvas.
+- No text, letters, logos or watermarks.

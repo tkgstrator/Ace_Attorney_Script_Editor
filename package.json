@@ -1,0 +1,25 @@
+{
+	"name": "gyakusai",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*",
+		"apps/*",
+		"tools/convert"
+	],
+	"scripts": {
+		"dev": "vite apps/player --host",
+		"build": "vite build apps/player",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json",
+		"check": "bun packages/script/src/cli.ts",
+		"schema": "bun packages/script/src/gen-schema.ts schema/scenario.schema.json",
+		"editor": "vite apps/editor"
+	},
+	"devDependencies": {
+		"typescript": "^7.0.2",
+		"vite": "^8.3.1",
+		"vitest": "^5.0.2",
+		"@types/bun": "latest"
+	}
+}

@@ -1,0 +1,6111 @@
+{
+ "script_format": {
+  "0": [
+   "nop",
+   0
+  ],
+  "1": [
+   "br",
+   0
+  ],
+  "2": [
+   "page",
+   0
+  ],
+  "3": [
+   "color",
+   1
+  ],
+  "4": [
+   "skip_if_key",
+   1
+  ],
+  "5": [
+   "bgm",
+   2
+  ],
+  "6": [
+   "se",
+   2
+  ],
+  "7": [
+   "page_nowait",
+   0
+  ],
+  "8": [
+   "choice2",
+   2
+  ],
+  "9": [
+   "choice3",
+   3
+  ],
+  "10": [
+   "page_jump",
+   1
+  ],
+  "11": [
+   "speed",
+   1
+  ],
+  "12": [
+   "wait",
+   1
+  ],
+  "13": [
+   "end",
+   0
+  ],
+  "14": [
+   "name",
+   1
+  ],
+  "15": [
+   "testimony_press",
+   2
+  ],
+  "16": [
+   "flag",
+   1
+  ],
+  "17": [
+   "present",
+   0
+  ],
+  "18": [
+   "fade",
+   3
+  ],
+  "19": [
+   "show_item",
+   1
+  ],
+  "20": [
+   "hide_item",
+   0
+  ],
+  "21": [
+   "player_turn",
+   0
+  ],
+  "22": [
+   "episode_end",
+   0
+  ],
+  "23": [
+   "record_add",
+   1
+  ],
+  "24": [
+   "record_del",
+   1
+  ],
+  "25": [
+   "record_swap",
+   2
+  ],
+  "26": [
+   "bg_scroll",
+   4
+  ],
+  "27": [
+   "bg",
+   1
+  ],
+  "28": [
+   "box",
+   1
+  ],
+  "29": [
+   "bg_effect",
+   1
+  ],
+  "30": [
+   "char",
+   3
+  ],
+  "31": [
+   "reset_screen",
+   0
+  ],
+  "32": [
+   "set_next",
+   1
+  ],
+  "33": [
+   "present_life",
+   0
+  ],
+  "34": [
+   "bgm_fade_out",
+   2
+  ],
+  "35": [
+   "bgm_fade_in",
+   2
+  ],
+  "36": [
+   "reset",
+   0
+  ],
+  "37": [
+   "nop1",
+   1
+  ],
+  "38": [
+   "record_button",
+   1
+  ],
+  "39": [
+   "shake",
+   2
+  ],
+  "40": [
+   "testimony_mark",
+   1
+  ],
+  "41": [
+   "court_mode",
+   1
+  ],
+  "42": [
+   "testimony_jump",
+   3
+  ],
+  "43": [
+   "op43",
+   0
+  ],
+  "44": [
+   "jump_after",
+   1
+  ],
+  "45": [
+   "page_auto",
+   0
+  ],
+  "46": [
+   "clear",
+   0
+  ],
+  "47": [
+   "anim",
+   2
+  ],
+  "48": [
+   "op48",
+   1
+  ],
+  "49": [
+   "obj_pos",
+   2
+  ],
+  "50": [
+   "op50",
+   2
+  ],
+  "51": [
+   "move_list",
+   5
+  ],
+  "52": [
+   "wait_mode",
+   0
+  ],
+  "53": [
+   "if_flag",
+   2
+  ],
+  "54": [
+   "jump",
+   1
+  ],
+  "55": [
+   "talk_topic",
+   2
+  ],
+  "56": [
+   "op56",
+   1
+  ],
+  "57": [
+   "op57",
+   1
+  ],
+  "58": [
+   "examine_area",
+   3
+  ],
+  "59": [
+   "examine_set",
+   2
+  ],
+  "60": [
+   "op60",
+   1
+  ],
+  "61": [
+   "wait_area",
+   1
+  ],
+  "62": [
+   "op62",
+   1
+  ],
+  "63": [
+   "wait_examine",
+   0
+  ],
+  "64": [
+   "op64",
+   0
+  ],
+  "65": [
+   "op65",
+   0
+  ],
+  "66": [
+   "op66",
+   1
+  ],
+  "67": [
+   "op67",
+   1
+  ],
+  "68": [
+   "op68",
+   1
+  ],
+  "69": [
+   "player_turn2",
+   0
+  ],
+  "70": [
+   "op70",
+   1
+  ],
+  "71": [
+   "op71",
+   2
+  ],
+  "72": [
+   "op72",
+   2
+  ],
+  "73": [
+   "op73",
+   0
+  ],
+  "74": [
+   "wait_state",
+   1
+  ],
+  "75": [
+   "op75",
+   2
+  ],
+  "76": [
+   "wait_bg",
+   0
+  ],
+  "77": [
+   "fade_char",
+   2
+  ],
+  "78": [
+   "mouth_wait",
+   1
+  ],
+  "79": [
+   "unused79",
+   0
+  ],
+  "80": [
+   "unused80",
+   0
+  ],
+  "81": [
+   "unused81",
+   0
+  ],
+  "82": [
+   "unused82",
+   0
+  ],
+  "83": [
+   "unused83",
+   0
+  ],
+  "84": [
+   "unused84",
+   0
+  ],
+  "85": [
+   "bg_anim",
+   2
+  ],
+  "86": [
+   "unused86",
+   0
+  ],
+  "87": [
+   "unused87",
+   0
+  ],
+  "88": [
+   "unused88",
+   0
+  ],
+  "89": [
+   "unused89",
+   0
+  ],
+  "90": [
+   "unused90",
+   0
+  ],
+  "91": [
+   "unused91",
+   0
+  ],
+  "92": [
+   "fade_wait",
+   3
+  ],
+  "93": [
+   "align",
+   1
+  ],
+  "94": [
+   "unused94",
+   0
+  ],
+  "95": [
+   "fade2",
+   3
+  ],
+  "96": [
+   "nop96",
+   0
+  ],
+  "97": [
+   "nop97",
+   0
+  ],
+  "98": [
+   "nop98",
+   0
+  ],
+  "99": [
+   "nop99",
+   0
+  ],
+  "100": [
+   "nop100",
+   0
+  ],
+  "101": [
+   "ds_ui",
+   2
+  ],
+  "102": [
+   "nop102",
+   0
+  ],
+  "103": [
+   "nop103",
+   0
+  ],
+  "104": [
+   "op104",
+   0
+  ],
+  "105": [
+   "ds_105",
+   2
+  ],
+  "106": [
+   "op106",
+   0
+  ],
+  "107": [
+   "ds_107",
+   3
+  ],
+  "108": [
+   "nop108",
+   0
+  ],
+  "109": [
+   "nop109",
+   0
+  ],
+  "110": [
+   "nop110",
+   0
+  ],
+  "111": [
+   "ds_jump",
+   1
+  ],
+  "112": [
+   "nop112",
+   0
+  ],
+  "113": [
+   "nop113",
+   0
+  ],
+  "114": [
+   "nop114",
+   0
+  ],
+  "115": [
+   "nop115",
+   0
+  ],
+  "116": [
+   "ds_116",
+   2
+  ],
+  "117": [
+   "model3d",
+   4
+  ],
+  "118": [
+   "ds_show_item",
+   2
+  ],
+  "119": [
+   "ds_119",
+   2
+  ],
+  "120": [
+   "jump2",
+   1
+  ],
+  "121": [
+   "player_turn3",
+   0
+  ],
+  "122": [
+   "if_gameover",
+   1
+  ],
+  "123": [
+   "ds_123",
+   2
+  ],
+  "124": [
+   "nop124",
+   0
+  ],
+  "125": [
+   "nop125",
+   0
+  ],
+  "126": [
+   "nop126",
+   0
+  ],
+  "127": [
+   "nop127",
+   0
+  ]
+ },
+ "opcodes": {
+  "0": {
+   "name": "nop",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（各区画の先頭）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3e4"
+  },
+  "1": {
+   "name": "br",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "改行。行の中の文字数 +0x20 と x +0x24 を 0 に、行 +0x26 を +1。行の高さは日本語 18 px、英語 16 px。",
+   "yaml": "text の改行",
+   "confidence": "高",
+   "handler": "0x0202b3b8"
+  },
+  "2": {
+   "name": "page",
+   "argc": 0,
+   "args": [],
+   "blocks": "input",
+   "desc": "最初のフレームで人物を「黙る動き」（30 の第 3 引数）にし、次のフレームから ▶ を出してボタン（A、または下画面のタッチで文脈 +0 の bit1）を待つ。押されたら効果音 0x2f（SE005）を鳴らし、人物を「話す動き」に戻し、文を消す。B を押しっぱなし（既読の区画だけ）なら 8 フレームで自動で進む。",
+   "yaml": "wait_input → talk アニメへ戻す → 文を消す",
+   "confidence": "高",
+   "handler": "0x0202b06c"
+  },
+  "3": {
+   "name": "color",
+   "argc": 1,
+   "args": [
+    "色"
+   ],
+   "blocks": "none",
+   "desc": "文字の色。0 白 #f7f7f7、1 赤 #f7733a、2 青 #6bc5f7、3 緑 #00f700（パレット data.bin 0x1bcb354、画素の番号を 3×色 ずらす）。",
+   "yaml": "text の色",
+   "confidence": "高",
+   "handler": "0x0202b040"
+  },
+  "4": {
+   "name": "wait_key",
+   "argc": 1,
+   "args": [
+    "ボタン"
+   ],
+   "blocks": "until",
+   "desc": "新しく押されたボタン（0x020ce17c+2）が引数のビットに当たるまで止まる。台本では未使用。",
+   "yaml": "未使用",
+   "confidence": "高",
+   "handler": "0x0202b018"
+  },
+  "5": {
+   "name": "bgm",
+   "argc": 2,
+   "args": [
+    "番号",
+    "フェード"
+   ],
+   "blocks": "none",
+   "desc": "音楽。sound.json を参照（255 = 一時停止中の曲の再開、フェードはフレーム）。",
+   "yaml": "bgm",
+   "confidence": "高",
+   "handler": "0x0202afd4"
+  },
+  "6": {
+   "name": "se",
+   "argc": 2,
+   "args": [
+    "番号",
+    "1=鳴らす/0=止める"
+   ],
+   "blocks": "none",
+   "desc": "効果音（SSEQ 番号そのもの）。sound.json。",
+   "yaml": "se",
+   "confidence": "高",
+   "handler": "0x0202af50"
+  },
+  "7": {
+   "name": "page_nowait",
+   "argc": 0,
+   "args": [],
+   "blocks": "input",
+   "desc": "2 と同じ関数。最初のフレームで人物を黙る動きにし、次のフレームで（▶ を出さず、ボタンも待たずに）効果音 0x2f を鳴らし、文脈 +0 に bit2（早送り禁止）を立て、下画面を状態 7 にして、文を消さずに次の命令へ進む。選択肢（8/9）の直前に置かれ、問いの文を残したまま選択肢を出す。",
+   "yaml": "文を残したまま次へ（選択肢の前）",
+   "confidence": "高",
+   "handler": "0x0202b06c"
+  },
+  "8": {
+   "name": "choice2",
+   "argc": 2,
+   "args": [
+    "区画1",
+    "区画2"
+   ],
+   "blocks": "forever",
+   "desc": "2 択。下画面（DS）のボタンで選ぶ。選ぶと効果音 0x2b、選ばれた引数の区画へ飛ぶ（上下で効果音 0x2a）。飛ぶのは下画面の処理（0x0203be54(8)）。",
+   "yaml": "choice [(文, 区画)…]。選択肢の文は下画面の画像（選択肢のテクスチャ）",
+   "confidence": "高",
+   "handler": "0x0202add8"
+  },
+  "9": {
+   "name": "choice3",
+   "argc": 3,
+   "args": [
+    "区画1",
+    "区画2",
+    "区画3"
+   ],
+   "blocks": "forever",
+   "desc": "3 択。8 と同じ。",
+   "yaml": "choice",
+   "confidence": "高",
+   "handler": "0x0202ac88"
+  },
+  "10": {
+   "name": "page_jump",
+   "argc": 1,
+   "args": [
+    "区画"
+   ],
+   "blocks": "input",
+   "desc": "2 と同じくボタンを待ち（効果音 0x2f）、押されたら文を消さずに区画へ飛ぶ（区画の読み込みで文は消える）。",
+   "yaml": "wait_input → goto",
+   "confidence": "高",
+   "handler": "0x0202b06c"
+  },
+  "11": {
+   "name": "speed",
+   "argc": 1,
+   "args": [
+    "フレーム/文字"
+   ],
+   "blocks": "none",
+   "desc": "文字の速さ（文脈 +0x51）。255 = 3（標準）。日本語は n フレームに 1 文字（0 = 同じフレームで全部）。英語は表 0x020b3e68 で約半分（0,1,1,2,2,3,…）。B を押しっぱなしで既読なら 0。",
+   "yaml": "text_speed n",
+   "confidence": "高",
+   "handler": "0x0202ac4c"
+  },
+  "12": {
+   "name": "wait",
+   "argc": 1,
+   "args": [
+    "フレーム"
+   ],
+   "blocks": "frames",
+   "desc": "n フレーム止まる（下位 8 ビットだけ使う）。人物の動きは変えない（話す動きのまま口が動き続ける。文字の出力と口パクを結ぶコードは無い）。既読で B 押しっぱなし、かつ次が文字なら待たない。",
+   "yaml": "wait n",
+   "confidence": "高",
+   "handler": "0x0202abb8"
+  },
+  "13": {
+   "name": "end",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "区画の終わり。次の区画（文脈 +0x4c。区画の読み込みで「今の区画 + 1」、32/42/43/44 で書き換わる）へ飛ぶ。",
+   "yaml": "goto next（既定は次の区画）",
+   "confidence": "高",
+   "handler": "0x0202ab98"
+  },
+  "14": {
+   "name": "name",
+   "argc": 1,
+   "args": [
+    "名前<<8 | 特別"
+   ],
+   "blocks": "none",
+   "desc": "話し手の名前（文脈 +0x60 = (x>>8)&0x7f、下位 8 ビット ≠ 0 で bit7 = 名前を別の表示にする）。枠が出ていれば名札を描き直す。文字送りの音の種類も表 0x020aabc0[名前] に変わる（sound.json の blip）。",
+   "yaml": "speaker",
+   "confidence": "高",
+   "handler": "0x0202aae0"
+  },
+  "15": {
+   "name": "testimony_press",
+   "argc": 2,
+   "args": [
+    "ゆさぶる区画",
+    "種類"
+   ],
+   "blocks": "none",
+   "desc": "文脈 +0x58 = 区画、+0x5a = 第 2 引数。court.json を参照。",
+   "yaml": "statement.press",
+   "confidence": "中",
+   "handler": "0x0202aa9c"
+  },
+  "16": {
+   "name": "flag",
+   "argc": 1,
+   "args": [
+    "値<<15|組<<8|番号"
+   ],
+   "blocks": "none",
+   "desc": "フラグ（0x0201a170(組, 番号, 値)）。53/42 が見るのは組 0。",
+   "yaml": "set_flag",
+   "confidence": "高",
+   "handler": "0x0202aa54"
+  },
+  "17": {
+   "name": "present",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "効果音 0x31、文脈 +0 bit4、game+0x90 |= 0x100、game+8（画面の状態）を 7（法廷記録の「つきつける」）にする。直後の 21 で止まる。court.json。",
+   "yaml": "present（体力ゲージなし）",
+   "confidence": "高",
+   "handler": "0x0202a9f8"
+  },
+  "18": {
+   "name": "fade",
+   "argc": 3,
+   "args": [
+    "種類<<8|間隔",
+    "量",
+    "対象"
+   ],
+   "blocks": "none",
+   "desc": "上画面の明るさ（DS の BLDCNT/BLDY）。種類 1: 黒から戻す、2: 黒へ、3: 白から戻す、4: 白へ、5: 白へ一度だけ量を足して終わり。「間隔」フレームごとに明るさ（0〜16）を「量」だけ動かす（例 513,1,31 = 1 フレームに 1 → 16 フレームで真っ黒）。対象 = BLDCNT の第 1 対象のビット（31 = BG0〜3 と OBJ）。明るさ BLDY は 5 ビットで計算して & 0x1f し（ハードは 16 以上を 16 とみなす）、種類 1/3 は 0 になったら、2/4 は 16 になったら終わる。今の値から始まるので、0 から種類 3 を始めると 0-量 が 32 へ回り込む: 769,8,31（種類 3、間隔 1、量 8）は BLDY 24→16→8→0 = 白 2 フレーム・半分 1 フレームの白いフラッシュ（台本の白フラッシュはすべてこれ）。種類 1 を 0 から始めると 31 から数えるので最初の 15 段は真っ黒のまま。終わると BLDCNT を 0x1d42 に戻す（種類 2/4 は 16 のまま残し game+0x48 = 0xffff）。待たない（待ちは後ろの 12）。下画面の文脈（+0x2c ≠ 0）では同じ形で下画面を変える（0x02017aa8）。",
+   "yaml": "fade {type, interval, step, layers}（フラッシュ = fade 3 1 8）",
+   "confidence": "高",
+   "handler": "0x0202a97c"
+  },
+  "19": {
+   "name": "show_item",
+   "argc": 1,
+   "args": [
+    "位置<<8 | 番号"
+   ],
+   "blocks": "until",
+   "desc": "証拠品のアイコン（evidence.json の icon、64×64）を上画面の隅に出す。上位 8 ビット 0 = 左 (x=16,y=16)、≠0 = 右 (x=176)。効果音 0x33。文脈 +0x1c を数えて 16 フレーム止まる（+0x395 = 3 の間は解釈ループ自体も止まる）。",
+   "yaml": "show_evidence {id, side}（16 フレーム）",
+   "confidence": "高",
+   "handler": "0x0202a8dc"
+  },
+  "20": {
+   "name": "hide_item",
+   "argc": 0,
+   "args": [],
+   "blocks": "until",
+   "desc": "19 の絵を引っ込める（+0x395 = 1、効果音 0x33）。約 16 フレーム止まる。",
+   "yaml": "hide_evidence（16 フレーム）",
+   "confidence": "高",
+   "handler": "0x0202a88c"
+  },
+  "21": {
+   "name": "player_turn",
+   "argc": 0,
+   "args": [],
+   "blocks": "forever",
+   "desc": "操作を遊ぶ人に渡す。初回に人物を黙る動きにし、文脈 +0 bit3 を立てて毎フレーム 1 を返す（進まない）。尋問（次へ/戻る/ゆさぶる/つきつける）・つきつけ要求・探偵メニューの処理が区画を変える。",
+   "yaml": "player_turn（直前の状態で意味が決まる）",
+   "confidence": "高",
+   "handler": "0x0202a7f8"
+  },
+  "22": {
+   "name": "next_part",
+   "argc": 0,
+   "args": [],
+   "blocks": "yield",
+   "desc": "game+0x69（パートの番号）を +1（0x1c の次は 0x1f）、game+8 = 0x203（次のパートの台本を読む）。",
+   "yaml": "end_part",
+   "confidence": "高",
+   "handler": "0x0202a778"
+  },
+  "23": {
+   "name": "record_add",
+   "argc": 1,
+   "args": [
+    "x"
+   ],
+   "blocks": "yield",
+   "desc": "法廷記録に加える（持っているか 32 個で満杯なら何もしない）。bit15 = 人物の一覧、bit14 = 詳細の窓（game+8 = 8: アイコン・名前・説明、SE 15、音楽を 4 フレームで半分へ。次のボタン待ちで音楽を 30 フレームで戻し、ボタンで窓を閉じる）、下位 14 ビット = 番号（証拠品と人物で同じ表）。「〜をファイルした」の文は台本側。",
+   "yaml": "record_add {id, notice}",
+   "confidence": "高",
+   "handler": "0x0202a698"
+  },
+  "24": {
+   "name": "record_del",
+   "argc": 1,
+   "args": [
+    "x"
+   ],
+   "blocks": "none",
+   "desc": "法廷記録から除き詰める。bit14 なら効果音 0x0f。",
+   "yaml": "record_remove",
+   "confidence": "高",
+   "handler": "0x0202a5f4"
+  },
+  "25": {
+   "name": "record_swap",
+   "argc": 2,
+   "args": [
+    "旧",
+    "新"
+   ],
+   "blocks": "none",
+   "desc": "旧の場所に新を入れる（並びは保つ）。新の bit14 で「受け取った」画面。",
+   "yaml": "record_replace",
+   "confidence": "高",
+   "handler": "0x0202a534"
+  },
+  "26": {
+   "name": "pan",
+   "argc": 4,
+   "args": [
+    "組",
+    "向き/旗",
+    "人物",
+    "動き"
+   ],
+   "blocks": "yield",
+   "desc": "法廷の横長の絵（パノラマ, data 0x021f2f00 から）で視点を流す。最初のフレームは何もしない（yield）。組 0 = 弁護側↔証言台、1 = 弁護側↔検察側、2 = 証言台↔検察側。第 2 引数の bit0 = 向き（1 は逆から）、0x1000/0x200/0x400 = 途中の色（0x1000 白、0x400 黒）。位置カウンタ（0x020ce16c+0xc）は毎フレーム ±1（0x02017e88: 向き 0 は 0→31、向き 1 は 30→-1 で終わり = 31 フレーム）、偶数のときだけ表 0x020b3dc0 / 0x020b3de0（16 段、単位 8 px）で描く。到着側に人物（第 3 引数）と動き（第 4 引数）を画面外（x=0x1c / 0x14c, y=0x60）から一緒に流し込む。台本はその後 [wait 30] と 27 bg で到着先を出す。",
+   "yaml": "pan {from/to, char, anim}（約 30 フレーム）",
+   "confidence": "高",
+   "handler": "0x0202a480"
+  },
+  "27": {
+   "name": "bg",
+   "argc": 1,
+   "args": [
+    "背景"
+   ],
+   "blocks": "yield",
+   "desc": "背景を替える（0x020ce300+0xc、4095 = 無し）。帯 6 本を 1 フレームに 1 本ずつ展開し、7 フレーム目に差し替わる（それまで前の絵）。替えたフレームで終わる（yield）。",
+   "yaml": "bg（表示は約 7 フレーム後）",
+   "confidence": "高",
+   "handler": "0x0202a43c"
+  },
+  "28": {
+   "name": "box",
+   "argc": 1,
+   "args": [
+    "種類"
+   ],
+   "blocks": "none",
+   "desc": "文字の枠。0 = 出す（名札も描き直す）、1 = 隠して文字の面を消す、4 = 隠す（名札の状態は保つ）、2 = 人物を消して画面の状態 3、3 = 探偵のメニュー（状態 4）、8 = 状態 5（yield）、16 = 状態 6（yield）。",
+   "yaml": "textbox show/hide、3 は investigation_menu",
+   "confidence": "高",
+   "handler": "0x0202a14c"
+  },
+  "29": {
+   "name": "bg_scroll",
+   "argc": 1,
+   "args": [
+    "向き<<8|速さ"
+   ],
+   "blocks": "none",
+   "desc": "広い背景（表のフラグ付き）を 1 フレームに 速さ px ずつ動かす。向き 0 = 左へ（x -速さ）、1 = 右へ、2 = 上へ（y -速さ）、3 = 下へ。背景の端に着くと止まる（0x020ce300+0x16 = 0）。人物も一緒に動く。76 で終わりを待てる。",
+   "yaml": "bg_scroll {dir, speed}",
+   "confidence": "中",
+   "handler": "0x0202a090"
+  },
+  "30": {
+   "name": "char",
+   "argc": 3,
+   "args": [
+    "人物",
+    "話す動き",
+    "黙る動き"
+   ],
+   "blocks": "none",
+   "desc": "人物を出す（0 = 消す）。game+0x6c/0x6e に動きを保存し、すぐ「話す動き」を最初のコマから出す（同じ動きでもやり直す）。人物の 0x8000/0x4000 = 横長の背景の外側 (x ∓ 256)、0x2000 = 左右反転。18 fade の最中は全員のコマ送りが止まる。char_anims.json / chars.json。",
+   "yaml": "char",
+   "confidence": "高",
+   "handler": "0x02029fdc"
+  },
+  "31": {
+   "name": "clear_fx",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "70 の特別な背景（集中線など、BG2）を消し、BG2 を切って BG3 を戻し、背景の自動スクロール（+0x24）を止め、BG のずれを初期値に戻す。",
+   "yaml": "speedlines off",
+   "confidence": "中",
+   "handler": "0x02029f28"
+  },
+  "32": {
+   "name": "set_next",
+   "argc": 1,
+   "args": [
+    "区画"
+   ],
+   "blocks": "none",
+   "desc": "13 end で飛ぶ区画（文脈 +0x4c）。",
+   "yaml": "next = 区画",
+   "confidence": "高",
+   "handler": "0x02029efc"
+  },
+  "33": {
+   "name": "present_life",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "17 と同じ + game+0x90 |= 0x200（体力ゲージを出す）。court.json。",
+   "yaml": "present（間違いで体力が減る）",
+   "confidence": "高",
+   "handler": "0x02029ea0"
+  },
+  "34": {
+   "name": "bgm_fade_out",
+   "argc": 2,
+   "args": [
+    "未使用",
+    "フレーム"
+   ],
+   "blocks": "none",
+   "desc": "音楽を消していき一時停止（0 = すぐ止める）。sound.json。",
+   "yaml": "bgm_fadeout",
+   "confidence": "高",
+   "handler": "0x02029e4c"
+  },
+  "35": {
+   "name": "bgm_pause",
+   "argc": 2,
+   "args": [
+    "未使用",
+    "0=止める/1=再開"
+   ],
+   "blocks": "none",
+   "desc": "音楽の一時停止/再開。sound.json。",
+   "yaml": "bgm_pause",
+   "confidence": "高",
+   "handler": "0x02029df8"
+  },
+  "36": {
+   "name": "to_title",
+   "argc": 0,
+   "args": [],
+   "blocks": "yield",
+   "desc": "game+8 = 2（タイトルへ）。",
+   "yaml": "to_title",
+   "confidence": "高",
+   "handler": "0x02029dc8"
+  },
+  "37": {
+   "name": "skip1",
+   "argc": 1,
+   "args": [
+    "未使用"
+   ],
+   "blocks": "none",
+   "desc": "引数を読み飛ばすだけ。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x02029da8"
+  },
+  "38": {
+   "name": "record_lock",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "game+0x90 bit4。1 = 法廷記録（R）を開けない・ボタンを出さない、0 = 戻す。",
+   "yaml": "record_button enable",
+   "confidence": "中",
+   "handler": "0x02029d58"
+  },
+  "39": {
+   "name": "shake",
+   "argc": 2,
+   "args": [
+    "フレーム",
+    "強さ"
+   ],
+   "blocks": "none",
+   "desc": "上画面を揺らす。毎フレーム乱数で dx, dy ∈ [-m, m]（強さ 0 → m=1、1 → 3、2 → 7、それ以外 3）を BG0〜3 のずれに足す（BG1 は x と y が入れ替わる）。フレーム数が過ぎると元に戻す（0 = 止まらない）。待たない。",
+   "yaml": "shake {frames, amplitude: 1|3|7 px}",
+   "confidence": "高",
+   "handler": "0x02029c54"
+  },
+  "40": {
+   "name": "testimony_mark",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "1 = game+8 を 5（「証言開始」の画面）、0 = game+9 を +1。court.json。",
+   "yaml": "testimony start/end",
+   "confidence": "中",
+   "handler": "0x02029bfc"
+  },
+  "41": {
+   "name": "court_mode",
+   "argc": 1,
+   "args": [
+    "種類"
+   ],
+   "blocks": "none",
+   "desc": "下画面・法廷の状態（0x0203be54 の 9/10/11）。court.json。",
+   "yaml": "（court 担当）",
+   "confidence": "中",
+   "handler": "0x02029ab0"
+  },
+  "42": {
+   "name": "if_flag_next",
+   "argc": 3,
+   "args": [
+    "フラグ",
+    "区画(立っている)",
+    "区画(立っていない)"
+   ],
+   "blocks": "none",
+   "desc": "フラグ（組 0）が立っていれば 13 で飛ぶ先 = 第 2 引数、立っていなければ第 3 引数。",
+   "yaml": "next = flag ? a : b",
+   "confidence": "高",
+   "handler": "0x02029a2c"
+  },
+  "43": {
+   "name": "penalty",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "体力 game+0x6b を 1 減らす（前の値を +0x66 に、ゲージの動き +0x64=1, +0x65=3）、効果音 0x4c。体力 ≤ 0 なら次の区画 = 0x020aad40[パート]（そのパートのゲームオーバーの区画 = 最後の区画）。",
+   "yaml": "damage 1",
+   "confidence": "高",
+   "handler": "0x020299b8"
+  },
+  "44": {
+   "name": "next_clear",
+   "argc": 1,
+   "args": [
+    "区画"
+   ],
+   "blocks": "none",
+   "desc": "次の区画（+0x4c）を決め、文を消し、人物を黙る動きにする。区画の終わり 13 で飛ぶ。",
+   "yaml": "next = 区画; clear",
+   "confidence": "高",
+   "handler": "0x02029920"
+  },
+  "45": {
+   "name": "page_keep",
+   "argc": 0,
+   "args": [],
+   "blocks": "input",
+   "desc": "2 と同じだが、ボタンのあと人物を話す動きに戻さない（場面が変わるとき）。",
+   "yaml": "wait_input → 文を消す",
+   "confidence": "高",
+   "handler": "0x0202b06c"
+  },
+  "46": {
+   "name": "clear",
+   "argc": 0,
+   "args": [],
+   "blocks": "yield",
+   "desc": "文を消す（文脈の bit0,1,0x2000,0x4000 を下ろす）。このフレームで終わる。",
+   "yaml": "clear_text",
+   "confidence": "高",
+   "handler": "0x02029898"
+  },
+  "47": {
+   "name": "anim",
+   "argc": 2,
+   "args": [
+    "番号",
+    "1=出す/0=消す"
+   ],
+   "blocks": "none",
+   "desc": "特別な動き（0x0202232c 出す / 0x02023280→0x02021444 消す）。anims47.json。",
+   "yaml": "anim",
+   "confidence": "中",
+   "handler": "0x02029840"
+  },
+  "48": {
+   "name": "blip_kind",
+   "argc": 1,
+   "args": [
+    "種類"
+   ],
+   "blocks": "none",
+   "desc": "文字送りの音の種類（文脈 +0x33）: 0 = SE 0x2d、1 = 0x2e、2 = 0x44（タイプライター、毎文字）。日時・場所の表示の前に 2。",
+   "yaml": "text_blip",
+   "confidence": "高",
+   "handler": "0x02029804"
+  },
+  "49": {
+   "name": "char_alpha",
+   "argc": 2,
+   "args": [
+    "種類",
+    "間隔"
+   ],
+   "blocks": "none",
+   "desc": "人物の半透明のフェード（0x02021790、毎フレーム 0x020215ec）。種類の下位 8 ビット: 1 = 出す（不透明度 0→16）、2 = 人物がいなくても実行、4 = 消す。& 0xc なら終わっても消さずに隠す。上位 8 ビット ≠ 0 は別の部品の番号。「間隔」フレームごとに 1 段、16 段 = 16×間隔 フレーム。止まらない（台本の wait 16×間隔 で待つ）。例 [49 4 1][wait 16][char …][49 3 1][wait 16] = 16 フレームで消して別の人物を 16 フレームで出す。",
+   "yaml": "char_fade {in|out, frames: 16*b}",
+   "confidence": "高",
+   "handler": "0x020297c0"
+  },
+  "50": {
+   "name": "place_byte",
+   "argc": 2,
+   "args": [
+    "場所",
+    "値"
+   ],
+   "blocks": "none",
+   "desc": "0x020ceeb0[場所*8] = 値（探偵パートの場所の表）。investigation.json。",
+   "yaml": "（invest 担当）",
+   "confidence": "中",
+   "handler": "0x02029788"
+  },
+  "51": {
+   "name": "move_list",
+   "argc": 5,
+   "args": [
+    "場所",
+    "行き先1",
+    "行き先2",
+    "行き先3",
+    "行き先4"
+   ],
+   "blocks": "none",
+   "desc": "0x020ceeb4[場所*8 + 0..3] = 行き先（場所の「移動する」の一覧）。investigation.json。",
+   "yaml": "place.moves",
+   "confidence": "高",
+   "handler": "0x020296e0"
+  },
+  "52": {
+   "name": "wait_ui15",
+   "argc": 0,
+   "args": [],
+   "blocks": "until",
+   "desc": "下画面を状態 0x15 にして、下画面の処理が終わるまで止まる。",
+   "yaml": "wait bottom-screen",
+   "confidence": "中",
+   "handler": "0x020296a0"
+  },
+  "53": {
+   "name": "if_flag",
+   "argc": 2,
+   "args": [
+    "フラグ<<8|0x80?|期待値",
+    "飛び先"
+   ],
+   "blocks": "none",
+   "desc": "フラグ（組 0、番号 = arg0>>8）が期待値（bit0）と一致すれば飛ぶ。bit7 あり = 飛び先はラベルの添字、なし = 今の区画の先頭からのバイト位置（&~1）。一致しなければ何もしない。",
+   "yaml": "if flag goto label / offset",
+   "confidence": "高",
+   "handler": "0x02029548"
+  },
+  "54": {
+   "name": "jump",
+   "argc": 1,
+   "args": [
+    "ラベル"
+   ],
+   "blocks": "none",
+   "desc": "ラベル（見出しの添字）へ飛ぶ: 区画 = 値>>16、位置 = 値&0xfffe。今の区画を既読にする。",
+   "yaml": "goto label",
+   "confidence": "高",
+   "handler": "0x02029478"
+  },
+  "55": {
+   "name": "talk_state",
+   "argc": 2,
+   "args": [
+    "番号",
+    "値"
+   ],
+   "blocks": "none",
+   "desc": "話題の項目（0x020ce8a8 + 番号×0x14）の [3] = 値: 1 = 有効、0 = 無効（同じ場所・人物の話題の版を入れ替える）。",
+   "yaml": "talk_entry enable",
+   "confidence": "高",
+   "handler": "0x02029430"
+  },
+  "56": {
+   "name": "char_visible",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "主人物を隠す（0）/出す（1）。人物は残したまま OAM だけ消す（0x02022cf8）。",
+   "yaml": "char visible",
+   "confidence": "高",
+   "handler": "0x020293d4"
+  },
+  "57": {
+   "name": "obj",
+   "argc": 1,
+   "args": [
+    "番号<<8|出す"
+   ],
+   "blocks": "none",
+   "desc": "場面の小物（OBJ、0x020ce398 の 0x14 バイト × 8）を出す/消す。絵は表 0x020aadd0（16 バイト/番号: data.bin 位置, 大きさ, OAM 属性 0/1, 英語版の差し替え）。番号 0x1f は調べるカーソル（タッチ位置 - 16）。",
+   "yaml": "overlay_object show/hide",
+   "confidence": "中",
+   "handler": "0x02029100"
+  },
+  "58": {
+   "name": "obj_move",
+   "argc": 3,
+   "args": [
+    "番号",
+    "x",
+    "y"
+   ],
+   "blocks": "none",
+   "desc": "小物の位置（OAM 属性 1 の下位 9 ビット = x、属性 0 の下位 8 ビット = y）。",
+   "yaml": "overlay_object.pos",
+   "confidence": "中",
+   "handler": "0x02028e34"
+  },
+  "59": {
+   "name": "obj_anim",
+   "argc": 2,
+   "args": [
+    "番号<<8|a",
+    "b<<8|c"
+   ],
+   "blocks": "none",
+   "desc": "小物の動きの設定（+4 = a、+3 = b、+6 = c、+5 bit1 = 動き中、+7 = 0）。",
+   "yaml": "overlay_object.anim",
+   "confidence": "低",
+   "handler": "0x02028d64"
+  },
+  "60": {
+   "name": "obj_state",
+   "argc": 1,
+   "args": [
+    "番号<<8|値"
+   ],
+   "blocks": "none",
+   "desc": "小物の +1 = 値（bit0 = 0 なら OAM の x を戻す）、+2 = 0。",
+   "yaml": "overlay_object.state",
+   "confidence": "低",
+   "handler": "0x02028cc8"
+  },
+  "61": {
+   "name": "obj_wait",
+   "argc": 1,
+   "args": [
+    "番号<<8"
+   ],
+   "blocks": "until",
+   "desc": "小物の動き（+5 bit1）が終わるまで止まる。",
+   "yaml": "wait overlay_object",
+   "confidence": "中",
+   "handler": "0x02028c54"
+  },
+  "62": {
+   "name": "examine_mode",
+   "argc": 1,
+   "args": [
+    "種類"
+   ],
+   "blocks": "none",
+   "desc": "法廷で写真の一点を指す問題の番号 k（0x020aafd0 + k×0x2c: 正解の四角形 2 つと区画 A/B/外れ）。0x020ce1c4+9 = k、文脈 +0 に 0x280。investigation.json の court_point。",
+   "yaml": "point_on_image {k}",
+   "confidence": "中",
+   "handler": "0x02028c0c"
+  },
+  "63": {
+   "name": "examine_wait",
+   "argc": 0,
+   "args": [],
+   "blocks": "forever",
+   "desc": "62 の指す画面（下画面 0x1d、パート 20 の一部は 0x30）を出して操作を渡す。L で下画面 0x1e。決まると区画が変わる。",
+   "yaml": "point_on_image（入力待ち）",
+   "confidence": "中",
+   "handler": "0x02028a74"
+  },
+  "64": {
+   "name": "cursor_off",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "文脈 +0 bit10 を下ろし、小物 0x1f（調べるカーソル）を消す。",
+   "yaml": "cursor hide",
+   "confidence": "中",
+   "handler": "0x0202bf3c"
+  },
+  "65": {
+   "name": "ui_0x20",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "下画面を状態 0x20、game+8 = 0x104（探偵の台本の状態に戻す）。",
+   "yaml": "investigation resume",
+   "confidence": "中",
+   "handler": "0x0202bed0"
+  },
+  "66": {
+   "name": "blip_on",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "文字送りの音 0 = 鳴らさない（文脈 +0x390 bit2）/ 1 = 鳴らす。",
+   "yaml": "text_blip on/off",
+   "confidence": "高",
+   "handler": "0x0202be8c"
+  },
+  "67": {
+   "name": "life_gauge",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "体力ゲージの表示（game+0x90 bit10）。0 で「!」5 個の OBJ（0x020d0414）を隠す。第 1 話では選択肢で間違えるとペナルティになる場面の前後。",
+   "yaml": "life_gauge show/hide",
+   "confidence": "中",
+   "handler": "0x0202bde8"
+  },
+  "68": {
+   "name": "verdict",
+   "argc": 1,
+   "args": [
+    "0=無罪/1=有罪"
+   ],
+   "blocks": "none",
+   "desc": "判決の文字の画面。文字の絵を data.bin から読み（0 = 0x1a97dd4・0x1a98dd4 各 0x800、1 = 日本語のみ 0x1a985d4 0x1000）、game+8 を 0x01000009 / 9 にする。0 の後は 74 で段を待つ（紙吹雪の演出）。第 1 話の結末 = 0、ゲームオーバー = 1。",
+   "yaml": "verdict not_guilty|guilty",
+   "confidence": "中",
+   "handler": "0x0202bc7c"
+  },
+  "69": {
+   "name": "player_turn2",
+   "argc": 0,
+   "args": [],
+   "blocks": "forever",
+   "desc": "21 と同じ関数。",
+   "yaml": "player_turn",
+   "confidence": "高",
+   "handler": "0x0202a7f8"
+  },
+  "70": {
+   "name": "speedlines",
+   "argc": 1,
+   "args": [
+    "旗"
+   ],
+   "blocks": "none",
+   "desc": "集中線/流線の背景（BG2、0x021e155c か 0x021e3a5c の絵）を出す。旗の下位 4 ビット 0 = 右から（BG のずれ +14/フレーム）、1 = 逆（-14）。bit4 = 流さない、bit5 = BG3 を残す。台本では 70 のあと bg 66 を出し、31 で消す。",
+   "yaml": "speedlines {dir}",
+   "confidence": "中",
+   "handler": "0x0202ba74"
+  },
+  "71": {
+   "name": "bgm_volume",
+   "argc": 2,
+   "args": [
+    "音量",
+    "フレーム"
+   ],
+   "blocks": "none",
+   "desc": "BGM の音量を min(音量>>1,127) へ。sound.json。",
+   "yaml": "bgm_volume",
+   "confidence": "高",
+   "handler": "0x0202ba30"
+  },
+  "72": {
+   "name": "text_pos",
+   "argc": 2,
+   "args": [
+    "x",
+    "y"
+   ],
+   "blocks": "none",
+   "desc": "文字の位置（文脈 +0x44/+0x46）。x = 0xffff で標準（9, 日本語 0x94 / 英語 0x86）に戻し枠を出す。それ以外は枠を隠して (x, y)。",
+   "yaml": "text position",
+   "confidence": "高",
+   "handler": "0x0202b954"
+  },
+  "73": {
+   "name": "to_mode1",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "game+8 = 1（スタッフロールなど。第 5 話の結末）。",
+   "yaml": "staff_roll",
+   "confidence": "低",
+   "handler": "0x0202b924"
+  },
+  "74": {
+   "name": "wait_state",
+   "argc": 1,
+   "args": [
+    "0/1"
+   ],
+   "blocks": "until",
+   "desc": "0 = game+9 が 6 になるまで、1 = 8 になるまで止まる（68 の判決の演出の段）。",
+   "yaml": "wait verdict stage",
+   "confidence": "中",
+   "handler": "0x0202b8a8"
+  },
+  "75": {
+   "name": "obj_flip",
+   "argc": 2,
+   "args": [
+    "番号",
+    "反転"
+   ],
+   "blocks": "none",
+   "desc": "小物の OAM 属性 1 の bit12-13（左右/上下反転）= 第 2 引数 & 3。",
+   "yaml": "overlay_object.flip",
+   "confidence": "中",
+   "handler": "0x0202b814"
+  },
+  "76": {
+   "name": "wait_bg_scroll",
+   "argc": 0,
+   "args": [],
+   "blocks": "until",
+   "desc": "29 の背景の移動（0x020ce300+0x16）が終わるまで止まる。",
+   "yaml": "wait bg_scroll",
+   "confidence": "高",
+   "handler": "0x0202b7ec"
+  },
+  "77": {
+   "name": "bg_layer",
+   "argc": 2,
+   "args": [
+    "背景",
+    "0/1"
+   ],
+   "blocks": "yield",
+   "desc": "27 と同じく背景を替え、ce300+0x15 bit0 = (第 2 引数 == 0)。背景 30 のときだけ効き（0x0201d418 → 0x0201eaf0）、1 で画面下 5 行（y 152〜191）に手前の層（面会室のガラスの仕切りと推測）を出す。台本では [77 30 0/1] だけ。",
+   "yaml": "bg (+前景)",
+   "confidence": "中",
+   "handler": "0x0202b778"
+  },
+  "78": {
+   "name": "wait_idle",
+   "argc": 1,
+   "args": [
+    "フレーム"
+   ],
+   "blocks": "frames",
+   "desc": "人物を黙る動きにして n フレーム止まり、終わりにもう一度黙る動きにする（口を閉じて待つ）。",
+   "yaml": "wait n (idle)",
+   "confidence": "高",
+   "handler": "0x0202b6d0"
+  },
+  "79": {
+   "name": "unused79",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "80": {
+   "name": "unused80",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "81": {
+   "name": "unused81",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "82": {
+   "name": "unused82",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "83": {
+   "name": "unused83",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "84": {
+   "name": "unused84",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "85": {
+   "name": "bg_temp",
+   "argc": 2,
+   "args": [
+    "背景",
+    "方式"
+   ],
+   "blocks": "until",
+   "desc": "背景を一時的に替える（+0x48 = 方式+1 で読み込み方を選ぶ）。読み込みが終わるまで止まり、終わったら「今の背景」の値だけ前に戻す。第 1 話では未使用。",
+   "yaml": "bg (temporary)",
+   "confidence": "低",
+   "handler": "0x0202b5f0"
+  },
+  "86": {
+   "name": "unused86",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "87": {
+   "name": "unused87",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "88": {
+   "name": "unused88",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "89": {
+   "name": "unused89",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "90": {
+   "name": "unused90",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "91": {
+   "name": "unused91",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "92": {
+   "name": "mosaic_wait",
+   "argc": 3,
+   "args": [
+    "種類",
+    "間隔",
+    "量"
+   ],
+   "blocks": "until",
+   "desc": "95 と同じ効果を始め（上画面の BG2/BG3 にモザイクのビットを立てる）、終わる（game+0x54 = 0 か 0xffff）まで止まる。種類 1 = モザイクを減らす、2 = 増やす。",
+   "yaml": "mosaic",
+   "confidence": "中",
+   "handler": "0x0202b4f4"
+  },
+  "93": {
+   "name": "align",
+   "argc": 1,
+   "args": [
+    "0/1/2"
+   ],
+   "blocks": "none",
+   "desc": "文の揃え（文脈 +0x5b）。0 = 左、1 = 行ごとに中央（行頭で 0x02024878 が幅を測る）、2 = 1 行固定の特別な位置（y=8）。",
+   "yaml": "text align",
+   "confidence": "高",
+   "handler": "0x0202b46c"
+  },
+  "94": {
+   "name": "unused94",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "未使用（ポインタを進めないので、出てきたら無限ループになる）。",
+   "yaml": "—",
+   "confidence": "高",
+   "handler": null
+  },
+  "95": {
+   "name": "palette_fx",
+   "argc": 3,
+   "args": [
+    "種類",
+    "間隔",
+    "開始の段"
+   ],
+   "blocks": "none",
+   "desc": "背景（と人物）の色の効果（0x02016e90 → 毎フレーム 0x02016f04）。段 0〜32 を「間隔」フレームごとに 1 動かし、段/31 の割合で色を変える。種類 3 = 白黒（輝度 0.299R+0.587G+0.114B）へ（32 で終わり）、4 = 白黒から戻す（0 で終わり）、5/6 = 人物も含めて同じ、7〜22 = 別の色の変え方。台本の 95 3 1 31 = すぐ白黒（回想の始まり）、95 4 1 1 = すぐ元の色（回想の終わり）。待たない。",
+   "yaml": "grayscale on/off",
+   "confidence": "中",
+   "handler": "0x0202b40c"
+  },
+  "96": {
+   "name": "nop96",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "97": {
+   "name": "nop97",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "98": {
+   "name": "nop98",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "99": {
+   "name": "nop99",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "100": {
+   "name": "nop100",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "101": {
+   "name": "desk",
+   "argc": 2,
+   "args": [
+    "机",
+    "0/1"
+   ],
+   "blocks": "none",
+   "desc": "法廷の机（OBJ）: 0 = 証言台 (0x20,0x90)、1 = 弁護側 (0,0x90)、2 = 検察側（反転, 0x30,0x90）。1 = 出す、0 = 消す。game+0x240 = 机<<4|値。",
+   "yaml": "desk show/hide",
+   "confidence": "高",
+   "handler": "0x0205b064"
+  },
+  "102": {
+   "name": "nop102",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "103": {
+   "name": "nop103",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "104": {
+   "name": "char_flag400",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "0x020d2ef4+0x54 |= 0x400（人物の一覧の旗）。char 担当。",
+   "yaml": "（char 担当）",
+   "confidence": "低",
+   "handler": "0x0205b03c"
+  },
+  "105": {
+   "name": "ds_fx",
+   "argc": 2,
+   "args": [
+    "98 か 0",
+    "段<<8|効果"
+   ],
+   "blocks": "until",
+   "desc": "DS 版の演出（0x0205b19c が効果の番号で分ける。107 の 3 引数を使う）。第 1 引数 = 98 のとき、第 2 引数の上位 = 1 なら終わるまで止まる、2 なら止まらない、0 = 即時。第 1 引数 0 で第 2 引数 ≥ 0x800 なら文脈 +0x72 の上位の旗だけ変える（0x2000 / 0x1000）。effects は tables/ds_fx.json。",
+   "yaml": "ds_fx {id, wait}",
+   "confidence": "中",
+   "handler": "0x0205af24"
+  },
+  "106": {
+   "name": "reset_read",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "既読の記録（game+0x94.. と +0xd8.. の 8 語）を消す。次の語を読むが消費しない。",
+   "yaml": "無視してよい",
+   "confidence": "低",
+   "handler": "0x0205aedc"
+  },
+  "107": {
+   "name": "ds_fx_args",
+   "argc": 3,
+   "args": [
+    "a",
+    "b",
+    "c"
+   ],
+   "blocks": "none",
+   "desc": "105 の効果に渡す値（文脈 +0x8a, +0x8c, +0x8e）。",
+   "yaml": "ds_fx の引数",
+   "confidence": "高",
+   "handler": "0x0205ae80"
+  },
+  "108": {
+   "name": "nop108",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "109": {
+   "name": "nop109",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "110": {
+   "name": "nop110",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "111": {
+   "name": "testimony_end",
+   "argc": 1,
+   "args": [
+    "区画"
+   ],
+   "blocks": "none",
+   "desc": "game+0x2e = 区画（尋問の最後の文の次に行く区画）。court.json。",
+   "yaml": "testimony.after_last",
+   "confidence": "中",
+   "handler": "0x0205ae4c"
+  },
+  "112": {
+   "name": "nop112",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "113": {
+   "name": "nop113",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "114": {
+   "name": "nop114",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "115": {
+   "name": "nop115",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "116": {
+   "name": "ui",
+   "argc": 2,
+   "args": [
+    "種類",
+    "値"
+   ],
+   "blocks": "none",
+   "desc": "下画面の状態（0x0203be54(n)）: 1 → 0x0b、2 → 探偵なら 0x0d / 法廷なら 5、3 → 0x42、4 → 0x0d、5 → 0x21、6 → 値 0/1/2 = 0x26/0x28/0x27、7 → 0x2d、8 → n = 値、9 → 0x29 と game+0xb = 値、10 → 0x2f と game+0xb = 値、11 → game+8 = 7、12 → 下画面の状態を積む（0x1a）、13 → 値を保存。",
+   "yaml": "bottom_screen mode",
+   "confidence": "低",
+   "handler": "0x0205ac6c"
+  },
+  "117": {
+   "name": "model3d",
+   "argc": 4,
+   "args": [
+    "種類",
+    "a",
+    "b",
+    "c"
+   ],
+   "blocks": "until",
+   "desc": "証拠品の 3D 表示（第 5 話）。種類 0〜7 で 0x0206b6b4 などを呼び、6 は終わるまで止まる。",
+   "yaml": "3D evidence",
+   "confidence": "低",
+   "handler": "0x0205ab60"
+  },
+  "118": {
+   "name": "show_item2",
+   "argc": 2,
+   "args": [
+    "0/1/2",
+    "番号"
+   ],
+   "blocks": "none",
+   "desc": "19 の DS 版: 0/1 = 出す（文脈 +0x395 = 3、+0x398 = 1、位置 = 第 1 引数、番号 = 第 2 引数全体）、2 = 引っ込める。待たない。",
+   "yaml": "show_evidence",
+   "confidence": "中",
+   "handler": "0x0205aac0"
+  },
+  "119": {
+   "name": "se_stop",
+   "argc": 2,
+   "args": [
+    "番号",
+    "フレーム"
+   ],
+   "blocks": "none",
+   "desc": "効果音をフェードして止める（0x020258d4）。",
+   "yaml": "se stop",
+   "confidence": "中",
+   "handler": "0x0205aa84"
+  },
+  "120": {
+   "name": "jump_noread",
+   "argc": 1,
+   "args": [
+    "ラベル"
+   ],
+   "blocks": "none",
+   "desc": "54 と同じだが、次の飛び先で今の区画を既読にしない。",
+   "yaml": "goto label",
+   "confidence": "高",
+   "handler": "0x02029478"
+  },
+  "121": {
+   "name": "wait_forever",
+   "argc": 0,
+   "args": [],
+   "blocks": "forever",
+   "desc": "21 と同じ関数だが、命令が 121 のときは何もせず止まり続ける。",
+   "yaml": "halt",
+   "confidence": "高",
+   "handler": "0x0202a7f8"
+  },
+  "122": {
+   "name": "if_gameover",
+   "argc": 1,
+   "args": [
+    "ラベル"
+   ],
+   "blocks": "none",
+   "desc": "体力（game+0x6b）≤ 0 ならラベルへ飛ぶ（54 と同じ）。",
+   "yaml": "if life<=0 goto label",
+   "confidence": "高",
+   "handler": "0x0205a9a8"
+  },
+  "123": {
+   "name": "closeup",
+   "argc": 2,
+   "args": [
+    "0/1/2",
+    "値"
+   ],
+   "blocks": "until",
+   "desc": "上画面の大きな絵（game+0x5c..0x5e）。0 = 出す（値 = 番号、効果音 0x33、出終わるまで止まる）、1 = 引っ込める（効果音 0x33、終わるまで止まる）、2 = すぐ消す。段の数えに文脈 +0x8a を使うので、直前に 107 0 … を置く。",
+   "yaml": "closeup show/hide",
+   "confidence": "低",
+   "handler": "0x0205a7a0"
+  },
+  "124": {
+   "name": "nop124",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "125": {
+   "name": "nop125",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "126": {
+   "name": "nop126",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  },
+  "127": {
+   "name": "nop127",
+   "argc": 0,
+   "args": [],
+   "blocks": "none",
+   "desc": "何もしない（ポインタを進めるだけ）。",
+   "yaml": "無視",
+   "confidence": "高",
+   "handler": "0x0202b3f8"
+  }
+ },
+ "ds_fx": {
+  "17": {
+   "name": "gavel",
+   "desc": "木槌 1 回。背景を木槌（0x02018708(8)）にし、22 フレーム後に効果音 0x3a（107 の a ≠ 0 なら 0x6f）、10 フレーム・強さ 1 の揺れ（39 と同じ）、明るさの変化を入れて終わる。段 1 で使う（止まる）",
+   "conf": "中",
+   "frames": 22
+  },
+  "19": {
+   "name": "gavel3",
+   "desc": "木槌 3 回（22, 32, 44 フレーム目に効果音 0x3a/0x6f と揺れ）。「静粛に!」の場面",
+   "conf": "中"
+  },
+  "52": {
+   "name": "anim_flag",
+   "desc": "47 の動き（番号 = 107 の a）に旗 0x400 を立てる（動きを止める/最後で止める と推測）",
+   "conf": "低"
+  },
+  "67": {
+   "name": "item_clear",
+   "desc": "19/118 の証拠品の絵をすぐ消す（文脈 +0x395 = 0、枠の BG を消す）。段 2",
+   "conf": "中"
+  },
+  "101": {
+   "name": "choice_prep",
+   "desc": "選択肢の前: 揺れを止めて BG のずれを戻し、下画面の選択肢の見出しの動き（0x45 / 0x47、107 の b で選ぶ）を始める。段 1（出終わるまで止まる）",
+   "conf": "低"
+  },
+  "113": {
+   "name": "sub_bg",
+   "desc": "下画面の背景を 107 の a で選ぶ: 0..4 → 背景 0x94..0x98、5 → 無し（0xfff）",
+   "conf": "中"
+  },
+  "114": {
+   "name": "sub_fade_out",
+   "desc": "下画面を暗くする: 0x02017aa8(種類 2, 間隔 = a, 量 = b, 対象 = c)（18 と同じ計算）",
+   "conf": "高"
+  },
+  "115": {
+   "name": "sub_fade_in",
+   "desc": "下画面を戻す: 0x02017aa8(種類 1, a, b, c)",
+   "conf": "高"
+  },
+  "116": {
+   "name": "set_23a",
+   "desc": "game+0x23a = 107 の a",
+   "conf": "中"
+  },
+  "71": {
+   "name": "ctx_flag40",
+   "desc": "107 の a ≠ 0 なら文脈 +0 に 0x40、0 なら下ろす",
+   "conf": "中"
+  },
+  "72": {
+   "name": "ctx4_1000",
+   "desc": "文脈 +4 に 0x1000 を立てる",
+   "conf": "中"
+  },
+  "53": {
+   "name": "ctx4_200",
+   "desc": "文脈 +4 に 0x200 を立てる",
+   "conf": "中"
+  }
+ },
+ "invest_about": "探偵パート（移動する・話す・調べる・つきつける）の表を ARM9 から取り出して JSON にする。",
+ "invest_rules": {
+  "section_value": "区画の値は文脈 +0x4a に入る値のまま。0x80 以上 = 話の台本の §(値-0x80)、未満 = 共通の台本（項目 072 と同じ並び）の §値。飛ぶのは 0x020250b8(値)",
+  "flags": "フラグは組 0（0x0201a144(組, 番号) で調べ、0x0201a170(組, 番号, 値) で立てる。台本の 16 / 53 と同じ）。話題の既読だけ組 2",
+  "start": "探偵パートの始め（状態 game+8 = 4 の 0 番 0x02035f30）: 0x020b443c[パート] で場所・話題の表を写す → 背景 = 今の場所（game+0x68）の bg → 法廷記録を 0x020b4554[パート] で作る → パート < 17 なら組 0 の game+0x70.. を 0 にし、パート > 1 ならフラグ 0x41 = 1 → 区画 0x80（話の台本 §0）へ → 文字の枠 3 → 着いたときの関数 0x020b466c[パート] を呼ぶ → game+8 = 0x104（探偵パートで台本を進める状態）",
+  "menu": "28 box 3 → 0x0201c4b4(3): 文字の枠を下げる動き（文脈 +0x64 = 3）。終わると game+0x24 = 1。その後 21 player_turn で台本は止まり、下の画面の探偵メニュー（調べる/移動する/話す/つきつける）から次の区画が決まる。メニューのボタンの出し分け（話す・つきつけるが人物のいるときだけか）はコードで未確認",
+  "move": "移動する（下の画面 7 番 0x02056c30）: 今の場所の dest（0x020ceeb4 + 場所×8 の 4 個、0xff は無し）を並べる。名前 = 場所の名前のテクスチャ[行き先]、絵 = thumbs[行き先]（ただし 0x16..0x1b は -1、3 はパート >= 3 で 0x1b、0x11 はパート >= 11 で 0x1c、0 はフラグ 0x2f が立つかパート > 1 なら 6）。行き先が 0 個なら区画 0xc2 へ。選ぶと game+0x68 = 行き先 → 状態 4 の 5 番（0x02035950）: 訪れた印（game+0x28c + 0x0203513c(背景)）= 1、背景を場所の bg にし、人物を消し、着いたときの関数（on_enter）を呼ぶ",
+  "on_enter": "場所ごとの on_enter は「道」の一覧: when（フラグの値の組）が満たされたときに do を上から行う。examine: null = 調べる場所の表を空にする（最初に必ず行う）、examine: 番地 = examine_tables のその表を使う。event: 区画 = その区画を走らせ（0x0202887c: set_flag のフラグを立て、区画へ飛び、文字の枠 3）、char: 人物を出す（30 char と同じ。talk/idle は動きの番号）、bgm: 音楽",
+  "every_frame": "探偵パートの間、毎フレーム 0x020b46f8[パート] を呼ぶ（状態 4 の 5 番以外）。条件を満たすと調べる場所の表を差し替えるなど",
+  "talk": "話す（下の画面 8 番 0x020556c0）: talk の中で place = 今の場所・person = 今出ている人物（0x020d2ef4+0x66、30 char の人物の番号）・active の最初の項目を使う。topics を並べ（名前 = 話題の名前のテクスチャ[topic]、既読の印 = 組 2 のフラグ read_flag）、選ぶと既読のフラグを立てて区画へ飛び、0x0201c4b4(5)",
+  "talk_topic_55": "55 talk_topic (番号, 値): talk[番号] の [3] = 値（1 = 使う、0 = 使わない）。同じ場所・人物の項目を入れ替えて話題を増やす",
+  "examine": "調べる（下の画面 6 番、0x020585c4 → 0x020353dc）: カーソル（触った点 + 背景のずれ ce300+0x1c/0x1e）を中心にした 16×16 の四角が、表の 4 点の四角形と重なるかで判定（0x0202274c）。パート < 17 でフラグ 0x41 が立っていなければ 常に区画 0x8d。まず kind = cond の項目を上から（cond を満たすもの）、次に kind = normal の項目を上から調べ、最初に当たったものの区画。どれでもなければ区画 0x2b（共通の台本 §43「手がかりになるものはない。」）",
+  "present": "つきつける（法廷記録の画面 0x020904e4 / 0x02093dc0 → 0x020304d0）: present の中で place = 今の場所・person = 今出ている人物の項目を上から見て、item（法廷記録の番号。証拠品と人物ファイルは通し番号）が同じならその区画。無ければ、場所と人物が合った最後の項目の default（合う項目が無ければ表の最初の項目の default）。その後 0x0201c4b4(5)",
+  "script_items": "第 5 話では着いたときの関数が load_part（0x02023960）で読み込む台本の項目を場所ごとに切り替える。場所の script_items がその場所で話す・調べる・つきつけるの区画の項目",
+  "court_present": "法廷（0x020311c4 / 0x02031518 → 0x02030550）: court_present の中で at = 今の区画（+0x4a）・item が合い、flag が無いか立っている項目の区画へ（b7 が 0 以外なら文脈 +0x5f = 0、0 なら 1）。無ければ、文脈 +0 のビット 0x10 が立っていれば今の区画 + 1 へ、立っていなければ 0x0201a1c0 の乱数で共通の台本 §45〜§48 のどれかへ飛び、終わったら今の区画に戻る（+0x4c = 今の区画）",
+  "op50": "50 (場所, 背景): 場所の bg を変える（0x020ceeb0 + 場所×8）",
+  "op51": "51 move_list (場所, a, b, c, d): 場所の移動先を a..d にする（255 = 無し）",
+  "op56": "56 (0/1): 人物の絵を隠す/出す（0x02022cf8(0x020d2f48, 値)。状態は残す）",
+  "op65": "65: UI にコマンド 0x20 を送り、下の画面が 10 番なら明るさを戻し、game+8 = 0x104（探偵パートの台本の状態）にする",
+  "op72": "72 (x, y): 文字の表示位置を x, y にし枠の絵を消す（0xffff なら既定 9, 0x86（英語 0x94）に戻して枠を出す。引数は常に 2 個分進む）",
+  "court_62_63_64": "法廷で写真の一点を指す: 62 k（ce1c4+9 = k、文脈に 0x280 のビット）→ 63 wait_examine で UI コマンド 0x1d（パート 20 で k = 8/9 のときは 0x30）を出して待つ → 指した 16×16 の四角が court_point[k] の quad_a / quad_b と重なればその区画、どちらでもなければ miss（0x0204f134）。64 は指した印（部品 0x1f）を消す",
+  "court_57_61_75": "57〜61・75 は法廷の図の上の印（部品の表 0x020ce398、0x14 バイト × 8）: 57 = 印を作る/消す、58 (番号, x, y) = 位置、59 = 動かす、60 = 状態、61 = 動きが終わるまで待つ、75 (番号, v) = 優先度（推測）"
+ },
+ "invest_examine_cond": {
+  "13": "flag 0x49 == 1",
+  "14": "flag 0x72 == 0",
+  "15": "never",
+  "16": "always",
+  "17": "flag 0xa0 == 0",
+  "18": "part in 17..18 and flag 0x43 == 0",
+  "19": "part in 17..18 and flag 0x44 == 0",
+  "186": "flag 0x44 == 1"
+ },
+ "court_doc": {
+  "format": "パートごと（part = game+0x69、項目 = 2*part（日本語）/ 2*part+1（英語））。区画の番号は +128 を外した値。",
+  "present_table": "ARM9 の表そのまま: section でつきつけると goto へ。flag = 組 0 のフラグが立っているときだけ有効（null = 条件なし）。box_closed = 表の最後のバイトが 0（文脈 +0x5f = 1 → 飛ぶときに game+0x24 = 1・文脈 +0x2d = 1。15 の第 2 引数 = 1 と同じ処理）。dead = 番号が 255 を超えるので一致しない行。",
+  "cross_examinations": "section = 41 1 の区画。statements = 尋問の文（「次へ」= 次の区画（文脈 +0x4c、既定は区画 + 1）、「戻る」= 区画 - 1。ただし 1 つ目の文では戻れない）。press = 15 のゆさぶる先、press_box_closed = 15 の第 2 引数（1 のとき 0x0202e43c で game+0x24 = 1・文脈 +0x2d = 1、0 のとき 0x0201c4b4(3) で両方 0。1 のゆさぶりの区画は 42/41 個が最初の文より前に [box 1] を持つ）。present = この文で正解になる証拠品 → 飛び先。表に無い物をつきつけたら common_wrong（乱数）へ行き、同じ文に戻る。after_last = 111 の値（最後の文の「次へ」の行き先。ARM9 は右矢印を隠すのに使うだけ）。",
+  "present_requests": "17/33 の区画。correct = 表の行、wrong = 区画 + 1（表に無い物全部）。wrong_penalty = その区画の 43 の数と 122。",
+  "life": "最大 5、43 で 1 減る。0 以下になったら次の区画 = gameover_section。"
+ },
+ "chars_names": {
+  "2": "成歩堂 龍一",
+  "4": "綾里 真宵",
+  "7": "綾里 千尋",
+  "8": "裁判長",
+  "9": "御剣 怜侍",
+  "10": "亜内 武文",
+  "12": "星影 宇宙ノ介",
+  "20": "糸鋸 圭介",
+  "25": "矢張 政志",
+  "26": "山野 星雄",
+  "44": "宝月 茜",
+  "45": "宝月 巴",
+  "49": "巌徒 海慈",
+  "50": "市ノ谷 響華"
+ },
+ "record_nametag_text": {
+  "ja": [
+   "",
+   "？？？",
+   "ナルホド",
+   "ケイジ",
+   "マヨイ",
+   "チヒロ",
+   "トケイ",
+   "チヒロ",
+   "サイバンカン",
+   "ミツルギ",
+   "アウチ",
+   "インターホン",
+   "ホシカゲ",
+   "デンワ",
+   "カンシュウ",
+   "？？？",
+   "スタッフ",
+   "オバチャン",
+   "カントク",
+   "テレビ",
+   "イトノコ",
+   "コナカ",
+   "ウメヨ",
+   "ボーイ",
+   "ヒメガミ",
+   "ヤハリ",
+   "ヤマノ",
+   "ニボシ",
+   "キュータ",
+   "ナルホド",
+   "ミツルギ",
+   "ナツミ",
+   "ハイネ",
+   "カルマ",
+   "オウム",
+   "ミサイル",
+   "オヤジ",
+   "カカリカン",
+   "センセイ",
+   "ミツルギ",
+   "ヤハリ",
+   "",
+   "",
+   "カチョー",
+   "アカネ",
+   "トモエ",
+   "ザイモン",
+   "ハラバイ",
+   "タダシキ",
+   "ガント",
+   "キョウカ",
+   "カンシュ",
+   "ケイカン",
+   "オマワリ",
+   ""
+  ],
+  "en": [
+   "",
+   "???",
+   "Phoenix",
+   "Police",
+   "Maya",
+   "Mia",
+   "Alarm clock",
+   "Mia",
+   "Judge",
+   "Edgeworth",
+   "Payne",
+   "Interphone",
+   "Grossberg",
+   "Cellular",
+   "Public",
+   "???",
+   "Penny",
+   "Oldbag",
+   "Manella",
+   "TV",
+   "Gumshoe",
+   "White",
+   "April",
+   "Bellboy",
+   "Vasquez",
+   "Butz",
+   "Sahwit",
+   "Will",
+   "Cody",
+   "Phoenix",
+   "Edgeworth",
+   "Lotta",
+   "Yogi",
+   "Karma",
+   "Parrot",
+   "Missile",
+   "Uncle",
+   "Guard",
+   "Teacher",
+   "Edgeworth",
+   "Butz",
+   "",
+   "",
+   "Chief",
+   "Ema",
+   "Lana",
+   "Marshall",
+   "Meekins",
+   "Goodman",
+   "Gant",
+   "Angel",
+   "Guard",
+   "Officer",
+   "Patrolman",
+   ""
+  ]
+ },
+ "record_text": {
+  "0": [
+   "綾里 千尋（27）",
+   "綾里法律事務所の所長。\nぼくの上司で、\nヤリ手の弁護士。"
+  ],
+  "2": [
+   "矢張 政志（23）",
+   "この事件の被告人。\nぼくの同級生で、\nにくめないヤツだ。"
+  ],
+  "3": [
+   "高日 美佳（22）",
+   "事件の被害者。\nマンションで一人暮らし\nしていた、モデルさん。"
+  ],
+  "4": [
+   "山野 星雄（44）",
+   "死体の第一発見者。\n新聞勧誘員で、現場で\n矢張を目撃している。"
+  ],
+  "5": [
+   "亜内 武文（52）",
+   "この事件の担当検事。\n押しが弱く、なんとなく\nパッとしない男。"
+  ],
+  "6": [
+   "高日美佳の解剖記録",
+   "死亡時刻は、7月31日\n午後4時以降5時まで。\n鈍器による一撃で失血死。"
+  ],
+  "7": [
+   "置物",
+   "《考える人》の形を\nかたどった置物。\nかなり重い。"
+  ],
+  "8": [
+   "パスポート",
+   "事件の前日7月30日に\nニューヨークから帰国\nしているようだ。"
+  ],
+  "9": [
+   "停電記録",
+   "事件当日の午後1時から\n6時過ぎまで、現場の\nマンションは停電だった。"
+  ],
+  "23": [
+   "弁護士バッジ",
+   "これがないと、\n誰もぼくを弁護士と\nみとめてくれない。"
+  ]
+ },
+ "anims_label": {
+  "1": "「待った!」の吹き出し（60 フレームで自分で消える）",
+  "2": "「異議あり!」の吹き出し（60 フレームで消える）",
+  "3": "「異議あり!」の吹き出し（2 と同じ）",
+  "4": "「くらえ!」の吹き出し（60 フレームで消える）",
+  "10": "「待った!」（1 と同じ絵）",
+  "11": "「異議あり!」（2 と同じ絵）",
+  "12": "「待った!」（消えない版）",
+  "5": "影絵（トノサマン）",
+  "6": "影絵（悪役）",
+  "7": "影絵の茂み",
+  "8": "影絵の茂み",
+  "9": "影絵の茂み",
+  "20": "「証言開始」の文字（左右から流れて止まる）",
+  "21": "「尋問開始」の文字（左右から流れて止まる）",
+  "22": "「証言」の文字の断片（左）",
+  "23": "「開始」の文字の断片（右）",
+  "24": "「尋問」の文字の断片（左）",
+  "25": "「開始」の文字の断片（右）",
+  "60": "第 1 話の冒頭の赤い形（推測）",
+  "61": "第 1 話の冒頭の赤い点滅（推測）",
+  "68": "下画面の案内の帯（「ムジュンのあるポイントを示そう」など）",
+  "81": "「Match」（指紋の照合）",
+  "87": "照合の数字",
+  "104": "「照合中…」",
+  "105": "「照合終了」",
+  "107": "手袋の手",
+  "149": "木槌を打つ",
+  "150": "木槌（打ったあと）",
+  "151": "法廷の全景の人物（成歩堂）",
+  "152": "法廷の全景の人物（千尋）",
+  "153": "法廷の全景の人物（亜内）",
+  "154": "法廷の全景の人物（矢張）",
+  "155": "法廷の全景の人物（紫の服）",
+  "156": "法廷の全景の傍聴人",
+  "157": "法廷の全景の傍聴人（左右反転）",
+  "164": "法廷の全景の傍聴人（別の位置）",
+  "165": "法廷の全景の傍聴人（別の位置・反転）",
+  "170": "法廷の全景の裁判長"
+ },
+ "audition_page": "<!doctype html>\n<html lang=\"ja\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>BGM・効果音の試聴</title>\n<style>\n:root{color-scheme:light dark;--bg:#fafafa;--fg:#222;--line:#ddd;--sub:#777;--accent:#2563eb}\n@media (prefers-color-scheme:dark){:root{--bg:#1b1b1d;--fg:#eee;--line:#333;--sub:#9a9a9a;--accent:#7aa2ff}}\nbody{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif}\nh1{font-size:20px;margin:0 0 8px}\ntable{border-collapse:collapse;width:100%}\ntd,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:middle}\nth{position:sticky;top:0;background:var(--bg)}\n.sub{color:var(--sub);font-size:12px}\naudio{height:32px;vertical-align:middle;max-width:100%}\nbutton{font:inherit;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg);cursor:pointer}\nbutton.on{border-color:var(--accent);color:var(--accent)}\nnav{margin:8px 0 12px;display:flex;gap:6px;flex-wrap:wrap}.wrap{overflow-x:auto}\n#msg{color:var(--accent)}\n</style></head><body>\n<h1>BGM・効果音（%COUNT% 個）</h1>\n<p class=\"sub\">SSEQ を DS の音源と同じ計算で書き出したもの（tools/rom/sseq_render.py）。32728 Hz。\nループする曲のファイルは「前奏 + ループ 2 回」で、「ループ再生」を押すと WAV の loopStart〜loopEnd を\n継ぎ目なく繰り返す（file:// で読めないときは、このフォルダーで <code>python3 -m http.server</code> を動かして開く）。\n継ぎ目の差 = ループの始まりと終わりの直後 0.05 秒の違い（0 なら同一）。</p>\n<nav><button data-f=\"all\">すべて</button><button data-f=\"bgm\">BGM</button><button data-f=\"se\">効果音</button>\n<button id=\"stop\">ループ再生を止める</button><span id=\"msg\"></span></nav>\n<div class=\"wrap\"><table><thead><tr><th>番号</th><th>名前</th><th>長さ</th><th>ループ開始</th><th>ループ終わり</th>\n<th>継ぎ目の差</th><th>再生</th><th>メモ</th></tr></thead><tbody>\n%ROWS%\n</tbody></table></div>\n<script>\nconst $$=s=>document.querySelectorAll(s);\n$$('nav button[data-f]').forEach(b=>b.onclick=()=>{\n  $$('tbody tr').forEach(r=>{r.style.display=(b.dataset.f==='all'||r.dataset.cat===b.dataset.f)?'':'none'})});\nlet ctx=null, node=null, cur=null;\nconst msg=t=>document.getElementById('msg').textContent=t||'';\nfunction stop(){ if(node){try{node.stop()}catch(e){} node=null;} if(cur){cur.classList.remove('on');cur=null;} }\ndocument.getElementById('stop').onclick=stop;\n$$('button.lp').forEach(b=>b.onclick=async()=>{\n  const again=cur===b; stop(); if(again) return;\n  $$('audio').forEach(a=>a.pause());\n  try{\n    ctx=ctx||new AudioContext();\n    msg('読み込み中…');\n    const buf=await ctx.decodeAudioData(await (await fetch(b.dataset.src)).arrayBuffer());\n    node=ctx.createBufferSource(); node.buffer=buf; node.loop=true;\n    node.loopStart=+b.dataset.ls; node.loopEnd=+b.dataset.le;\n    node.connect(ctx.destination); node.start(); cur=b; b.classList.add('on'); msg('');\n  }catch(e){ msg('読み込めませんでした（'+e+'）。python3 -m http.server で開いてください'); }\n});\n$$('audio').forEach(a=>a.addEventListener('play',()=>{ stop();\n  $$('audio').forEach(o=>{if(o!==a)o.pause()})}));\n</script></body></html>\n",
+ "sound_tables": {
+  "decibel_square": [
+   -32768,
+   -722,
+   -721,
+   -651,
+   -601,
+   -562,
+   -530,
+   -503,
+   -480,
+   -460,
+   -442,
+   -425,
+   -410,
+   -396,
+   -383,
+   -371,
+   -360,
+   -349,
+   -339,
+   -330,
+   -321,
+   -313,
+   -305,
+   -297,
+   -289,
+   -282,
+   -276,
+   -269,
+   -263,
+   -257,
+   -251,
+   -245,
+   -239,
+   -234,
+   -229,
+   -224,
+   -219,
+   -214,
+   -210,
+   -205,
+   -201,
+   -196,
+   -192,
+   -188,
+   -184,
+   -180,
+   -176,
+   -173,
+   -169,
+   -165,
+   -162,
+   -158,
+   -155,
+   -152,
+   -149,
+   -145,
+   -142,
+   -139,
+   -136,
+   -133,
+   -130,
+   -127,
+   -125,
+   -122,
+   -119,
+   -116,
+   -114,
+   -111,
+   -109,
+   -106,
+   -103,
+   -101,
+   -99,
+   -96,
+   -94,
+   -91,
+   -89,
+   -87,
+   -85,
+   -82,
+   -80,
+   -78,
+   -76,
+   -74,
+   -72,
+   -70,
+   -68,
+   -66,
+   -64,
+   -62,
+   -60,
+   -58,
+   -56,
+   -54,
+   -52,
+   -50,
+   -49,
+   -47,
+   -45,
+   -43,
+   -42,
+   -40,
+   -38,
+   -36,
+   -35,
+   -33,
+   -31,
+   -30,
+   -28,
+   -27,
+   -25,
+   -23,
+   -22,
+   -20,
+   -19,
+   -17,
+   -16,
+   -14,
+   -13,
+   -11,
+   -10,
+   -8,
+   -7,
+   -6,
+   -4,
+   -3,
+   -1,
+   0
+  ],
+  "pitch_table": [
+   0,
+   59,
+   118,
+   177,
+   237,
+   296,
+   355,
+   415,
+   474,
+   534,
+   594,
+   653,
+   713,
+   773,
+   833,
+   893,
+   953,
+   1013,
+   1073,
+   1133,
+   1193,
+   1253,
+   1314,
+   1374,
+   1435,
+   1495,
+   1556,
+   1616,
+   1677,
+   1737,
+   1798,
+   1859,
+   1920,
+   1981,
+   2042,
+   2103,
+   2164,
+   2225,
+   2286,
+   2347,
+   2409,
+   2470,
+   2531,
+   2593,
+   2654,
+   2716,
+   2778,
+   2839,
+   2901,
+   2963,
+   3025,
+   3087,
+   3149,
+   3211,
+   3273,
+   3335,
+   3397,
+   3459,
+   3521,
+   3584,
+   3646,
+   3709,
+   3771,
+   3834,
+   3896,
+   3959,
+   4022,
+   4085,
+   4148,
+   4211,
+   4273,
+   4337,
+   4400,
+   4463,
+   4526,
+   4589,
+   4653,
+   4716,
+   4779,
+   4843,
+   4906,
+   4970,
+   5034,
+   5097,
+   5161,
+   5225,
+   5289,
+   5353,
+   5417,
+   5481,
+   5545,
+   5609,
+   5673,
+   5738,
+   5802,
+   5867,
+   5931,
+   5996,
+   6060,
+   6125,
+   6189,
+   6254,
+   6319,
+   6384,
+   6449,
+   6514,
+   6579,
+   6644,
+   6709,
+   6774,
+   6840,
+   6905,
+   6971,
+   7036,
+   7102,
+   7167,
+   7233,
+   7298,
+   7364,
+   7430,
+   7496,
+   7562,
+   7628,
+   7694,
+   7760,
+   7826,
+   7893,
+   7959,
+   8025,
+   8092,
+   8158,
+   8225,
+   8291,
+   8358,
+   8425,
+   8491,
+   8558,
+   8625,
+   8692,
+   8759,
+   8826,
+   8893,
+   8961,
+   9028,
+   9095,
+   9163,
+   9230,
+   9297,
+   9365,
+   9433,
+   9500,
+   9568,
+   9636,
+   9704,
+   9772,
+   9840,
+   9908,
+   9976,
+   10044,
+   10112,
+   10181,
+   10249,
+   10317,
+   10386,
+   10455,
+   10523,
+   10592,
+   10661,
+   10729,
+   10798,
+   10867,
+   10936,
+   11005,
+   11074,
+   11143,
+   11213,
+   11282,
+   11351,
+   11421,
+   11490,
+   11560,
+   11629,
+   11699,
+   11769,
+   11839,
+   11909,
+   11978,
+   12048,
+   12119,
+   12189,
+   12259,
+   12329,
+   12399,
+   12470,
+   12540,
+   12611,
+   12681,
+   12752,
+   12823,
+   12893,
+   12964,
+   13035,
+   13106,
+   13177,
+   13248,
+   13319,
+   13390,
+   13462,
+   13533,
+   13604,
+   13676,
+   13747,
+   13819,
+   13891,
+   13962,
+   14034,
+   14106,
+   14178,
+   14250,
+   14322,
+   14394,
+   14466,
+   14538,
+   14611,
+   14683,
+   14756,
+   14828,
+   14901,
+   14973,
+   15046,
+   15119,
+   15191,
+   15264,
+   15337,
+   15410,
+   15483,
+   15557,
+   15630,
+   15703,
+   15776,
+   15850,
+   15923,
+   15997,
+   16071,
+   16144,
+   16218,
+   16292,
+   16366,
+   16440,
+   16514,
+   16588,
+   16662,
+   16736,
+   16810,
+   16885,
+   16959,
+   17034,
+   17108,
+   17183,
+   17258,
+   17332,
+   17407,
+   17482,
+   17557,
+   17632,
+   17707,
+   17782,
+   17858,
+   17933,
+   18008,
+   18084,
+   18159,
+   18235,
+   18310,
+   18386,
+   18462,
+   18538,
+   18614,
+   18690,
+   18766,
+   18842,
+   18918,
+   18994,
+   19071,
+   19147,
+   19223,
+   19300,
+   19377,
+   19453,
+   19530,
+   19607,
+   19684,
+   19761,
+   19838,
+   19915,
+   19992,
+   20069,
+   20146,
+   20224,
+   20301,
+   20379,
+   20456,
+   20534,
+   20612,
+   20689,
+   20767,
+   20845,
+   20923,
+   21001,
+   21079,
+   21158,
+   21236,
+   21314,
+   21393,
+   21471,
+   21550,
+   21628,
+   21707,
+   21786,
+   21865,
+   21944,
+   22023,
+   22102,
+   22181,
+   22260,
+   22339,
+   22419,
+   22498,
+   22577,
+   22657,
+   22737,
+   22816,
+   22896,
+   22976,
+   23056,
+   23136,
+   23216,
+   23296,
+   23376,
+   23457,
+   23537,
+   23617,
+   23698,
+   23778,
+   23859,
+   23940,
+   24021,
+   24102,
+   24182,
+   24263,
+   24345,
+   24426,
+   24507,
+   24588,
+   24670,
+   24751,
+   24833,
+   24914,
+   24996,
+   25078,
+   25159,
+   25241,
+   25323,
+   25405,
+   25487,
+   25570,
+   25652,
+   25734,
+   25817,
+   25899,
+   25982,
+   26064,
+   26147,
+   26230,
+   26313,
+   26396,
+   26479,
+   26562,
+   26645,
+   26728,
+   26811,
+   26895,
+   26978,
+   27062,
+   27145,
+   27229,
+   27313,
+   27397,
+   27481,
+   27565,
+   27649,
+   27733,
+   27817,
+   27901,
+   27986,
+   28070,
+   28155,
+   28239,
+   28324,
+   28409,
+   28493,
+   28578,
+   28663,
+   28748,
+   28834,
+   28919,
+   29004,
+   29089,
+   29175,
+   29260,
+   29346,
+   29432,
+   29517,
+   29603,
+   29689,
+   29775,
+   29861,
+   29947,
+   30034,
+   30120,
+   30206,
+   30293,
+   30379,
+   30466,
+   30552,
+   30639,
+   30726,
+   30813,
+   30900,
+   30987,
+   31074,
+   31161,
+   31249,
+   31336,
+   31424,
+   31511,
+   31599,
+   31687,
+   31774,
+   31862,
+   31950,
+   32038,
+   32126,
+   32214,
+   32303,
+   32391,
+   32479,
+   32568,
+   32657,
+   32745,
+   32834,
+   32923,
+   33012,
+   33101,
+   33190,
+   33279,
+   33368,
+   33457,
+   33547,
+   33636,
+   33726,
+   33815,
+   33905,
+   33995,
+   34085,
+   34175,
+   34265,
+   34355,
+   34445,
+   34535,
+   34626,
+   34716,
+   34807,
+   34897,
+   34988,
+   35079,
+   35170,
+   35261,
+   35352,
+   35443,
+   35534,
+   35625,
+   35716,
+   35808,
+   35899,
+   35991,
+   36083,
+   36174,
+   36266,
+   36358,
+   36450,
+   36542,
+   36634,
+   36727,
+   36819,
+   36911,
+   37004,
+   37097,
+   37189,
+   37282,
+   37375,
+   37468,
+   37561,
+   37654,
+   37747,
+   37840,
+   37934,
+   38027,
+   38121,
+   38214,
+   38308,
+   38402,
+   38495,
+   38589,
+   38683,
+   38777,
+   38872,
+   38966,
+   39060,
+   39155,
+   39249,
+   39344,
+   39439,
+   39533,
+   39628,
+   39723,
+   39818,
+   39913,
+   40009,
+   40104,
+   40199,
+   40295,
+   40390,
+   40486,
+   40582,
+   40678,
+   40773,
+   40869,
+   40965,
+   41062,
+   41158,
+   41254,
+   41351,
+   41447,
+   41544,
+   41640,
+   41737,
+   41834,
+   41931,
+   42028,
+   42125,
+   42222,
+   42320,
+   42417,
+   42515,
+   42612,
+   42710,
+   42808,
+   42905,
+   43003,
+   43101,
+   43199,
+   43298,
+   43396,
+   43494,
+   43593,
+   43691,
+   43790,
+   43889,
+   43987,
+   44086,
+   44185,
+   44284,
+   44383,
+   44483,
+   44582,
+   44681,
+   44781,
+   44881,
+   44980,
+   45080,
+   45180,
+   45280,
+   45380,
+   45480,
+   45580,
+   45681,
+   45781,
+   45882,
+   45982,
+   46083,
+   46184,
+   46285,
+   46386,
+   46487,
+   46588,
+   46689,
+   46790,
+   46892,
+   46993,
+   47095,
+   47197,
+   47298,
+   47400,
+   47502,
+   47604,
+   47707,
+   47809,
+   47911,
+   48014,
+   48116,
+   48219,
+   48321,
+   48424,
+   48527,
+   48630,
+   48733,
+   48836,
+   48940,
+   49043,
+   49146,
+   49250,
+   49354,
+   49457,
+   49561,
+   49665,
+   49769,
+   49873,
+   49978,
+   50082,
+   50186,
+   50291,
+   50395,
+   50500,
+   50605,
+   50710,
+   50815,
+   50920,
+   51025,
+   51130,
+   51235,
+   51341,
+   51446,
+   51552,
+   51658,
+   51764,
+   51869,
+   51975,
+   52082,
+   52188,
+   52294,
+   52400,
+   52507,
+   52614,
+   52720,
+   52827,
+   52934,
+   53041,
+   53148,
+   53255,
+   53362,
+   53470,
+   53577,
+   53685,
+   53792,
+   53900,
+   54008,
+   54116,
+   54224,
+   54332,
+   54440,
+   54549,
+   54657,
+   54766,
+   54874,
+   54983,
+   55092,
+   55201,
+   55310,
+   55419,
+   55528,
+   55637,
+   55747,
+   55856,
+   55966,
+   56076,
+   56185,
+   56295,
+   56405,
+   56515,
+   56626,
+   56736,
+   56846,
+   56957,
+   57067,
+   57178,
+   57289,
+   57400,
+   57511,
+   57622,
+   57733,
+   57844,
+   57956,
+   58067,
+   58179,
+   58291,
+   58403,
+   58514,
+   58626,
+   58739,
+   58851,
+   58963,
+   59075,
+   59188,
+   59301,
+   59413,
+   59526,
+   59639,
+   59752,
+   59865,
+   59978,
+   60092,
+   60205,
+   60319,
+   60432,
+   60546,
+   60660,
+   60774,
+   60888,
+   61002,
+   61116,
+   61231,
+   61345,
+   61460,
+   61574,
+   61689,
+   61804,
+   61919,
+   62034,
+   62149,
+   62265,
+   62380,
+   62496,
+   62611,
+   62727,
+   62843,
+   62959,
+   63075,
+   63191,
+   63307,
+   63423,
+   63540,
+   63656,
+   63773,
+   63890,
+   64007,
+   64124,
+   64241,
+   64358,
+   64475,
+   64593,
+   64710,
+   64828,
+   64945,
+   65063,
+   65181,
+   65299,
+   65417
+  ],
+  "volume_registers": [
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    3,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    4,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    5,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    6,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    9,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    10,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    14,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    17,
+    3
+   ],
+   [
+    18,
+    3
+   ],
+   [
+    18,
+    3
+   ],
+   [
+    18,
+    3
+   ],
+   [
+    18,
+    3
+   ],
+   [
+    19,
+    3
+   ],
+   [
+    19,
+    3
+   ],
+   [
+    19,
+    3
+   ],
+   [
+    19,
+    3
+   ],
+   [
+    19,
+    3
+   ],
+   [
+    20,
+    3
+   ],
+   [
+    20,
+    3
+   ],
+   [
+    20,
+    3
+   ],
+   [
+    20,
+    3
+   ],
+   [
+    21,
+    3
+   ],
+   [
+    21,
+    3
+   ],
+   [
+    21,
+    3
+   ],
+   [
+    21,
+    3
+   ],
+   [
+    22,
+    3
+   ],
+   [
+    22,
+    3
+   ],
+   [
+    22,
+    3
+   ],
+   [
+    22,
+    3
+   ],
+   [
+    23,
+    3
+   ],
+   [
+    23,
+    3
+   ],
+   [
+    23,
+    3
+   ],
+   [
+    23,
+    3
+   ],
+   [
+    24,
+    3
+   ],
+   [
+    24,
+    3
+   ],
+   [
+    24,
+    3
+   ],
+   [
+    24,
+    3
+   ],
+   [
+    25,
+    3
+   ],
+   [
+    25,
+    3
+   ],
+   [
+    25,
+    3
+   ],
+   [
+    26,
+    3
+   ],
+   [
+    26,
+    3
+   ],
+   [
+    26,
+    3
+   ],
+   [
+    26,
+    3
+   ],
+   [
+    27,
+    3
+   ],
+   [
+    27,
+    3
+   ],
+   [
+    27,
+    3
+   ],
+   [
+    28,
+    3
+   ],
+   [
+    28,
+    3
+   ],
+   [
+    28,
+    3
+   ],
+   [
+    29,
+    3
+   ],
+   [
+    29,
+    3
+   ],
+   [
+    29,
+    3
+   ],
+   [
+    30,
+    3
+   ],
+   [
+    30,
+    3
+   ],
+   [
+    30,
+    3
+   ],
+   [
+    31,
+    3
+   ],
+   [
+    31,
+    3
+   ],
+   [
+    31,
+    3
+   ],
+   [
+    32,
+    3
+   ],
+   [
+    32,
+    3
+   ],
+   [
+    33,
+    3
+   ],
+   [
+    33,
+    3
+   ],
+   [
+    33,
+    3
+   ],
+   [
+    34,
+    3
+   ],
+   [
+    34,
+    3
+   ],
+   [
+    35,
+    3
+   ],
+   [
+    35,
+    3
+   ],
+   [
+    35,
+    3
+   ],
+   [
+    36,
+    3
+   ],
+   [
+    36,
+    3
+   ],
+   [
+    37,
+    3
+   ],
+   [
+    37,
+    3
+   ],
+   [
+    37,
+    3
+   ],
+   [
+    38,
+    3
+   ],
+   [
+    38,
+    3
+   ],
+   [
+    39,
+    3
+   ],
+   [
+    39,
+    3
+   ],
+   [
+    40,
+    3
+   ],
+   [
+    40,
+    3
+   ],
+   [
+    41,
+    3
+   ],
+   [
+    41,
+    3
+   ],
+   [
+    41,
+    3
+   ],
+   [
+    42,
+    3
+   ],
+   [
+    42,
+    3
+   ],
+   [
+    43,
+    3
+   ],
+   [
+    43,
+    3
+   ],
+   [
+    44,
+    3
+   ],
+   [
+    44,
+    3
+   ],
+   [
+    45,
+    3
+   ],
+   [
+    45,
+    3
+   ],
+   [
+    46,
+    3
+   ],
+   [
+    47,
+    3
+   ],
+   [
+    47,
+    3
+   ],
+   [
+    48,
+    3
+   ],
+   [
+    48,
+    3
+   ],
+   [
+    49,
+    3
+   ],
+   [
+    49,
+    3
+   ],
+   [
+    50,
+    3
+   ],
+   [
+    50,
+    3
+   ],
+   [
+    51,
+    3
+   ],
+   [
+    52,
+    3
+   ],
+   [
+    52,
+    3
+   ],
+   [
+    53,
+    3
+   ],
+   [
+    53,
+    3
+   ],
+   [
+    54,
+    3
+   ],
+   [
+    55,
+    3
+   ],
+   [
+    55,
+    3
+   ],
+   [
+    56,
+    3
+   ],
+   [
+    57,
+    3
+   ],
+   [
+    57,
+    3
+   ],
+   [
+    58,
+    3
+   ],
+   [
+    59,
+    3
+   ],
+   [
+    59,
+    3
+   ],
+   [
+    60,
+    3
+   ],
+   [
+    61,
+    3
+   ],
+   [
+    61,
+    3
+   ],
+   [
+    62,
+    3
+   ],
+   [
+    63,
+    3
+   ],
+   [
+    64,
+    3
+   ],
+   [
+    64,
+    3
+   ],
+   [
+    65,
+    3
+   ],
+   [
+    66,
+    3
+   ],
+   [
+    67,
+    3
+   ],
+   [
+    67,
+    3
+   ],
+   [
+    68,
+    3
+   ],
+   [
+    69,
+    3
+   ],
+   [
+    70,
+    3
+   ],
+   [
+    70,
+    3
+   ],
+   [
+    71,
+    3
+   ],
+   [
+    72,
+    3
+   ],
+   [
+    73,
+    3
+   ],
+   [
+    74,
+    3
+   ],
+   [
+    75,
+    3
+   ],
+   [
+    75,
+    3
+   ],
+   [
+    76,
+    3
+   ],
+   [
+    77,
+    3
+   ],
+   [
+    78,
+    3
+   ],
+   [
+    79,
+    3
+   ],
+   [
+    80,
+    3
+   ],
+   [
+    81,
+    3
+   ],
+   [
+    82,
+    3
+   ],
+   [
+    83,
+    3
+   ],
+   [
+    84,
+    3
+   ],
+   [
+    85,
+    3
+   ],
+   [
+    86,
+    3
+   ],
+   [
+    87,
+    3
+   ],
+   [
+    88,
+    3
+   ],
+   [
+    89,
+    3
+   ],
+   [
+    90,
+    3
+   ],
+   [
+    91,
+    3
+   ],
+   [
+    92,
+    3
+   ],
+   [
+    93,
+    3
+   ],
+   [
+    94,
+    3
+   ],
+   [
+    95,
+    3
+   ],
+   [
+    96,
+    3
+   ],
+   [
+    97,
+    3
+   ],
+   [
+    98,
+    3
+   ],
+   [
+    100,
+    3
+   ],
+   [
+    101,
+    3
+   ],
+   [
+    102,
+    3
+   ],
+   [
+    103,
+    3
+   ],
+   [
+    104,
+    3
+   ],
+   [
+    105,
+    3
+   ],
+   [
+    107,
+    3
+   ],
+   [
+    108,
+    3
+   ],
+   [
+    109,
+    3
+   ],
+   [
+    110,
+    3
+   ],
+   [
+    112,
+    3
+   ],
+   [
+    113,
+    3
+   ],
+   [
+    114,
+    3
+   ],
+   [
+    116,
+    3
+   ],
+   [
+    117,
+    3
+   ],
+   [
+    118,
+    3
+   ],
+   [
+    120,
+    3
+   ],
+   [
+    121,
+    3
+   ],
+   [
+    122,
+    3
+   ],
+   [
+    124,
+    3
+   ],
+   [
+    125,
+    3
+   ],
+   [
+    127,
+    3
+   ],
+   [
+    32,
+    2
+   ],
+   [
+    32,
+    2
+   ],
+   [
+    33,
+    2
+   ],
+   [
+    33,
+    2
+   ],
+   [
+    34,
+    2
+   ],
+   [
+    34,
+    2
+   ],
+   [
+    34,
+    2
+   ],
+   [
+    35,
+    2
+   ],
+   [
+    35,
+    2
+   ],
+   [
+    36,
+    2
+   ],
+   [
+    36,
+    2
+   ],
+   [
+    36,
+    2
+   ],
+   [
+    37,
+    2
+   ],
+   [
+    37,
+    2
+   ],
+   [
+    38,
+    2
+   ],
+   [
+    38,
+    2
+   ],
+   [
+    39,
+    2
+   ],
+   [
+    39,
+    2
+   ],
+   [
+    39,
+    2
+   ],
+   [
+    40,
+    2
+   ],
+   [
+    40,
+    2
+   ],
+   [
+    41,
+    2
+   ],
+   [
+    41,
+    2
+   ],
+   [
+    42,
+    2
+   ],
+   [
+    42,
+    2
+   ],
+   [
+    43,
+    2
+   ],
+   [
+    43,
+    2
+   ],
+   [
+    44,
+    2
+   ],
+   [
+    44,
+    2
+   ],
+   [
+    45,
+    2
+   ],
+   [
+    45,
+    2
+   ],
+   [
+    46,
+    2
+   ],
+   [
+    46,
+    2
+   ],
+   [
+    47,
+    2
+   ],
+   [
+    47,
+    2
+   ],
+   [
+    48,
+    2
+   ],
+   [
+    49,
+    2
+   ],
+   [
+    49,
+    2
+   ],
+   [
+    50,
+    2
+   ],
+   [
+    50,
+    2
+   ],
+   [
+    51,
+    2
+   ],
+   [
+    51,
+    2
+   ],
+   [
+    52,
+    2
+   ],
+   [
+    53,
+    2
+   ],
+   [
+    53,
+    2
+   ],
+   [
+    54,
+    2
+   ],
+   [
+    54,
+    2
+   ],
+   [
+    55,
+    2
+   ],
+   [
+    56,
+    2
+   ],
+   [
+    56,
+    2
+   ],
+   [
+    57,
+    2
+   ],
+   [
+    58,
+    2
+   ],
+   [
+    58,
+    2
+   ],
+   [
+    59,
+    2
+   ],
+   [
+    60,
+    2
+   ],
+   [
+    60,
+    2
+   ],
+   [
+    61,
+    2
+   ],
+   [
+    62,
+    2
+   ],
+   [
+    62,
+    2
+   ],
+   [
+    63,
+    2
+   ],
+   [
+    64,
+    2
+   ],
+   [
+    65,
+    2
+   ],
+   [
+    65,
+    2
+   ],
+   [
+    66,
+    2
+   ],
+   [
+    67,
+    2
+   ],
+   [
+    68,
+    2
+   ],
+   [
+    69,
+    2
+   ],
+   [
+    69,
+    2
+   ],
+   [
+    70,
+    2
+   ],
+   [
+    71,
+    2
+   ],
+   [
+    72,
+    2
+   ],
+   [
+    73,
+    2
+   ],
+   [
+    73,
+    2
+   ],
+   [
+    74,
+    2
+   ],
+   [
+    75,
+    2
+   ],
+   [
+    76,
+    2
+   ],
+   [
+    77,
+    2
+   ],
+   [
+    78,
+    2
+   ],
+   [
+    79,
+    2
+   ],
+   [
+    80,
+    2
+   ],
+   [
+    81,
+    2
+   ],
+   [
+    81,
+    2
+   ],
+   [
+    82,
+    2
+   ],
+   [
+    83,
+    2
+   ],
+   [
+    84,
+    2
+   ],
+   [
+    85,
+    2
+   ],
+   [
+    86,
+    2
+   ],
+   [
+    87,
+    2
+   ],
+   [
+    88,
+    2
+   ],
+   [
+    89,
+    2
+   ],
+   [
+    90,
+    2
+   ],
+   [
+    91,
+    2
+   ],
+   [
+    92,
+    2
+   ],
+   [
+    94,
+    2
+   ],
+   [
+    95,
+    2
+   ],
+   [
+    96,
+    2
+   ],
+   [
+    97,
+    2
+   ],
+   [
+    98,
+    2
+   ],
+   [
+    99,
+    2
+   ],
+   [
+    100,
+    2
+   ],
+   [
+    101,
+    2
+   ],
+   [
+    103,
+    2
+   ],
+   [
+    104,
+    2
+   ],
+   [
+    105,
+    2
+   ],
+   [
+    106,
+    2
+   ],
+   [
+    107,
+    2
+   ],
+   [
+    109,
+    2
+   ],
+   [
+    110,
+    2
+   ],
+   [
+    111,
+    2
+   ],
+   [
+    112,
+    2
+   ],
+   [
+    114,
+    2
+   ],
+   [
+    115,
+    2
+   ],
+   [
+    116,
+    2
+   ],
+   [
+    118,
+    2
+   ],
+   [
+    119,
+    2
+   ],
+   [
+    120,
+    2
+   ],
+   [
+    122,
+    2
+   ],
+   [
+    123,
+    2
+   ],
+   [
+    125,
+    2
+   ],
+   [
+    126,
+    2
+   ],
+   [
+    64,
+    1
+   ],
+   [
+    65,
+    1
+   ],
+   [
+    65,
+    1
+   ],
+   [
+    66,
+    1
+   ],
+   [
+    67,
+    1
+   ],
+   [
+    68,
+    1
+   ],
+   [
+    68,
+    1
+   ],
+   [
+    69,
+    1
+   ],
+   [
+    70,
+    1
+   ],
+   [
+    71,
+    1
+   ],
+   [
+    72,
+    1
+   ],
+   [
+    72,
+    1
+   ],
+   [
+    73,
+    1
+   ],
+   [
+    74,
+    1
+   ],
+   [
+    75,
+    1
+   ],
+   [
+    76,
+    1
+   ],
+   [
+    77,
+    1
+   ],
+   [
+    78,
+    1
+   ],
+   [
+    78,
+    1
+   ],
+   [
+    79,
+    1
+   ],
+   [
+    80,
+    1
+   ],
+   [
+    81,
+    1
+   ],
+   [
+    82,
+    1
+   ],
+   [
+    83,
+    1
+   ],
+   [
+    84,
+    1
+   ],
+   [
+    85,
+    1
+   ],
+   [
+    86,
+    1
+   ],
+   [
+    87,
+    1
+   ],
+   [
+    88,
+    1
+   ],
+   [
+    89,
+    1
+   ],
+   [
+    90,
+    1
+   ],
+   [
+    91,
+    1
+   ],
+   [
+    92,
+    1
+   ],
+   [
+    93,
+    1
+   ],
+   [
+    94,
+    1
+   ],
+   [
+    95,
+    1
+   ],
+   [
+    97,
+    1
+   ],
+   [
+    98,
+    1
+   ],
+   [
+    99,
+    1
+   ],
+   [
+    100,
+    1
+   ],
+   [
+    101,
+    1
+   ],
+   [
+    102,
+    1
+   ],
+   [
+    103,
+    1
+   ],
+   [
+    105,
+    1
+   ],
+   [
+    106,
+    1
+   ],
+   [
+    107,
+    1
+   ],
+   [
+    108,
+    1
+   ],
+   [
+    110,
+    1
+   ],
+   [
+    111,
+    1
+   ],
+   [
+    112,
+    1
+   ],
+   [
+    113,
+    1
+   ],
+   [
+    115,
+    1
+   ],
+   [
+    116,
+    1
+   ],
+   [
+    117,
+    1
+   ],
+   [
+    119,
+    1
+   ],
+   [
+    120,
+    1
+   ],
+   [
+    122,
+    1
+   ],
+   [
+    123,
+    1
+   ],
+   [
+    124,
+    1
+   ],
+   [
+    126,
+    1
+   ],
+   [
+    64,
+    0
+   ],
+   [
+    64,
+    0
+   ],
+   [
+    65,
+    0
+   ],
+   [
+    66,
+    0
+   ],
+   [
+    67,
+    0
+   ],
+   [
+    67,
+    0
+   ],
+   [
+    68,
+    0
+   ],
+   [
+    69,
+    0
+   ],
+   [
+    70,
+    0
+   ],
+   [
+    71,
+    0
+   ],
+   [
+    71,
+    0
+   ],
+   [
+    72,
+    0
+   ],
+   [
+    73,
+    0
+   ],
+   [
+    74,
+    0
+   ],
+   [
+    75,
+    0
+   ],
+   [
+    76,
+    0
+   ],
+   [
+    77,
+    0
+   ],
+   [
+    77,
+    0
+   ],
+   [
+    78,
+    0
+   ],
+   [
+    79,
+    0
+   ],
+   [
+    80,
+    0
+   ],
+   [
+    81,
+    0
+   ],
+   [
+    82,
+    0
+   ],
+   [
+    83,
+    0
+   ],
+   [
+    84,
+    0
+   ],
+   [
+    85,
+    0
+   ],
+   [
+    86,
+    0
+   ],
+   [
+    87,
+    0
+   ],
+   [
+    88,
+    0
+   ],
+   [
+    89,
+    0
+   ],
+   [
+    90,
+    0
+   ],
+   [
+    91,
+    0
+   ],
+   [
+    92,
+    0
+   ],
+   [
+    93,
+    0
+   ],
+   [
+    94,
+    0
+   ],
+   [
+    95,
+    0
+   ],
+   [
+    96,
+    0
+   ],
+   [
+    97,
+    0
+   ],
+   [
+    99,
+    0
+   ],
+   [
+    100,
+    0
+   ],
+   [
+    101,
+    0
+   ],
+   [
+    102,
+    0
+   ],
+   [
+    103,
+    0
+   ],
+   [
+    104,
+    0
+   ],
+   [
+    106,
+    0
+   ],
+   [
+    107,
+    0
+   ],
+   [
+    108,
+    0
+   ],
+   [
+    109,
+    0
+   ],
+   [
+    111,
+    0
+   ],
+   [
+    112,
+    0
+   ],
+   [
+    113,
+    0
+   ],
+   [
+    114,
+    0
+   ],
+   [
+    116,
+    0
+   ],
+   [
+    117,
+    0
+   ],
+   [
+    119,
+    0
+   ],
+   [
+    120,
+    0
+   ],
+   [
+    121,
+    0
+   ],
+   [
+    123,
+    0
+   ],
+   [
+    124,
+    0
+   ],
+   [
+    126,
+    0
+   ],
+   [
+    127,
+    0
+   ]
+  ]
+ }
+}

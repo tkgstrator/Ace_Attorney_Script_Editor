@@ -1,0 +1,81 @@
+# 尋問中に詳しく調べる・別のシーンへ移る調べ方（整合性チェックの TS 版と Rust 版の一致を確かめる用）
+id: t3
+title: 尋問中に調べる
+player: me
+characters:
+  me: { name: 私 }
+  w: { name: 証人, profile: { description: 目撃者 } }
+  j: { name: 裁判長 }
+evidence:
+  knife:
+    name: ナイフ
+    description: 凶器
+    examine:
+      - spot: タグ
+        when: not tag
+        then:
+          - set: { tag: true, seen_n: 1 }
+          - me: タグがある。
+      - spot: 刃
+        when: tag
+        then:
+          - choice:
+              - text: よく見る
+                then:
+                  - add: { count: 1 }
+              - text: やめる
+          - if: count >= 2
+            then:
+              - goto: secret
+  photo: { name: 写真, description: 現場 }
+flags:
+  tag: false
+  seen_n: 0
+  count: 0
+  mood: 0
+start: { scene: open, evidence: [knife, photo] }
+scenes:
+  open:
+    - j: 開廷。
+    - set: { mood: 1 }
+    - j: 証言を。
+    - set: { mood: 2 }
+    - w: はい。
+    - goto: t
+  t:
+    testimony: 見たこと
+    witness: w
+    statements:
+      - text: ナイフを見ました。
+        press:
+          - w: 本当です。
+          - resume: next
+        present:
+          knife:
+            - if: tag
+              then:
+                - j: タグですね。
+                - goto: end
+              else:
+                - j: それが？
+                - resume: stay
+      - text: 写真はありません。
+        when: mood == 2
+        present:
+          photo:
+            - j: あるじゃないか。
+            - demand: 証人は誰？
+              present:
+                w:
+                  - resume: first
+              wrong:
+                - j: 違う。
+  secret:
+    - me: 刃に秘密が。
+    - if: mood >= 1
+      then:
+        - set: { mood: 0 }
+    - goto: end
+  end:
+    - j: 閉廷。
+    - end: true

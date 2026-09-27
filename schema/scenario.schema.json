@@ -1,0 +1,1582 @@
+{
+  "title": "igiari シナリオ",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "player": {
+      "description": "プレイヤーが操作する弁護士の人物 ID",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "life": {
+      "description": "ライフの最大値（既定 10）",
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "penalty": {
+          "description": "penalty: true のときに減るライフ（既定 2）",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "wrongPresent": {
+          "description": "見当違いの証拠品をつきつけたときの既定の反応。{evidence} に証拠品名が入る",
+          "$ref": "#/$defs/__schema0"
+        },
+        "autoShow": {
+          "description": "台詞の話し手を自動で表示する（既定 true）。false なら表示は show だけで変わる（元のゲームと同じ）",
+          "type": "boolean"
+        },
+        "autoPause": {
+          "description": "句読点のあとで自動的に少し待つ（元のゲームにはない。既定 false）",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "characters": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "stand": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "blip": {
+            "description": "文字送りの音（既定 male。元のゲームは話し手の名前ごとに標準・女性・タイプライターのどれか）",
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              "typewriter",
+              "none"
+            ]
+          },
+          "profile": {
+            "description": "法廷記録の人物ファイルに載せる内容",
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "人物ファイルでの表示名（漢字の氏名など）。省略すると name",
+                "type": "string"
+              },
+              "age": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "description": "人物ファイルの顔の絵のキー（省略すると人物 ID。元のゲームから変換したときは r<記録の番号>）",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "description": "アイコンの絵のキー（省略すると証拠品 ID。元のゲームから変換したときは r<記録の番号>）",
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "examine": {
+            "description": "「詳しく調べる」（DS 版の第 5 話の、証拠品を 3D で調べる遊び）。法廷記録を開ける場面ならいつでも（台詞・証言・選択肢・つきつけの要求・探偵メニュー）、法廷記録から調べる場所を選ぶ",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "spot": {
+                  "type": "string",
+                  "description": "調べる場所の名前（選択肢に出す）"
+                },
+                "when": {
+                  "description": "この条件が真のときだけ選べる",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "then": {
+                  "description": "調べたとき。終わると調べ始めた場面（台詞の途中ならその台詞）に戻る。then の中で goto・investigate したら戻らずに進む",
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              "required": [
+                "spot",
+                "then"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "flags": {
+      "description": "フラグ名 → 初期値。型は初期値から決まる",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": [
+          "boolean",
+          "number",
+          "string"
+        ]
+      }
+    },
+    "start": {
+      "type": "object",
+      "properties": {
+        "scene": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "profiles": {
+          "description": "最初に人物ファイルに載っている人物（省略すると profile のある全員）",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        }
+      },
+      "required": [
+        "scene"
+      ],
+      "additionalProperties": false
+    },
+    "gameover": {
+      "description": "ライフが尽きたときに移るシーン",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "scenes": {
+      "description": "編に分けないときのシーン（裁判編として扱う）",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema0"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "testimony": {
+                "type": "string",
+                "description": "証言のタイトル"
+              },
+              "witness": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "statements": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "description": "証言の ID。エディタや参照のために付けておくのを推奨",
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "when": {
+                      "description": "この条件が真のときだけ証言に現れる",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "press": {
+                      "description": "ゆさぶったとき",
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "before": {
+                      "description": "尋問でこの証言を出す前に実行する、止まらない命令（人物の動き・背景・音など）",
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "present": {
+                      "description": "証拠品 ID → つきつけたとき",
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      },
+                      "additionalProperties": {
+                        "$ref": "#/$defs/__schema0"
+                      }
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reading": {
+                "description": "証言を最初に聞く場面（書けば、証言の文の代わりにこれを見せる。元のゲームでは尋問の文と別）",
+                "$ref": "#/$defs/__schema0"
+              },
+              "after": {
+                "description": "証言を聞き終えてから尋問に入るまで",
+                "$ref": "#/$defs/__schema0"
+              },
+              "loop": {
+                "description": "尋問で最後の証言を過ぎたとき",
+                "$ref": "#/$defs/__schema0"
+              },
+              "wrong": {
+                "description": "見当違いの証拠品をつきつけたとき（defaults.wrongPresent を上書き）",
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": [
+              "testimony",
+              "witness",
+              "statements"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "parts": {
+      "description": "章を探索編・裁判編に分けたもの。シーン・場所の ID は章の中で重ならないこと",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "investigation",
+              "trial"
+            ],
+            "description": "investigation: 探索編 / trial: 裁判編"
+          },
+          "title": {
+            "type": "string",
+            "description": "編の名前（例: 探偵パート 1 日目）"
+          },
+          "scenes": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/__schema0"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "testimony": {
+                      "type": "string",
+                      "description": "証言のタイトル"
+                    },
+                    "witness": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    },
+                    "statements": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "description": "証言の ID。エディタや参照のために付けておくのを推奨",
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "when": {
+                            "description": "この条件が真のときだけ証言に現れる",
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "press": {
+                            "description": "ゆさぶったとき",
+                            "$ref": "#/$defs/__schema0"
+                          },
+                          "before": {
+                            "description": "尋問でこの証言を出す前に実行する、止まらない命令（人物の動き・背景・音など）",
+                            "$ref": "#/$defs/__schema0"
+                          },
+                          "present": {
+                            "description": "証拠品 ID → つきつけたとき",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            },
+                            "additionalProperties": {
+                              "$ref": "#/$defs/__schema0"
+                            }
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reading": {
+                      "description": "証言を最初に聞く場面（書けば、証言の文の代わりにこれを見せる。元のゲームでは尋問の文と別）",
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "after": {
+                      "description": "証言を聞き終えてから尋問に入るまで",
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "loop": {
+                      "description": "尋問で最後の証言を過ぎたとき",
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "wrong": {
+                      "description": "見当違いの証拠品をつきつけたとき（defaults.wrongPresent を上書き）",
+                      "$ref": "#/$defs/__schema0"
+                    }
+                  },
+                  "required": [
+                    "testimony",
+                    "witness",
+                    "statements"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "places": {
+            "description": "探索編の場所",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "「移動する」の一覧などに出す場所の名前"
+                },
+                "background": {
+                  "description": "背景のキー。省略すると場所の ID",
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "person": {
+                  "description": "その場所にいる人物。一覧なら、when が真の最初の人物",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                          },
+                          "when": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "条件式。例: has(repair) and not pressed_s2"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                },
+                "enter": {
+                  "description": "この場所に来たときに毎回実行する。初回だけにするには if: not visited(場所ID)（探偵メニューに着いた時点で訪問済みになる）",
+                  "$ref": "#/$defs/__schema0"
+                },
+                "examine": {
+                  "description": "「調べる」で選べる範囲。重なっていれば先に書いたもの",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "description": "調べた印（seen() で使う）の ID。省略すると 場所ID_examine番号",
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      },
+                      "name": {
+                        "description": "エディタでの表示名",
+                        "type": "string"
+                      },
+                      "area": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 4,
+                        "maxItems": 4,
+                        "description": "画面（256×192 ドット）上の範囲 [x, y, 幅, 高さ]"
+                      },
+                      "when": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "条件式。例: has(repair) and not pressed_s2"
+                      },
+                      "then": {
+                        "$ref": "#/$defs/__schema0"
+                      }
+                    },
+                    "required": [
+                      "area",
+                      "then"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "examineDefault": {
+                  "description": "何もない所を調べたとき",
+                  "$ref": "#/$defs/__schema0"
+                },
+                "talk": {
+                  "description": "「話す」の話題（その場所にいる人物と）",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "description": "話した印（seen() で使う）の ID。省略すると 場所ID_talk番号",
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      },
+                      "topic": {
+                        "type": "string",
+                        "description": "話題の名前"
+                      },
+                      "when": {
+                        "description": "この条件が真のときだけ話題に出る",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "then": {
+                        "$ref": "#/$defs/__schema0"
+                      }
+                    },
+                    "required": [
+                      "topic",
+                      "then"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "present": {
+                  "description": "証拠品 ID か人物 ID（人物ファイル）→ その場所の人物につきつけたとき",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "additionalProperties": {
+                    "$ref": "#/$defs/__schema0"
+                  }
+                },
+                "presentWrong": {
+                  "description": "ほかの証拠品・人物ファイルをつきつけたとき",
+                  "$ref": "#/$defs/__schema0"
+                },
+                "move": {
+                  "description": "「移動する」の行き先",
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "to": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                          },
+                          "when": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "条件式。例: has(repair) and not pressed_s2"
+                          }
+                        },
+                        "required": [
+                          "to"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "characters",
+    "evidence",
+    "start"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "say": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "話す人物の ID。null ならナレーション"
+              },
+              "text": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string",
+                "enum": [
+                  "white",
+                  "blue",
+                  "green",
+                  "orange",
+                  "red"
+                ]
+              },
+              "auto": {
+                "description": "出し終えたら、ボタンを待たずに次へ進む",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "say",
+              "text"
+            ],
+            "additionalProperties": false,
+            "description": "台詞（省略形: `- 人物ID: 台詞`）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "narrate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "narrate"
+            ],
+            "additionalProperties": false,
+            "description": "ナレーション（名前欄なし）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "set": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": [
+                    "boolean",
+                    "number",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "set"
+            ],
+            "additionalProperties": false,
+            "description": "フラグに値を入れる"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "add": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "add"
+            ],
+            "additionalProperties": false,
+            "description": "数値フラグに加算する"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "give": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                ]
+              }
+            },
+            "required": [
+              "give"
+            ],
+            "additionalProperties": false,
+            "description": "証拠品を法廷記録に加える"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "giveProfile": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                ]
+              }
+            },
+            "required": [
+              "giveProfile"
+            ],
+            "additionalProperties": false,
+            "description": "人物を法廷記録の人物ファイルに加える"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "takeProfile": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                ]
+              }
+            },
+            "required": [
+              "takeProfile"
+            ],
+            "additionalProperties": false,
+            "description": "人物を人物ファイルから外す"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "take": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                ]
+              }
+            },
+            "required": [
+              "take"
+            ],
+            "additionalProperties": false,
+            "description": "証拠品を法廷記録から外す"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "if": {
+                "type": "string",
+                "minLength": 1,
+                "description": "条件式。例: has(repair) and not pressed_s2"
+              },
+              "then": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "else": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": [
+              "if",
+              "then"
+            ],
+            "additionalProperties": false,
+            "description": "条件分岐"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "choice": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "when": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "条件式。例: has(repair) and not pressed_s2"
+                    },
+                    "then": {
+                      "$ref": "#/$defs/__schema0"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "choice"
+            ],
+            "additionalProperties": false,
+            "description": "選択肢。選んだ then を実行した後、次のステップへ進む"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "demand": {
+                "type": "string",
+                "description": "つきつけを求める文"
+              },
+              "present": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "description": "証拠品 ID か人物 ID（人物ファイル）→ 正解のときのステップ"
+              },
+              "wrong": {
+                "description": "不正解のとき。実行後にもう一度つきつけを求める",
+                "$ref": "#/$defs/__schema0"
+              },
+              "profiles": {
+                "description": "人物ファイルもつきつけられるか（既定: present に人物 ID があれば true、なければ false）。人物ファイルの見当違いは wrong",
+                "type": "boolean"
+              },
+              "by": {
+                "description": "問いかける人物（名前欄に出す）",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "demand",
+              "present"
+            ],
+            "additionalProperties": false,
+            "description": "証拠品のつきつけを求める"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "goto": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "goto"
+            ],
+            "additionalProperties": false,
+            "description": "別のシーンへ移る"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "penalty": {
+                "anyOf": [
+                  {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                ]
+              }
+            },
+            "required": [
+              "penalty"
+            ],
+            "additionalProperties": false,
+            "description": "ライフを減らす。true なら defaults.penalty"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "shout": {
+                "type": "string",
+                "enum": [
+                  "objection",
+                  "hold",
+                  "takethat"
+                ]
+              },
+              "by": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "shout"
+            ],
+            "additionalProperties": false,
+            "description": "「異議あり！」などの吹き出し"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "banner": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "banner"
+            ],
+            "additionalProperties": false,
+            "description": "画面中央の帯テキスト"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "card": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "card"
+            ],
+            "additionalProperties": false,
+            "description": "日時・場所の表示。背景を暗くし、テキストウィンドウに中央寄せで出す"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "showEvidence": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "side": {
+                "description": "小窓を出す側（既定 left）",
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            },
+            "required": [
+              "showEvidence"
+            ],
+            "additionalProperties": false,
+            "description": "画面の上の小窓に証拠品を見せる。null で消す（シーンが変わっても消える）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "random": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            },
+            "required": [
+              "random"
+            ],
+            "additionalProperties": false,
+            "description": "ステップ列のどれかを乱数で選んで実行する"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "palette": {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "grayscale"
+                ]
+              }
+            },
+            "required": [
+              "palette"
+            ],
+            "additionalProperties": false,
+            "description": "画面の色の変え方（grayscale: 白黒の回想。normal で戻す）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "show": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "talk": {
+                "description": "話しているときの動き（元のゲームの動きの番号など）",
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              },
+              "idle": {
+                "description": "黙っているときの動き（省略すると talk と同じ）",
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              },
+              "frames": {
+                "description": "だんだん出す・消す長さ（フレーム。元のゲームの人物の半透明のフェード）",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "show"
+            ],
+            "additionalProperties": false,
+            "description": "表示する人物を切り替える。talk / idle で動きを指定すると、文字送りの間は talk、止まっている間は idle"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "location": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "additionalProperties": false,
+            "description": "場所（背景）を変える。null で法廷に戻る"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "bgm": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "BGM の ID。null で止める"
+              },
+              "frames": {
+                "description": "前の曲を消す・次の曲を始めるフェードの長さ（フレーム、既定 0）",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "bgm"
+            ],
+            "additionalProperties": false,
+            "description": "BGM を流す（繰り返し）。セーブデータに残り、ロードすると流れ直す"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "se": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "description": "効果音の ID"
+              }
+            },
+            "required": [
+              "se"
+            ],
+            "additionalProperties": false,
+            "description": "効果音を鳴らす"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "shake": {
+                "anyOf": [
+                  {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                ],
+                "description": "true か長さ（フレーム、既定 30）"
+              },
+              "strength": {
+                "description": "強さ 0〜2（既定 0）",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              }
+            },
+            "required": [
+              "shake"
+            ],
+            "additionalProperties": false,
+            "description": "画面を揺らす"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "flash": {
+                "anyOf": [
+                  {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "white",
+                      "red"
+                    ]
+                  }
+                ],
+                "description": "true は white"
+              },
+              "frames": {
+                "description": "長さ（フレーム、既定 3。元のゲームの白いフラッシュ）",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "flash"
+            ],
+            "additionalProperties": false,
+            "description": "画面を一瞬光らせる"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "fade": {
+                "type": "string",
+                "enum": [
+                  "out",
+                  "in"
+                ],
+                "description": "out: 画面を覆う（暗転） / in: 覆いを外す"
+              },
+              "color": {
+                "description": "覆う色（既定 black）",
+                "type": "string",
+                "enum": [
+                  "black",
+                  "white"
+                ]
+              },
+              "frames": {
+                "description": "長さ（フレーム、既定 30）",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "nowait": {
+                "description": "true なら終わるのを待たずに次へ進む（元のゲームのフェードはこちら。既定 false）",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "fade"
+            ],
+            "additionalProperties": false,
+            "description": "画面のフェード。out の後は in まで覆ったまま（台詞は覆いの上に出る）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "wait": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "フレーム（1/60 秒）"
+              }
+            },
+            "required": [
+              "wait"
+            ],
+            "additionalProperties": false,
+            "description": "待つ"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "bgmPause": {
+                "type": "boolean",
+                "description": "true で一時停止、false で続きから再開"
+              },
+              "frames": {
+                "description": "フェードの長さ（フレーム、既定 0）",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "bgmPause"
+            ],
+            "additionalProperties": false,
+            "description": "BGM を一時停止する・再開する"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "pan": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5,
+                "description": "0 弁護側→証言台 / 1 証言台→弁護側 / 2 弁護側→検察側 / 3 検察側→弁護側 / 4 証言台→検察側 / 5 検察側→証言台"
+              },
+              "to": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "行き先の人物"
+              },
+              "talk": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              },
+              "idle": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "pan",
+              "to"
+            ],
+            "additionalProperties": false,
+            "description": "法廷の視点の流し（元のゲームの 26。31 フレームかけて全景を流す。止まらない。背景を変えるまで流し終えた絵のまま）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "overlay": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ],
+                "description": "重ね絵の ID（元のゲームの 47 anim の番号など）"
+              },
+              "off": {
+                "description": "true で消す",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "overlay"
+            ],
+            "additionalProperties": false,
+            "description": "背景・人物・机の上に重ね絵を出す・消す（止まらない）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scroll": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "description": "横の速さ（ドット/フレーム。+ で右へ、- で左へ）",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "y": {
+                        "description": "縦の速さ（+ で下へ、- で上へ）",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "scroll"
+            ],
+            "additionalProperties": false,
+            "description": "背景の表示位置を毎フレーム動かす（画面より大きい背景だけ。端で止まる。背景を変えると止まる。null で止める）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "textbox": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "textbox"
+            ],
+            "additionalProperties": false,
+            "description": "文字の枠を出す・隠す（書かなければ台詞のときだけ出る）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ui": {
+                "type": "object",
+                "properties": {
+                  "record": {
+                    "description": "法廷記録を開けるか",
+                    "type": "boolean"
+                  },
+                  "life": {
+                    "description": "ライフを出すか（null で既定に戻す）",
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "ui"
+            ],
+            "additionalProperties": false,
+            "description": "画面の部品の表示"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "resume": {
+                "type": "string",
+                "enum": [
+                  "next",
+                  "stay",
+                  "first"
+                ]
+              }
+            },
+            "required": [
+              "resume"
+            ],
+            "additionalProperties": false,
+            "description": "尋問のゆさぶり・つきつけのブロックから証言へ戻る（next: 次の証言 / stay: 同じ証言 / first: 最初の証言）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "native": {
+                "type": "string",
+                "description": "元のゲームの命令の名前"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "native"
+            ],
+            "additionalProperties": false,
+            "description": "元のゲームの命令で、まだ対応していないもの（元の台本から変換したときに残す。今は何もしない）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "investigate": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "investigate"
+            ],
+            "additionalProperties": false,
+            "description": "探索編の場所へ行き、探偵メニュー（調べる・移動する・話す・つきつける）を出す"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "end": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "end"
+            ],
+            "additionalProperties": false,
+            "description": "ゲームクリア"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "gameover": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "gameover"
+            ],
+            "additionalProperties": false,
+            "description": "ゲームオーバー"
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "台詞の省略形: `人物ID: 台詞`"
+          }
+        ]
+      }
+    }
+  }
+}
