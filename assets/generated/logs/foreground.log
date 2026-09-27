@@ -1,0 +1,8 @@
+できたよ〜！　内蔵の image_gen で4枚をそれぞれ生成して、指定の場所に保存したのです♪　どれも1448×1086のPNGで、ImageMagickでアルファチャンネルを確認済み。家具より上の領域は完全に透明だよ。
+
+- [assets/generated/raw/foreground/defense.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/foreground/defense.png)
+- [assets/generated/raw/foreground/prosecution.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/foreground/prosecution.png)
+- [assets/generated/raw/foreground/witness.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/foreground/witness.png)
+- [assets/generated/raw/foreground/judge.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/foreground/judge.png)
+
+それぞれ参照画像の色と正面からの視点に合わせ、家具を画面の下4分の1に収めたよ〜。

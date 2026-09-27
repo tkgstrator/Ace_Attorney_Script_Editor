@@ -1,0 +1,40 @@
+.git
+.github
+.devcontainer
+.vscode
+.claude
+
+# JS/Bun
+node_modules
+dist
+build
+coverage
+
+# Rust
+target
+.cargo/config.toml
+!.cargo/
+
+# Python
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# ROM から取り出した素材・ROM 本体（手元用、大容量・配布しない）
+assets/extracted/
+assets/extracted-rs/
+assets/extracted-py/
+assets/roms/
+
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+README.md
+CHANGELOG.md
