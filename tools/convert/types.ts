@@ -77,7 +77,12 @@ export interface Tables {
   game: import('./tables.ts').GameKey;
   names: { id: number; text: { ja: string; en: string } }[];
   chars: Record<string, { name: string | null; name_id: number }>;
-  evidence: { id: number; text_ja?: { name: string; desc: string }; start_as?: string }[];
+  evidence: {
+    id: number;
+    icon?: number;
+    text_ja?: { name: string; desc: string };
+    start_as?: string;
+  }[];
   evidenceStart: { part: number; profiles: number[]; evidence: number[] }[];
   /** SDAT の番号 → 名前（BGM008、SE019 など） */
   sounds: Map<number, string>;
@@ -109,6 +114,8 @@ export interface Tables {
   };
   /** 「3D で詳しく調べる」の表（tables/examine3d.json、第 5 話） */
   examine3d?: import('./examine3d.ts').Examine3d;
+  /** DS 版の第 5 話だけの遊び（指紋・映像・ツボ。tables/minigames.json） */
+  minigames?: import('./minigames.ts').Minigames;
 }
 
 /** シナリオのステップ（YAML にそのまま書く形） */

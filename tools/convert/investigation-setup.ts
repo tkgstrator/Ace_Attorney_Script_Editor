@@ -138,8 +138,10 @@ export function dayStartFlags(
     31: { 37: false, 38: false, 39: false, 31: false },
   };
   if (!rom[part]) return null;
+  // ツボを一度組み立てたか（組 0 の 0x1d。ARM9 が立てる。minigames.ts）は、パート 22 の始め（0x02036198）でしか消さない
+  const keep = part === 22 ? ['f_0_31'] : ['f_0_31', 'f_0_29'];
   const out: Record<string, boolean> = {};
-  for (const f of flags) if (f.startsWith('f_0_') && f !== 'f_0_31') out[f] = false;
+  for (const f of flags) if (f.startsWith('f_0_') && !keep.includes(f)) out[f] = false;
   for (const [n, v] of Object.entries(rom[part]!)) out[`f_0_${n}`] = v;
   return out;
 }

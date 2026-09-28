@@ -2,6 +2,7 @@
 import { Context, type InvPart, Shared } from './context.ts';
 import { convertExamine, prepareExamine } from './examine3d.ts';
 import { buildPlaces, initInvestigationFlags, prepareInvestigation } from './investigation.ts';
+import { prepareMinigames } from './minigames.ts';
 import { convertOps } from './section.ts';
 import { buildTestimonies } from './testimony.ts';
 import type { Entry, Op, Step, Tables } from './types.ts';
@@ -141,6 +142,7 @@ function convertPass(
       if (t.game === 'aa1') initInvestigationFlags(ctx);
     }
     prepareExamine(ctx);
+    prepareMinigames(ctx);
   });
   const scenesOf = ctxs.map((ctx) => emitEntry(ctx, opts.common));
   ctxs.forEach(convertExamine);
@@ -154,6 +156,10 @@ function convertPass(
       if (emitRest(ctx, scenesOf[k]!)) changed = true;
     });
   }
+  // 遊びの画面など、区画のほかのシーン（場所のブロックに取り込んだ区画からも作るので最後に）
+  ctxs.forEach((ctx, k) => {
+    Object.assign(scenesOf[k]!, Object.fromEntries(ctx.extraScenes));
+  });
   return ctxs.map((ctx, k) => {
     const kind = ctx.inv ? 'investigation' : 'trial';
     const part: Record<string, unknown> = {

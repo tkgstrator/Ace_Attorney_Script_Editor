@@ -56,6 +56,10 @@ export class Context {
   readonly pieces = new Set<string>();
   /** 21 player_turn の代わりに移る区画（ルミノールの説明の後など、ARM9 が決める行き先。examine3d.ts） */
   readonly turnGoto = new Map<number, number>();
+  /** 21 player_turn の代わりのステップ（遊びの結果の区画から遊びに戻るとき。minigames.ts） */
+  readonly turnSteps = new Map<number, Step[]>();
+  /** 区画のほかに出すシーン（遊びの画面など。minigames.ts） */
+  readonly extraScenes = new Map<string, Step[]>();
   /** 3D で詳しく調べた結果として証拠品の examine に取り込む区画 → ステップ列（examine3d.ts） */
   readonly examineSteps = new Map<number, Step[]>();
   readonly #nameIds: Map<number, string>;

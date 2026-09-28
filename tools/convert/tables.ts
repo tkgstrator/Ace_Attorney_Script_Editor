@@ -64,6 +64,8 @@ export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1
     : [];
   const x3dPath = join(dir, 'examine3d.json');
   const examine3d = existsSync(x3dPath) ? readJson<Tables['examine3d']>(x3dPath) : undefined;
+  const mgPath = join(dir, 'minigames.json');
+  const minigames = existsSync(mgPath) ? readJson<Tables['minigames']>(mgPath) : undefined;
   return {
     game,
     names,
@@ -77,6 +79,7 @@ export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1
     courtPoints,
     recordText,
     examine3d,
+    minigames,
   };
 }
 
