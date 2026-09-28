@@ -1,0 +1,18 @@
+[package]
+name = "aa-ctr"
+description = "3DS の逆転裁判5・6（MT Framework）のカードイメージから台本・音声などを取り出す"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "aa-ctr"
+path = "src/main.rs"
+
+[dependencies]
+aes = "0.8"
+ctr = "0.9"
+flate2 = "1"
+rayon = "1"
+serde_json = { version = "1", features = ["preserve_order"] }

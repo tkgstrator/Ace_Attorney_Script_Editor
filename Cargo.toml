@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/aa-rom", "crates/aa-extract", "crates/aa-wasm", "crates/aa-verify"]
+members = ["crates/aa-rom", "crates/aa-extract", "crates/aa-wasm", "crates/aa-verify", "crates/aa-ctr"]
 
 [workspace.package]
 edition = "2021"
