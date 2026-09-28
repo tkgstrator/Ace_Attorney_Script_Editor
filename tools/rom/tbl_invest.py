@@ -8,7 +8,8 @@
 
 蘇る逆転・2・3 のどれでも読める（ROM のゲームコードで番地を選ぶ。2・3 の番地は invest_addrs.py）。以下の番地は蘇る逆転。
 
---ocr: 場所の名前・話題の名前のテクスチャを macOS の文字認識（tools/rom/ocr.swift）で読んで name_ocr に入れる（推測）。
+--ocr: 場所の名前・話題の名前のテクスチャを macOS の文字認識（tools/rom/ocr.swift）で読んで name_ocr に入れる
+（読み違いの直しは invest_names.py と invest_names_fixes.<ゲームコード>.json）。
 
 ■ パート = ゲーム全体の状態 0x020ceda8 の +0x69（台本の項目 = パート × 2、日本語）。パートごとの表（添字 = パート、35 個）:
   0x020b443c 探偵パートの始めに呼ぶ関数（場所の表 → 0x020ceeb0、話題の表 → 0x020ce8a8 に写す。0x0202884c = 何もしない = 法廷）
@@ -20,9 +21,7 @@
 import json
 import os
 import struct
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -42,6 +41,7 @@ THUMB_STEP = 0x4214
 G: InvestAddrs = AGYJ
 
 ROOT = Path(__file__).resolve().parents[2]
+#: テクスチャの PNG の置き場所（main でゲームの取り出し先にする）
 TEX_DIR = ROOT / 'assets/extracted/data/tail/tex'
 
 
@@ -57,7 +57,7 @@ def run(a9: Arm9, func: int, place: int, part: int) -> list[dict]:
 
 def tex(base: int, i: int, step: int = TEX_STEP) -> dict:
     a = base + i * step
-    hits = sorted(TEX_DIR.glob(f'{a:x}*.png')) if TEX_DIR.exists() else []
+    hits = sorted(TEX_DIR.glob(f'{a:07x}*.png')) if TEX_DIR.exists() else []
     return {'data_bin': f'{a:#x}', 'png': str(hits[0].relative_to(ROOT)) if hits else None}
 
 
@@ -302,61 +302,30 @@ def read_bgmap(p: Path) -> dict:
     return out
 
 
-def ocr(pngs: list[str]) -> dict[str, str]:
-    """白地に 3 倍に拡大して ocr.swift で読む（読めなければ空）"""
-    from PIL import Image
-    res: dict[str, str] = {}
-    with tempfile.TemporaryDirectory() as td:
-        paths = []
-        for i, p in enumerate(pngs):
-            im = Image.open(ROOT / p).convert('RGBA')
-            bg = Image.new('RGBA', im.size, 'white')
-            bg.alpha_composite(im)
-            q = f'{td}/{i}.png'
-            bg.convert('RGB').resize((im.width * 3, im.height * 3)).save(q)
-            paths.append(q)
-        out = subprocess.run(['swift', str(ROOT / 'tools/rom/ocr.swift'), *paths], capture_output=True, text=True).stdout
-        cur = None
-        for line in out.splitlines():
-            if line.startswith('# '):
-                cur = pngs[int(Path(line[2:]).stem)]
-                res[cur] = ''
-            elif cur is not None and '\t' in line:
-                res[cur] += line.split('\t', 1)[1].replace(' ', '')
-    # 文字認識のよくある読み違い（場所の名前で確認したもの）
-    fix = [('營', '警'), ('管察', '警察'), ('撮景・', '撮影所・')]
-    for k, v in res.items():
-        for a, b in fix:
-            v = v.replace(a, b)
-        res[k] = v.rstrip('。')
-    return res
-
-
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     if not args:
         sys.exit(__doc__)
-    global G
+    global G, TEX_DIR
     rom = open(args[0], 'rb').read()
     game = detect(rom)
     G = g = BY_CODE[game.code]
+    TEX_DIR = game.out / 'data/tail/tex'
     a9 = Arm9(rom)
     out = Path(args[1]) if len(args) > 1 else game.tables / 'investigation.json'
     bgmap = read_bgmap(game.script / 'bg_map.tsv')
     names: dict = {'places': [], 'topics': [], 'thumbs': []}
-    if g.place_tex:  # 2・3 は名前のテクスチャの位置が未確認（空にする）
+    if g.place_tex:
         names = {'places': [{'id': i, 'ja': tex(g.place_tex['ja'], i), 'en': tex(g.place_tex['en'], i)}
                             for i in range(g.n_place_tex)],
                  'topics': [{'id': i, 'ja': tex(g.topic_tex['ja'], i), 'en': tex(g.topic_tex['en'], i)}
                             for i in range(g.n_topic_tex)],
+                 # 2・3 は移動先の小さな絵の位置が未確認（空にする）
                  'thumbs': [{'id': i, 'ja': tex(g.thumb_tex['ja'], i, THUMB_STEP), 'en': tex(g.thumb_tex['en'], i, THUMB_STEP)}
-                            for i in range(g.n_thumb)]}
+                            for i in range(g.n_thumb)] if g.thumb_tex else []}
     if '--ocr' in sys.argv:
-        pngs = [e['ja']['png'] for k in ('places', 'topics') for e in names[k] if e['ja']['png']]
-        got = ocr(pngs)
-        for k in ('places', 'topics'):
-            for e in names[k]:
-                e['name_ocr'] = got.get(e['ja']['png'])
+        from invest_names import read_names
+        read_names(names, g.code)
     parts = [part_json(a9, p, bgmap) for p in range(g.parts)]
     for p in parts:
         for pl in p.get('places', []):

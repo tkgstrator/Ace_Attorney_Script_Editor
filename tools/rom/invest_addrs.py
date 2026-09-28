@@ -34,7 +34,7 @@ class InvestAddrs:
     present_row: int = 8
     #: 始めの関数が写すもう 1 つの表（2・3: 89 op89 の区画の表）の先
     extra_ram: int | None = None
-    #: 場所・話題の名前のテクスチャ（data.bin の中の位置。見つかっていないものは None）
+    #: 場所・話題の名前のテクスチャ（data.bin の中の位置。見つかっていないもの（2・3 の移動先の小さな絵）は None）
     place_tex: dict | None = None
     topic_tex: dict | None = None
     thumb_tex: dict | None = None
@@ -107,6 +107,10 @@ A2GJ = InvestAddrs(
     SymCfg(game=0x020abb30, calls=CALLS_A2GJ, inline=frozenset(), flag_test=0x02019eac, off_place=0x84, off_part=0x85,
            ext=True, rams=(('talk', 0x020aabb0, 0x280, 0x14), ('places', 0x020abc54, 0x100, 8), ('examine', 0x020aae30, 0x280, 0x14))),
     present_row=0xa, extra_ram=0x020aa2d0, court_point=0x0208ca98, n_court_point=8,
+    # 名前のテクスチャ（蘇る逆転と同じ 128×32 が 0x8b4 おき）: 場所は移動の画面の 0x020562d0（日本語）・0x020562cc（英語）、
+    # 話題は話すの画面の 0x02054ad4（日本語）・0x02054acc（英語）が直接持つ。場所 26 個・話題 141 個（日英が続けて並ぶ）
+    place_tex={'ja': 0x00955648, 'en': 0x00963890}, topic_tex={'ja': 0x00971ad8, 'en': 0x009be5fc},
+    n_place_tex=26, n_topic_tex=141,
     # 調べる（0x02035108）の [2] = 0xfd の条件
     examine_cond={
         0x0f: 'flag 0xa9 == 1 and flag 0xa5 == 1 and flag 0xb3 == 1 and flag 0x97 == 1 and flag 0xb5 == 0',
@@ -125,6 +129,10 @@ YG3J = InvestAddrs(
            off_ctx_item=0x88, ext=True,
            rams=(('talk', 0x020beb54, 0x280, 0x14), ('places', 0x020bf4b8, 0x100, 8), ('examine', 0x020bedd4, 0x280, 0x14))),
     present_row=0xe, extra_ram=0x020be5f4, court_point=0x020a4138, n_court_point=12,
+    # 名前のテクスチャ: 言語ごとの先頭の表（[日本語, 英語]）を 0x020b4510（場所。移動の画面 0x0205093c で
+    # 先頭 + 場所 × 0x8b4）・0x020b451c（話題。0x020530ac から読む）が持つ。場所 22 個・話題 128 個
+    place_tex={'ja': 0x00902c74, 'en': 0x0090ebec}, topic_tex={'ja': 0x0091ab64, 'en': 0x00960564},
+    n_place_tex=22, n_topic_tex=128,
     part_items=0x020a3cc0, item_switch=0x020265e8,
     # 調べる（0x02036124）の [2] = 0xfd の条件（0xbc だけ）
     examine_cond={0xbc: 'part == 7 and place == 8 and flag 0x72 == 0 and flag 0x6d == 0'},

@@ -48,9 +48,16 @@ export function toYaml(scenario: Record<string, unknown>): string {
 /** investigation.json の parts（無ければ空） */
 export function loadInvParts(base = GAMES.aa1.dir): Record<string, any>[] {
   const p = join(base, 'tables/investigation.json');
-  const parts = existsSync(p)
-    ? (JSON.parse(readFileSync(p, 'utf8')) as { parts: Record<string, any>[] }).parts
-    : [];
+  const doc = existsSync(p)
+    ? (JSON.parse(readFileSync(p, 'utf8')) as {
+        parts: Record<string, any>[];
+        names?: { topics?: { name_ocr?: string | null }[] };
+      })
+    : { parts: [] };
+  const parts = doc.parts;
+  // 話題の番号 → 名前（表に無い話題（3 の 108 で足す話題）の名前に使う）
+  const topicNames = (doc.names?.topics ?? []).map((e) => e.name_ocr ?? null);
+  for (const part of parts) part.topic_names = topicNames;
   // 着いたときの会話で音楽を止めない版（0x02028850、第 5 話）も、変換では会話 event と同じに扱う
   for (const part of parts) {
     for (const pl of part.places ?? []) {
