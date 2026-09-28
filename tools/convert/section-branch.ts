@@ -178,6 +178,10 @@ export function lockDemand(
 ): Step {
   const key = (item: number) =>
     ctx.shared.profileRecords.has(item) ? ctx.profile(item) : ctx.evidenceId(item);
+  // 正解の番号は、証拠品と人物ファイルで共通の法廷記録の番号（選んだ項目の番号と比べるだけ。YG3J 0x0208a198）。
+  // 章の中で法廷記録に入らない番号（台本が「どれも外れ」の印に使う 0 など）は、どう選んでも当たらないので書かない
+  const recs = ctx.shared.chapterRecords;
+  const reachable = (item: number) => recs.size === 0 || recs.has(item);
   const head = {
     demand: say ? say.text.replace(/(\[color white\])+$/, '') : '',
     ...(say?.speaker ? { by: say.speaker } : {}),
@@ -187,23 +191,26 @@ export function lockDemand(
   if (sets.length) {
     const flag = answerFlag(ctx);
     const pick = (f: (a: (typeof sets)[number]['ans']) => number): Step[] =>
-      sets.reduceRight<Step[]>(
-        (rest, x, i) =>
-          i === sets.length - 1
-            ? gotoSteps(f(x.ans))
-            : // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-              [{ if: `${flag} == ${x.section}`, then: gotoSteps(f(x.ans)), else: rest }],
-        [],
-      );
+      new Set(sets.map((x) => f(x.ans))).size === 1
+        ? gotoSteps(f(sets[0]!.ans))
+        : sets.reduceRight<Step[]>(
+            (rest, x, i) =>
+              i === sets.length - 1
+                ? gotoSteps(f(x.ans))
+                : // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+                  [{ if: `${flag} == ${x.section}`, then: gotoSteps(f(x.ans)), else: rest }],
+            [],
+          );
     const present: Record<string, Step[]> = {};
     for (const item of new Set(sets.flatMap((x) => x.ans.list.map((c) => c.item))))
-      present[key(item)] = pick((a) => a.list.find((c) => c.item === item)?.goto ?? a.wrong);
+      if (reachable(item))
+        present[key(item)] = pick((a) => a.list.find((c) => c.item === item)?.goto ?? a.wrong);
     return { ...head, present, wrong: pick((a) => a.wrong), giveUp: true };
   }
   const ans = lockAnswers(ctx, section, mem);
   if (!ans) ctx.stats.gap('サイコ・ロックのつきつけの正解（96）が見つからない', section);
   const present: Record<string, Step[]> = {};
-  for (const c of ans?.list ?? []) present[key(c.item)] = gotoSteps(c.goto);
+  for (const c of ans?.list ?? []) if (reachable(c.item)) present[key(c.item)] = gotoSteps(c.goto);
   return { ...head, present, wrong: ans ? gotoSteps(ans.wrong) : [], giveUp: true };
 }
 

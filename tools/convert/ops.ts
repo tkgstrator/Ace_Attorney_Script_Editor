@@ -331,10 +331,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
       }
       h.put({
         set: {
-          [ctx.flag(
-            `${ctx.gpfx}talk_${a[0]}`,
-            !!ctx.inv.talk.find((t: { id: number }) => t.id === a[0])?.active,
-          )]: a[1] === 1,
+          [ctx.talkFlag(a[0]!)]: a[1] === 1,
         },
       });
       return;

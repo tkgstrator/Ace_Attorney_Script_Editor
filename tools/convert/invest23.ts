@@ -159,7 +159,7 @@ export function otherCond(ctx: Context, other: string[]): string[] | null {
   for (const o of other) {
     const t = o.match(/talk\[(\d+)\]\[3\]\s+(eq|ne)\s+(\d+)\s*=\s*(True|False)/);
     if (t) {
-      const f = ctx.flag(`${ctx.gpfx}talk_${t[1]}`, false);
+      const f = ctx.talkFlag(Number(t[1]));
       // 「talk[k][3] eq v」が真（ne なら偽）なら値は v
       const on = (t[3] === '1') === ((t[4] === 'True') === (t[2] === 'eq'));
       out.push(on ? f : `not ${f}`);
@@ -255,7 +255,7 @@ export function frameReact(ctx: Context, flag: string): Step[] {
 /** 着いたとき・毎フレームの store（表への書き込み）→ ステップ */
 export function storeStep(ctx: Context, d: { store: string; value: number }): Step | null {
   const t = d.store.match(/^talk\[(\d+)\]\[3\]$/);
-  if (t) return { set: { [ctx.flag(`${ctx.gpfx}talk_${t[1]}`, false)]: d.value === 1 } };
+  if (t) return { set: { [ctx.talkFlag(Number(t[1]))]: d.value === 1 } };
   ctx.stats.gap(`着いたときの表への書き込み（${d.store}）を省いた`, -1);
   return null;
 }

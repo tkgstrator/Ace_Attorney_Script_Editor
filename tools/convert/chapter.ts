@@ -90,6 +90,8 @@ export function convertChapter(
   // 1 回目: 章で使う証拠品・人物ファイルを集める（編の境目で法廷記録を入れ替えるため）
   const probe = new Shared();
   for (const r of profileRecords) probe.profileRecords.add(r);
+  const chapterRecords = collectChapterRecords(t, entries);
+  for (const r of chapterRecords) probe.chapterRecords.add(r);
   const probed = run(probe, () => undefined);
   const allEvidence = [...probe.evidence].sort((a, b) => a - b).map((n) => `e${n}`);
   const allProfiles = [...probe.characters].filter(([, c]) => c.profile).map(([id]) => id);
@@ -142,6 +144,7 @@ export function convertChapter(
 
   const shared = new Shared();
   for (const r of profileRecords) shared.profileRecords.add(r);
+  for (const r of chapterRecords) shared.chapterRecords.add(r);
   shared.chapterProfiles = [...probe.characters.values()].flatMap((c) => {
     const icon = (c.profile as { icon?: string } | undefined)?.icon;
     return icon?.startsWith('r') ? [Number(icon.slice(1))] : [];
@@ -324,6 +327,23 @@ function collectProfileRecords(t: Tables, entries: Entry[]): Set<number> {
       }
     }
   }
+  return out;
+}
+
+/**
+ * 章の中で法廷記録に入りうる番号（編の最初の中身と、23 / 25 で加える番号）。サイコ・ロックの正解のうち、これに無い番号
+ * （逆転裁判3 の第 5 話 070 §121 の 0 など）は、どう選んでも当たらない（ARM9 は選んだ項目の番号と 1 バイトで比べるだけ）
+ */
+function collectChapterRecords(t: Tables, entries: Entry[]): Set<number> {
+  const parts = new Set(entries.map((e) => e.entry >> 1));
+  const out = new Set<number>(
+    t.evidenceStart.filter((s) => parts.has(s.part)).flatMap((s) => [...s.evidence, ...s.profiles]),
+  );
+  for (const e of entries)
+    for (const sec of e.body)
+      for (const o of sec.ops)
+        if (o.op === 23 || o.op === 25)
+          for (const a of o.op === 25 ? o.args : [o.args[0]!]) out.add(a & 0x3fff);
   return out;
 }
 
