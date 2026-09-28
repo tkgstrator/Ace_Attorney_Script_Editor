@@ -11,6 +11,7 @@ export {
   type RawScenario,
   scenarioSchema,
 } from './schema.ts';
+export { type SourceMap, targetForPath } from './source-map.ts';
 export {
   DEFAULT_LIMIT,
   type Finding,

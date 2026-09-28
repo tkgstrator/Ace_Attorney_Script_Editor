@@ -1,5 +1,6 @@
-// プレビューのゲームの下のボタン。再読み込み（続きから）・最初から・選んだシーンから・状態を保ってシーンへ移る。
+// プレビューのゲームの下のボタン。再読み込み（続きから）・最初から・「ここから再生」で選んだ所から・状態を保ってシーンへ移る。
 // どれも、何をどこから始め直すかをツールチップで示す
+import type { CompiledScenario, PlayTarget } from '@gyakusai/core';
 import { Loader2, Play, RefreshCw, RotateCcw, SkipForward } from 'lucide-react';
 import { type ReactElement, useId } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,14 +17,32 @@ export type Restart =
   /** シーンの頭から（状態は初期） */
   | { kind: 'scene'; scene: string }
   /** 状態を保ったまま、シーンの頭から */
-  | { kind: 'jump'; scene: string };
+  | { kind: 'jump'; scene: string }
+  /**
+   * 編集画面で選んだ位置から（ステップ・証言・場所の「ここから再生」）。fresh: 最初の状態で（既定は状態を保つ）。
+   * exact: 選んだステップそのものか（false なら、それを含む所）。base: 位置を決めたときの内容（編集の後は合わせ直す）
+   */
+  | {
+      kind: 'at';
+      target: PlayTarget;
+      fresh: boolean;
+      label: string;
+      exact: boolean;
+      base: CompiledScenario;
+    };
+
+/** 「ここから再生」で最後に選んだ所（もう一度そこから遊ぶボタンにする） */
+export interface From {
+  label: string;
+  how: Extract<Restart, { kind: 'scene' | 'at' }>;
+}
 
 interface Props {
   compiling: boolean;
   /** 最後の編集より前の内容で遊んでいるか */
   stale: boolean;
-  /** 「ここから再生」で最後に選んだシーン */
-  from: string | null;
+  /** 「ここから再生」で最後に選んだ所 */
+  from: From | null;
   /** 移れるシーン（コンパイル結果の順） */
   scenes: string[];
   auto: boolean;
@@ -79,16 +98,20 @@ export function PlayControls({
       </Tip>
       {from && (
         <Tip
-          text={`今の内容でコンパイルし直して、シーン「${from}」の頭から遊びます（フラグ・証拠品などは最初の状態）`}
+          text={
+            from.how.kind === 'scene'
+              ? `今の内容でコンパイルし直して、シーン「${from.label}」の頭から遊びます（フラグ・証拠品などは最初の状態）`
+              : `今の内容でコンパイルし直して、${from.label} からもう一度遊びます（${from.how.fresh ? 'フラグ・証拠品などは最初の状態' : 'フラグ・証拠品などは今の状態のまま'}）`
+          }
         >
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs"
+            className="h-7 max-w-48 text-xs"
             disabled={compiling}
-            onClick={() => onReload({ kind: 'scene', scene: from })}
+            onClick={() => onReload(from.how)}
           >
-            <Play /> {from} から
+            <Play /> <span className="truncate">{from.label} から</span>
           </Button>
         </Tip>
       )}

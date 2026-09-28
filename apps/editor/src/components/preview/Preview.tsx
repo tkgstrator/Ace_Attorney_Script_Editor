@@ -1,21 +1,27 @@
 // 右: プレビュー。編集中の YAML をコンパイルした結果の診断と、実際に遊べる画面と、整合性チェック。
 // 「ゲーム」「整合性チェック」「診断」はそれぞれ隠せる。どれも、どの版（編集の version）の内容かを持ち、
 // 今の編集より古ければそう書く。章を切り替えたら作り直す（App で key に章の名前を渡す）
-// 再読み込みでは、遊んでいた状態（セーブデータと同じもの）を新しい内容に持ち込み、同じ場面の続きから遊ぶ
-import { type CompiledScenario, Engine, type RestoreResult, restoreEngine } from '@gyakusai/core';
+// 再読み込みでは、遊んでいた状態（セーブデータと同じもの）を新しい内容に持ち込み、同じ場面の続きから遊ぶ。
+// 「ここから再生」（編集画面のステップ・証言・場所から）では、状態を保つか最初の状態にして、その位置から遊ぶ
+import { Engine, restoreEngine } from '@gyakusai/core';
 import { fitCanvas, loadFonts, Player } from '@gyakusai/runtime';
 import { memo, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { getAssets, getAudio, getDsFont } from '@/preview/assets.ts';
 import type { Compiled } from '@/preview/use-compile.ts';
 import { Diagnostics } from './Diagnostics.tsx';
-import { PlayControls, type Restart } from './PlayControls.tsx';
+import { type From, PlayControls, type Restart } from './PlayControls.tsx';
 import { usePanels } from './panels.ts';
+import { describe, type Good, type Notice, restartFor, retarget } from './play-at.ts';
+import type { PlayFrom } from './play-from.ts';
 import { VerifyPanel } from './VerifyPanel.tsx';
 import { VolumeControl } from './VolumeControl.tsx';
 
 export interface PlayRequest {
-  scene: string | null;
+  /** どこから遊ぶか（null なら最初から） */
+  from: PlayFrom | null;
+  /** 頼まれたときにコンパイルした結果（通らなければ、最後に正しくコンパイルできたもので遊ぶ） */
+  compiled: Compiled | null;
   serial: number;
 }
 
@@ -32,11 +38,6 @@ interface Props {
   large: boolean;
 }
 
-interface Good {
-  scenario: CompiledScenario;
-  version: number;
-}
-
 /** 入力のたびには描き直さない（コンパイルの結果か、版が変わったときだけ） */
 export const Preview = memo(function Preview({
   compiled,
@@ -51,34 +52,48 @@ export const Preview = memo(function Preview({
   const player = useRef<Player | null>(null);
   const [ready, setReady] = useState(false);
   const [auto, setAuto] = useState(false);
-  const [from, setFrom] = useState<string | null>(null);
+  const [from, setFrom] = useState<From | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 再読み込みで何が起きたか（続きから・シーンの始めから・最初から） */
-  const [notice, setNotice] = useState<{ text: string; warn: boolean; detail: string[] } | null>(
-    null,
-  );
+  const [notice, setNotice] = useState<Notice | null>(null);
   /** ゲームで動いている内容の版 */
   const [playing, setPlaying] = useState<number | null>(null);
-  const [panels, toggle] = usePanels();
+  const [panels, toggle, showPanel] = usePanels();
+  /** Player を作る前に頼まれた始め方（作ったら、それで始める） */
+  const pending = useRef<{ g: Good; how: Restart } | null>(null);
   const result = compiled?.result ?? null;
   const scenario = result?.scenario ?? null;
   // 最後に正しくコンパイルできたもの（エラーの間も遊べるように）
   const lastGood = useRef<Good | null>(null);
-  if (scenario && compiled) lastGood.current = { scenario, version: compiled.version };
+  if (scenario && compiled && lastGood.current?.scenario !== scenario)
+    lastGood.current = { scenario, version: compiled.version, sources: result?.sources ?? null };
   /** コンパイルし直した結果（通らなければ、最後に正しくコンパイルできたもの） */
   const goodOf = (c: Compiled | null): Good | null => {
     const sc = c?.result.scenario;
     if (!c || !sc) return lastGood.current;
-    lastGood.current = { scenario: sc, version: c.version };
+    if (lastGood.current?.scenario !== sc)
+      lastGood.current = { scenario: sc, version: c.version, sources: c.result.sources ?? null };
     return lastGood.current;
   };
 
   /** エンジンを作り直して、how のとおりに始める（続きから・最初から・シーンの頭から） */
   const restart = (g: Good | null, how: Restart) => {
     const p = player.current;
-    if (!p || !g) return;
+    if (!g) return;
+    if (!p) {
+      pending.current = { g, how };
+      return;
+    }
     try {
-      if (how.kind === 'continue' || how.kind === 'jump') {
+      if (how.kind === 'at') {
+        const prev = { scenario: p.engine.scenario, state: p.engine.state };
+        const at = retarget(how, g.scenario);
+        const r = restoreEngine(g.scenario, prev, { at, fresh: how.fresh });
+        p.setEngine(r.engine);
+        setNotice(describe(how, r.result, r.scene, r.notes));
+        // 次に「〜から」を押したときは、今の内容を基に合わせ直す
+        setFrom({ label: how.label, how: { ...how, target: at, base: g.scenario } });
+      } else if (how.kind === 'continue' || how.kind === 'jump') {
         const prev = { scenario: p.engine.scenario, state: p.engine.state };
         const r = restoreEngine(g.scenario, prev, how.kind === 'jump' ? { scene: how.scene } : {});
         p.setEngine(r.engine);
@@ -128,6 +143,9 @@ export const Preview = memo(function Preview({
       });
       setPlaying(g.version);
       setReady(true);
+      const wait = pending.current;
+      pending.current = null;
+      if (wait) restartRef.current(wait.g, wait.how);
     })();
     return () => {
       alive = false;
@@ -151,15 +169,28 @@ export const Preview = memo(function Preview({
     canvas.current?.focus({ preventScroll: true });
   };
 
-  // 「ここから再生」
+  // 「ここから再生」: ゲームの欄が隠れていれば出してから、頼まれた所から遊ぶ
+  // 作る前（別の章のとき）の頼みは見ない（章を切り替えると作り直すため）
+  const seenPlay = useRef(play.serial);
   // biome-ignore lint/correctness/useExhaustiveDependencies: 頼まれたときだけ
   useEffect(() => {
-    if (play.serial === 0) return;
-    setFrom(play.scene);
-    restartRef.current(
-      lastGood.current,
-      play.scene ? { kind: 'scene', scene: play.scene } : { kind: 'start' },
-    );
+    if (play.serial === seenPlay.current) return;
+    seenPlay.current = play.serial;
+    showPanel('game');
+    const g = goodOf(play.compiled);
+    const req = play.from;
+    if (!g) return;
+    if (req?.kind === 'path') {
+      const how = restartFor(g, req);
+      if (typeof how === 'string') {
+        setError(how);
+        return;
+      }
+      restartRef.current(g, how);
+    } else {
+      setFrom(req ? { label: req.scene, how: { kind: 'scene', scene: req.scene } } : null);
+      restartRef.current(g, req ? { kind: 'scene', scene: req.scene } : { kind: 'start' });
+    }
     canvas.current?.focus({ preventScroll: true });
   }, [play.serial]);
 
@@ -259,19 +290,3 @@ export const Preview = memo(function Preview({
     </div>
   );
 });
-
-/** 再読み込みの結果を、短い知らせにする（直したデータなどは detail に。ツールチップで見せる） */
-function describe(how: Restart, result: RestoreResult, scene: string, notes: string[]) {
-  if (result === 'same' || result === 'moved') {
-    const fixed = result === 'moved' ? '（編集に合わせて位置を直しました）' : '';
-    return { text: `シーン「${scene}」の続きから遊んでいます${fixed}`, warn: false, detail: notes };
-  }
-  if (result === 'sceneStart' && how.kind === 'jump')
-    return { text: `状態を保って、シーン「${scene}」の頭へ移りました`, warn: false, detail: notes };
-  // 続けられなかった理由は notes の最後にある
-  return {
-    text: notes.at(-1) ?? '最初から始めました',
-    warn: true,
-    detail: notes.slice(0, -1),
-  };
-}

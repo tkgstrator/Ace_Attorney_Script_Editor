@@ -19,11 +19,12 @@ function load(): Panels {
   }
 }
 
-export function usePanels(): [Panels, (k: keyof Panels) => void] {
+export function usePanels(): [Panels, (k: keyof Panels) => void, (k: keyof Panels) => void] {
   const [panels, setPanels] = useState(load);
-  const toggle = (k: keyof Panels) =>
+  const set = (k: keyof Panels, on: (was: boolean) => boolean) =>
     setPanels((p) => {
-      const next = { ...p, [k]: !p[k] };
+      if (p[k] === on(p[k])) return p;
+      const next = { ...p, [k]: on(p[k]) };
       try {
         localStorage.setItem(KEY, JSON.stringify(next));
       } catch {
@@ -31,5 +32,6 @@ export function usePanels(): [Panels, (k: keyof Panels) => void] {
       }
       return next;
     });
-  return [panels, toggle];
+  /** 出す・隠すを切り替える / 出す（隠れていれば） */
+  return [panels, (k) => set(k, (was) => !was), (k) => set(k, () => true)];
 }

@@ -1,14 +1,14 @@
 import {
+  type CompiledScenario,
+  type Expr,
   ExprSyntaxError,
-  RichTextError,
   exprRefs,
+  type Instr,
+  type PartDef,
   parseExpr,
   parseRich,
   plainText,
-  type CompiledScenario,
-  type Expr,
-  type Instr,
-  type PartDef,
+  RichTextError,
   type Scene,
   type Statement,
   type TextColor,
@@ -16,19 +16,20 @@ import {
 } from '@gyakusai/core';
 import type { z } from 'zod';
 import { Builder, patch } from './builder.ts';
-import { compileInspect } from './compile-inspect.ts';
-import { compilePlace, presentKindOf, seenIds, type PlaceContext } from './compile-place.ts';
-import { compileTestimony } from './compile-testimony.ts';
 import { compileEffect } from './compile-effect.ts';
+import { compileInspect } from './compile-inspect.ts';
+import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
+import { compileTestimony } from './compile-testimony.ts';
 import { describeIssue } from './issues.ts';
 import {
-  RESERVED_KEYS,
-  commandSchemas,
-  scenarioSchema,
   type CommandName,
+  commandSchemas,
   type RawPlace,
   type RawScenario,
+  RESERVED_KEYS,
+  scenarioSchema,
 } from './schema.ts';
+import { collectSources, type SourceMap } from './source-map.ts';
 
 export type Path = (string | number)[];
 
@@ -44,6 +45,8 @@ export interface Diagnostic {
 export interface CompileResult {
   scenario: CompiledScenario | null;
   diagnostics: Diagnostic[];
+  /** シーンごとの、各命令の元になったステップの位置（コンパイルできたときだけ。エディタの「ここから再生」用） */
+  sources?: SourceMap;
 }
 
 const DEFAULT_LIFE = 10;
@@ -203,7 +206,12 @@ export function compile(raw: unknown): CompileResult {
       error(path, 'ステップの配列を書いてください');
       return;
     }
-    steps.forEach((step, i) => compileStep(step, [...path, i], b));
+    const outer = b.at;
+    steps.forEach((step, i) => {
+      b.at = [...path, i];
+      compileStep(step, [...path, i], b);
+    });
+    b.at = outer;
   };
 
   const compileStep = (step: unknown, path: Path, b: Builder): void => {
@@ -347,8 +355,10 @@ export function compile(raw: unknown): CompileResult {
               [...path, 'profiles'],
               `人物ファイル（${ev}）が正解なので、profiles: false にはできません`,
             );
-          if (kind === 'profile') (ins.profiles ??= {})[ev] = b.pc;
-          else ins.options[ev] = b.pc;
+          if (kind === 'profile') {
+            ins.profiles ??= {};
+            ins.profiles[ev] = b.pc;
+          } else ins.options[ev] = b.pc;
           b.emit({ op: 'shout', kind: 'takethat', by: player });
           compileSteps(body, [...path, 'present', ev], b);
           exits.push(b.emit({ op: 'jump', to: -1 }));
@@ -448,7 +458,9 @@ export function compile(raw: unknown): CompileResult {
   }
   if (player !== null) checkCharacter(player, ['player']);
   checkScene(src.start.scene, ['start', 'scene']);
-  (src.start.evidence ?? []).forEach((id, i) => checkEvidence(id, ['start', 'evidence', i]));
+  (src.start.evidence ?? []).forEach((id, i) => {
+    checkEvidence(id, ['start', 'evidence', i]);
+  });
   for (const [id, v] of Object.entries(flags)) {
     if (id === 'life') error(['flags', id], '「life」は組み込みの値なのでフラグ名に使えません');
     void v;
@@ -532,5 +544,6 @@ export function compile(raw: unknown): CompileResult {
       parts,
     },
     diagnostics,
+    sources: collectSources(scenes, scenePath),
   };
 }

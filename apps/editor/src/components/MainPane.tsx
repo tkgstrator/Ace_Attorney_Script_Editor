@@ -12,10 +12,11 @@ import { Button } from '@/components/ui/button';
 import { listParts, pathKey, placePath, scenePath, selectionLabel } from '@/model/paths.ts';
 import { isTestimony } from '@/model/steps.ts';
 import { PART_LABELS } from '@/model/structure.ts';
-import { getIn } from '@/model/yaml-doc.ts';
+import { getIn, type Path } from '@/model/yaml-doc.ts';
 import { useActions, useData, useEditorState } from '@/state/editor-store.tsx';
 import { MetaEditor, PartEditor } from './MetaEditor.tsx';
 import { PlaceEditor } from './place/PlaceEditor.tsx';
+import type { PlayFrom } from './preview/play-from.ts';
 import { focusTarget, revealPath } from './reveal.ts';
 import { foldAll, resetFold } from './steps/Nested.tsx';
 import { StepList } from './steps/StepList.tsx';
@@ -24,7 +25,7 @@ import { TestimonyEditor } from './TestimonyEditor.tsx';
 import { CharactersTable, EvidenceTable, FlagsTable } from './tables/RecordTables.tsx';
 import { YamlEditor } from './YamlEditor.tsx';
 
-export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
+export function MainPane({ onPlay }: { onPlay: (req: PlayFrom) => void }) {
   const selection = useEditorState((s) => s.selection);
   const data = useData();
   const parseError = useEditorState((s) => s.parseError);
@@ -86,7 +87,9 @@ export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
         const place = getIn(data, path);
         body = (
           <div className="space-y-4">
-            <Header kicker={partLabel(data, selection.part)} title={`場所: ${selection.id}`} />
+            <Header kicker={partLabel(data, selection.part)} title={`場所: ${selection.id}`}>
+              <PlaceButtons path={path} id={selection.id} onPlay={onPlay} />
+            </Header>
             <ViewBar />
             <PlaceEditor
               key={pathKey(path)}
@@ -189,7 +192,7 @@ function SceneEditor({
 }: {
   part: number | null;
   id: string;
-  onPlay: (scene: string) => void;
+  onPlay: (req: PlayFrom) => void;
 }) {
   const data = useData();
   const path = scenePath(part, id);
@@ -210,7 +213,12 @@ function SceneEditor({
           )}
         </span>
         {!testimony && <FoldButtons scene={id} />}
-        <Button size="sm" variant="outline" className="h-8" onClick={() => onPlay(id)}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8"
+          onClick={() => onPlay({ kind: 'scene', scene: id })}
+        >
           <Play /> ここから再生
         </Button>
       </Header>
@@ -226,5 +234,40 @@ function SceneEditor({
         />
       )}
     </div>
+  );
+}
+
+/** 場所の「ここから再生」: 今の状態のまま、その場所へ行く（来たときのブロックがあれば、それから） */
+function PlaceButtons({
+  path,
+  id,
+  onPlay,
+}: {
+  path: Path;
+  id: string;
+  onPlay: (req: PlayFrom) => void;
+}) {
+  const label = `場所「${id}」`;
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8"
+        title="フラグ・証拠品などを今プレビューで遊んでいる状態のまま、この場所へ行きます（来たときのブロックがあれば、それから）"
+        onClick={() => onPlay({ kind: 'path', path, label, fresh: false })}
+      >
+        <Play /> ここから再生
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-8 text-xs"
+        title="フラグ・証拠品などを最初の状態にして、この場所へ行きます"
+        onClick={() => onPlay({ kind: 'path', path, label, fresh: true })}
+      >
+        最初の状態で
+      </Button>
+    </>
   );
 }

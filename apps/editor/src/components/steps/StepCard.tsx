@@ -19,6 +19,7 @@ import { LocationBody, ShowBody, ShowEvidenceBody } from './display-fields.tsx';
 import { BgmBody, FadeBody, FlashBody, SeBody, ShakeBody, WaitBody } from './effect-fields.tsx';
 import { ChoiceBody, DemandBody, IfBody } from './flow-fields.tsx';
 import { BgmPauseBody, PaletteBody, ProfileBody, ResumeBody, TextboxBody } from './misc-fields.tsx';
+import { PlayHere } from './PlayHere.tsx';
 import type { StepOps } from './StepList.tsx';
 import { NarrateBody, SayBody, TextCommandBody, UnknownBody } from './say-fields.tsx';
 import {
@@ -196,6 +197,13 @@ export const StepCard = memo(function StepCard({
             !active && !menuOpen && 'hidden',
           )}
         >
+          <PlayHere
+            path={path}
+            label={name}
+            what="このステップ"
+            onOpenChange={setMenuOpen}
+            {...act('play')}
+          />
           <IconButton
             title="上へ"
             disabled={index === 0}

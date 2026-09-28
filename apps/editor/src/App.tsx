@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DialogHost } from '@/components/dialogs.tsx';
 import { MainPane } from '@/components/MainPane.tsx';
 import { type PlayRequest, Preview } from '@/components/preview/Preview.tsx';
+import { type PlayFrom, PlayFromProvider } from '@/components/preview/play-from.ts';
 import { MIN_MAIN, Resizer, usePanelWidth, useWindowWidth } from '@/components/Resizer.tsx';
 import { type IssueCounts, Sidebar, selectionKey } from '@/components/sidebar/Sidebar.tsx';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ export function App() {
   const canRedo = useEditorState((s) => s.canRedo);
   const api = store.actions;
   const [showPreview, setShowPreview] = useState(true);
-  const [play, setPlay] = useState<PlayRequest>({ scene: null, serial: 0 });
+  const [play, setPlay] = useState<PlayRequest>({ from: null, compiled: null, serial: 0 });
   const { compiled, compiling, compileLatest } = useCompile(store, { file, version, size, dirty });
   useShortcuts(store);
 
@@ -69,10 +70,13 @@ export function App() {
     return m;
   }, [result]);
 
+  // 「ここから再生」: プレビューを出し、未確定の入力も含めた今の内容でコンパイルしてから遊ぶ
   const onPlay = useCallback(
-    (scene: string) => {
+    (from: PlayFrom) => {
       setShowPreview(true);
-      void compileLatest().then(() => setPlay((p) => ({ scene, serial: p.serial + 1 })));
+      void compileLatest().then((compiled) =>
+        setPlay((p) => ({ from, compiled, serial: p.serial + 1 })),
+      );
     },
     [compileLatest],
   );
@@ -153,7 +157,9 @@ export function App() {
           max={SIDEBAR.max}
           onChange={setSideW}
         />
-        <MainPane onPlay={onPlay} />
+        <PlayFromProvider value={onPlay}>
+          <MainPane onPlay={onPlay} />
+        </PlayFromProvider>
         {showPreview && (
           <Resizer
             side="right"
