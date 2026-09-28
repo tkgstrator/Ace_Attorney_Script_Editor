@@ -1,0 +1,68 @@
+{
+  "id": "ch",
+  "title": "第1話",
+  "player": "me",
+  "maxLife": 10,
+  "characters": { "me": { "name": "私" } },
+  "evidence": {},
+  "flags": { "locked": false },
+  "startScene": "intro",
+  "startEvidence": [],
+  "startProfiles": null,
+  "gameoverScene": "__gameover",
+  "autoPause": false,
+  "autoShow": true,
+  "scenes": {
+    "intro": {
+      "kind": "dialogue",
+      "id": "intro",
+      "program": [{ "op": "investigate", "place": "hall" }]
+    },
+    "done": {
+      "kind": "dialogue",
+      "id": "done",
+      "program": [
+        { "op": "say", "speaker": "me", "text": "終わり。", "color": "white" },
+        { "op": "end" }
+      ]
+    },
+    "hall": {
+      "kind": "place",
+      "id": "hall",
+      "name": "廊下",
+      "background": "wide",
+      "person": [],
+      "program": [
+        { "op": "say", "speaker": "me", "text": "扉だ。", "color": "white" },
+        { "op": "goto", "scene": "done" },
+        { "op": "menu" },
+        { "op": "say", "speaker": "me", "text": "花瓶だ。", "color": "white" },
+        { "op": "menu" },
+        { "op": "say", "speaker": null, "text": "特に気になるものはない。", "color": "white" },
+        { "op": "menu" },
+        { "op": "shout", "kind": "takethat", "by": "me" },
+        { "op": "say", "speaker": null, "text": "特に反応はなかった。", "color": "white" },
+        { "op": "menu" }
+      ],
+      "examine": [
+        { "id": "door", "area": [400, 40, 60, 100], "pc": 0 },
+        { "id": "vase", "area": [20, 60, 30, 40], "pc": 3 }
+      ],
+      "examineDefault": 5,
+      "talk": [],
+      "present": {},
+      "presentWrong": 7,
+      "move": [],
+      "examineScroll": { "t": "not", "e": { "t": "var", "name": "locked" } }
+    },
+    "__gameover": { "kind": "dialogue", "id": "__gameover", "program": [{ "op": "gameover" }] }
+  },
+  "parts": [
+    {
+      "id": "inv",
+      "kind": "investigation",
+      "title": "探偵パート",
+      "scenes": ["intro", "done", "hall"]
+    }
+  ]
+}

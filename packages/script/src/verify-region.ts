@@ -8,7 +8,7 @@
 //    例: 「初めて来たか」のフラグで、初回だけ台詞を出してフラグを立てるかたまりは、
 //        出口ではどちらでもフラグが立っているので、そのフラグを読まないのと同じ
 // どちらも近似ではなく、この先の動き（選べる操作・行き先）が同じになる場合だけを同じとみなす。
-import { evalExpr, type CompiledScenario, type Expr, type Instr, type Value } from '@gyakusai/core';
+import { type CompiledScenario, type Expr, evalExpr, type Instr, type Value } from '@gyakusai/core';
 
 const MAX_VARS = 12;
 const MAX_WORK = 2_000_000;
@@ -75,7 +75,9 @@ export function exprDeps(e: Expr | undefined, bool: Set<string>): string[] {
   return vars.filter((v) => {
     const others = names.filter((n) => n !== v);
     for (let m = 0; m < 1 << others.length; m++) {
-      others.forEach((n, i) => val.set(n, ((m >> i) & 1) === 1));
+      others.forEach((n, i) => {
+        val.set(n, ((m >> i) & 1) === 1);
+      });
       val.set(v, true);
       const a = evaluate(e, val);
       val.set(v, false);
@@ -111,6 +113,9 @@ const QUIET = new Set<Instr['op']>([
   'shake',
   'flash',
   'penalty',
+  'heal',
+  'lifeRisk',
+  'locks',
   'set',
   'jump',
   'jumpUnless',
@@ -171,7 +176,9 @@ export function summarize(program: Instr[], pc: number, bool: Set<string>): Summ
   const IN = '\u0000入りのまま';
   const run = (m: number): (Value | string)[] => {
     const val = new Map<string, Value>();
-    inputs.forEach((n, i) => val.set(n, ((m >> i) & 1) === 1));
+    inputs.forEach((n, i) => {
+      val.set(n, ((m >> i) & 1) === 1);
+    });
     for (const n of written) if (!val.has(n)) val.set(n, IN);
     let at = pc;
     while (at !== exit) {

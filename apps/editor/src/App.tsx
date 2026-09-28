@@ -1,31 +1,26 @@
 // 画面全体の配置: 左に一覧、真ん中に編集、右にプレビュー（たためる）。上にツールバー
 
-import type { CompileResult } from '@gyakusai/script';
 import { PanelRightClose, PanelRightOpen, Redo2, Save, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DialogHost } from '@/components/dialogs.tsx';
 import { MainPane } from '@/components/MainPane.tsx';
 import { type PlayRequest, Preview } from '@/components/preview/Preview.tsx';
+import { type PlayFrom, PlayFromProvider } from '@/components/preview/play-from.ts';
+import { MIN_MAIN, Resizer, usePanelWidth, useWindowWidth } from '@/components/Resizer.tsx';
 import { type IssueCounts, Sidebar, selectionKey } from '@/components/sidebar/Sidebar.tsx';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { casePath } from '@/model/case-roots.ts';
 import { selectionFromPath } from '@/model/paths.ts';
-import { Compiler } from '@/preview/compiler.ts';
+import { AUTO_COMPILE_LIMIT, useCompile } from '@/preview/use-compile.ts';
 import { useEditorState, useEditorStore } from '@/state/editor-store.tsx';
+import { useShortcuts } from '@/state/use-shortcuts.ts';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const MOD = isMac ? '⌘' : 'Ctrl+';
 
-/** これより小さい章は、編集のたびに（少し待って）自動でコンパイルし直す。大きな章は「再読み込み」を押したときだけ */
-export const AUTO_COMPILE_LIMIT = 400_000;
-const AUTO_COMPILE_DELAY = 300;
-
-interface Compiled {
-  version: number;
-  text: string;
-  result: CompileResult;
-}
+const SIDEBAR = { initial: 288, min: 200, max: 480 };
+const PREVIEW = { initial: 440, min: 300, max: 900 };
 
 export function App() {
   const store = useEditorStore();
@@ -38,71 +33,29 @@ export function App() {
   const canRedo = useEditorState((s) => s.canRedo);
   const api = store.actions;
   const [showPreview, setShowPreview] = useState(true);
-  const [play, setPlay] = useState<PlayRequest>({ scene: null, serial: 0 });
-  const [compiled, setCompiled] = useState<Compiled | null>(null);
-  const [compiling, setCompiling] = useState(0);
-  const compiler = useRef<Compiler | null>(null);
-  const latest = useRef(compiled);
-  latest.current = compiled;
-  /** コンパイル中のもの（同じ版を二重に頼まない） */
-  const inflight = useRef<{
-    file: string;
-    version: number;
-    promise: Promise<Compiled | null>;
-  } | null>(null);
-  useEffect(() => () => compiler.current?.dispose(), []);
+  const [play, setPlay] = useState<PlayRequest>({ from: null, compiled: null, serial: 0 });
+  const { compiled, compiling, compileLatest } = useCompile(store, { file, version, size, dirty });
+  useShortcuts(store);
 
-  /** 今の内容をコンパイルする（前にコンパイルした内容と同じなら、それを使う） */
-  const recompile = useCallback((): Promise<Compiled | null> => {
-    const { version: v, file: f } = store.state;
-    if (!f) return Promise.resolve(null);
-    if (latest.current?.version === v) return Promise.resolve(latest.current);
-    if (inflight.current?.file === f && inflight.current.version === v)
-      return inflight.current.promise;
-    const promise = (async () => {
-      setCompiling((n) => n + 1);
-      try {
-        const started = performance.now();
-        const text = store.actions.getText();
-        performance.measure('editor:stringify', { start: started });
-        compiler.current ??= new Compiler();
-        const result = await compiler.current.compile(text);
-        const c = { version: v, text, result };
-        // 待っている間に別の章を開いていたら捨てる。Worker は頼んだ順に返すので、同じ章なら最後に届いたものがいちばん新しい
-        if (store.state.file !== f) return null;
-        latest.current = c;
-        setCompiled(c);
-        return c;
-      } catch (e) {
-        api.notify(`コンパイルできませんでした: ${(e as Error).message}`, true);
-        return null;
-      } finally {
-        setCompiling((n) => n - 1);
-        if (inflight.current?.file === f && inflight.current.version === v) inflight.current = null;
-      }
-    })();
-    inflight.current = { file: f, version: v, promise };
-    return promise;
-  }, [store, api]);
-
-  // 小さな章は編集のたびに自動で。大きな章でも、テキストを作り直さずに済むとき（開いた直後・保存の後・元に戻して
-  // 前と同じ内容になったとき）は自動で。compiled も見るのは、コンパイル中に内容が変わった場合にやり直すため
-  useEffect(() => {
-    if (!file) return;
-    const small = size <= AUTO_COMPILE_LIMIT;
-    if (!small && !store.textReady()) return;
-    const t = setTimeout(() => void recompile(), small ? AUTO_COMPILE_DELAY : 0);
-    return () => clearTimeout(t);
-  }, [file, version, size, dirty, compiled, store, recompile]);
-
-  // 別の章を開いたら、前の章の結果は捨てる
-  useEffect(() => {
-    setCompiled(null);
-    latest.current = null;
-  }, [file]);
+  // パネルの幅。真ん中の編集の欄に MIN_MAIN は残す（狭いときは右、次に左を縮める）
+  const [sideW, setSideW] = usePanelWidth(
+    'gyakusai:editor:sidebar',
+    SIDEBAR.initial,
+    SIDEBAR.min,
+    SIDEBAR.max,
+  );
+  const [prevW, setPrevW] = usePanelWidth(
+    'gyakusai:editor:preview',
+    PREVIEW.initial,
+    PREVIEW.min,
+    PREVIEW.max,
+  );
+  const win = useWindowWidth();
+  const room = win - MIN_MAIN;
+  const shownPrev = showPreview ? Math.max(PREVIEW.min, Math.min(prevW, room - sideW)) : 0;
+  const shownSide = Math.max(SIDEBAR.min, Math.min(sideW, room - shownPrev));
 
   const result = compiled?.result ?? null;
-  const stale = compiled !== null && compiled.version !== version;
   const issues = useMemo<IssueCounts>(() => {
     const m: IssueCounts = new Map();
     for (const d of result?.diagnostics ?? []) {
@@ -117,40 +70,16 @@ export function App() {
     return m;
   }, [result]);
 
-  const reload = useCallback(async () => (await recompile())?.result ?? null, [recompile]);
+  // 「ここから再生」: プレビューを出し、未確定の入力も含めた今の内容でコンパイルしてから遊ぶ
   const onPlay = useCallback(
-    (scene: string) => {
+    (from: PlayFrom) => {
       setShowPreview(true);
-      void recompile().then(() => setPlay((p) => ({ scene, serial: p.serial + 1 })));
+      void compileLatest().then((compiled) =>
+        setPlay((p) => ({ from, compiled, serial: p.serial + 1 })),
+      );
     },
-    [recompile],
+    [compileLatest],
   );
-
-  // キー操作: 保存・元に戻す・やり直す。入力欄の外で押したキーはプレビューに渡さない
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      const k = e.key.toLowerCase();
-      if (mod && k === 's') {
-        e.preventDefault();
-        void api.save();
-        return;
-      }
-      if (mod && k === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        api.undo();
-        return;
-      }
-      if (mod && ((k === 'z' && e.shiftKey) || k === 'y')) {
-        e.preventDefault();
-        api.redo();
-        return;
-      }
-      if (e.target === document.body) e.stopPropagation();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [api]);
 
   // 保存していない変更があるときは、閉じる前に確認する
   useEffect(() => {
@@ -181,6 +110,7 @@ export function App() {
             disabled={!canUndo}
             onClick={api.undo}
             title={`元に戻す（${MOD}Z）`}
+            aria-label="元に戻す"
           >
             <Undo2 />
           </Button>
@@ -191,6 +121,7 @@ export function App() {
             disabled={!canRedo}
             onClick={api.redo}
             title={`やり直す（${MOD}Shift+Z）`}
+            aria-label="やり直す"
           >
             <Redo2 />
           </Button>
@@ -209,36 +140,67 @@ export function App() {
             className="h-8"
             onClick={() => setShowPreview(!showPreview)}
             title="プレビューの表示・非表示"
+            aria-label="プレビューの表示・非表示"
+            aria-pressed={showPreview}
           >
             {showPreview ? <PanelRightClose /> : <PanelRightOpen />}
           </Button>
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <Sidebar issues={issues} />
-        <MainPane onPlay={onPlay} />
-        <aside className={cn('w-[440px] shrink-0 border-l bg-muted/20', !showPreview && 'hidden')}>
+        <Sidebar issues={issues} width={shownSide} />
+        <Resizer
+          side="left"
+          label="左の一覧の幅"
+          width={shownSide}
+          min={SIDEBAR.min}
+          max={SIDEBAR.max}
+          onChange={setSideW}
+        />
+        <PlayFromProvider value={onPlay}>
+          <MainPane onPlay={onPlay} />
+        </PlayFromProvider>
+        {showPreview && (
+          <Resizer
+            side="right"
+            label="プレビューの幅"
+            width={shownPrev}
+            min={PREVIEW.min}
+            max={PREVIEW.max}
+            onChange={setPrevW}
+          />
+        )}
+        <aside
+          className={cn('shrink-0 border-l bg-muted/20', !showPreview && 'hidden')}
+          style={{ width: shownPrev }}
+          aria-label="プレビューと診断"
+        >
           <Preview
-            result={result}
-            source={result?.scenario ? compiled!.text : null}
+            key={file ?? ''}
+            compiled={compiled}
+            version={version}
             play={play}
-            stale={stale}
-            compiling={compiling > 0}
-            onReload={reload}
+            compiling={compiling}
+            onCompile={compileLatest}
             large={size > AUTO_COMPILE_LIMIT}
           />
         </aside>
       </div>
-      {message && (
-        <div
-          className={cn(
-            'fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm text-white shadow-lg',
-            message.error ? 'bg-destructive' : 'bg-zinc-800',
-          )}
-        >
-          {message.text}
-        </div>
-      )}
+      <div
+        role={message?.error ? 'alert' : 'status'}
+        aria-live={message?.error ? 'assertive' : 'polite'}
+      >
+        {message && (
+          <div
+            className={cn(
+              'fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm text-white shadow-lg',
+              message.error ? 'bg-destructive' : 'bg-zinc-800',
+            )}
+          >
+            {message.text}
+          </div>
+        )}
+      </div>
       <DialogHost />
     </div>
   );

@@ -1,19 +1,31 @@
 // 区画（または区画の一部）を、シナリオのステップ列にする。流れを変える命令（ページ・飛ぶ・選択肢・つきつけ・終わり）もここ。
+// 選択肢・つきつけの要求などのステップの形は section-branch.ts。
 import type { Context } from './context.ts';
+import { EXAMINE_WAIT, examineWaitAt } from './examine3d.ts';
+import { nested } from './flow.ts';
+import { nextDayPlace as nextDay0 } from './investigation.ts';
 import { ifFlagArg, inlineOf, native } from './mapping.ts';
-import { newMemory, simpleOp, type Hands, type Memory } from './ops.ts';
+import { type Hands, type Memory, newMemory, simpleOp } from './ops.ts';
+import {
+  choiceStep,
+  demandSteps,
+  labelGoto,
+  lockDemand,
+  minigameStep,
+  pointSteps,
+  turnSteps,
+} from './section-branch.ts';
 import type { How } from './stats.ts';
 import type { CmdOp, Op, Step } from './types.ts';
-import { Writer, type TextState } from './writer.ts';
-import { nextDayPlace as nextDay0 } from './investigation.ts';
-import { nominationResults, orphanSections } from './flow.ts';
-import { EXAMINE_WAIT, examineWaitAt, luminolTutorial } from './examine3d.ts';
+import { type TextState, Writer } from './writer.ts';
 
 export interface SectionOptions {
   /** 日時・場所の表示（揃え 1・名前なし）を捨てる（証言・尋問のタイトル） */
   dropCards?: boolean;
   /** 区画への移動をどう書くか（証言の中のブロックでは「証言に戻る」を空にする） */
   gotoSteps?: (target: number) => Step[];
+  /** 証言の中のブロックで、区画（証言の文）へ戻るステップ（resume）。つきつけの要求の外れから尋問へ戻るときに使う */
+  resumeTo?: (target: number) => Step[];
   /** 状態を引き継ぐ（同じ区画を分けたとき）・後で見る（最後の人物の動き） */
   memory?: Memory;
   /** 構造（証言など）で表したので、捨てて数えるだけの命令 */
@@ -29,21 +41,6 @@ export interface SectionOptions {
    * ブロックの中で次の区画を決めた（44 / 32 / 42）なら、ブロックの最後でそこへ移る
    */
   nextAtEnd?: number;
-}
-
-/**
- * i の 53 から先の位置（ops[j]）への飛び越しを、ブロックにしてよいか:
- * 間にある 53 のバイト位置の飛び先が、すべて at 以下で前向き
- */
-export function nested(ops: Op[], i: number, j: number, at: number): boolean {
-  for (let k = i + 1; k < j; k++) {
-    const o = ops[k]!;
-    if (o.op !== 53) continue;
-    const t = o.target;
-    if (!t || t.section !== null) continue;
-    if (t.offset > at || t.offset <= o.at) return false;
-  }
-  return true;
 }
 
 /** ページを閉じる命令 */
@@ -65,7 +62,10 @@ export function convertOps(
   let next: number = opts.nextAtEnd ?? section + 1;
   let nextCond: { flag: string; a: number; b: number } | null = null;
   let dayEnd = false;
-  let minigame: number | null = null;
+  /** 一日の終わり（52）の後に移る場所（2・3 は 52 の引数。無ければ推測する） */
+  let dayPlace: number | null = null;
+  /** 下画面の遊び（116 の種類と引数） */
+  let minigame: [number, number] | null = null;
   let i = 0;
 
   const textFollows = (from: number) => {
@@ -110,7 +110,7 @@ export function convertOps(
     },
   };
   const flow = (o: CmdOp, how: How = 'structure') => st.hit(o.name, how);
-  const nextDay = (sec: number) => nextDay0(ctx, sec);
+  const nextDay = (sec: number) => dayPlace ?? nextDay0(ctx, sec);
   const out = () => w.out;
 
   for (; i < ops.length; i++) {
@@ -156,6 +156,11 @@ export function convertOps(
         nextCond = null;
         w.close('auto');
         flow(o);
+        // 逆転裁判3 の 44 は次の区画を決めてすぐ飛ぶ（YG3J 0x0202b1a8 の最後で 0x02024d48）。蘇る逆転・2 は決めるだけ
+        if (ctx.t.game === 'aa3') {
+          out().push(...gotoSteps(next));
+          return finish(ctx, section, ops, i, out());
+        }
         break;
       case 32:
         next = tgt();
@@ -181,6 +186,7 @@ export function convertOps(
         if (nextCond)
           out().push({
             if: nextCond.flag,
+            // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
             then: gotoSteps(nextCond.a),
             else: gotoSteps(nextCond.b),
           });
@@ -201,6 +207,7 @@ export function convertOps(
         const flag = ctx.fname(0, f.index);
         const cond = f.want ? flag : `not ${flag}`;
         if (f.label) {
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           hands.put({ if: cond, then: labelGoto(ctx, o, gotoSteps) }, 'structure');
           break;
         }
@@ -219,15 +226,18 @@ export function convertOps(
             state: { ...w.st },
             ...(endsAfter ? { nextAtEnd: next } : { nextAtEnd: undefined }),
           });
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           if (inner.length) out().push({ if: f.want ? `not ${flag}` : flag, then: inner });
           i = j - 1;
           break;
         }
         ctx.pieces.add(`${section}:${at}`);
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         hands.put({ if: cond, then: [{ goto: ctx.sid(section, at) }] }, 'structure');
         break;
       }
       case 122:
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         hands.put({ if: 'life <= 0', then: labelGoto(ctx, o, gotoSteps) }, 'structure');
         break;
       case 8:
@@ -248,7 +258,8 @@ export function convertOps(
         // 写真の一点を指す（62 の問題）→ 選択肢で近づける
         w.close('keep');
         flow(o);
-        out().push(pointChoice(ctx, section, mem.point, gotoSteps));
+        // 2・3 の探偵パートで減る量を予告した（84 2）後なら、サイコ・ロックの挑戦中（「やめる」を出す）
+        out().push(...pointSteps(ctx, section, ops, mem.point, gotoSteps));
         return finish(ctx, section, ops, i, out());
       }
       case 17:
@@ -263,35 +274,38 @@ export function convertOps(
             say?.speaker ?? null,
             gotoSteps,
             o.op === 33,
+            opts.resumeTo,
           ),
         );
         return finish(ctx, section, ops, i, out());
       }
-      case 116: // 下画面の画面。9 = 指紋などの遊び、10 = 人物の指名（第 5 話）。結果の区画は ARM9 の未解明の表
-        if (a[0] === 9 || a[0] === 10) minigame = a[0]!;
+      case 116: // 下画面の画面。9 = 指紋の遊び（引数は版）、10 = 人物の指名（第 5 話）。minigames.ts
+        if (a[0] === 9 || a[0] === 10) minigame = [a[0]!, a[1] ?? 0];
         hands.put(native(o.name, a));
         break;
       case 52: // 下画面の画面（セーブ）を待つ。探偵パートでは一日の終わり
-        // 第 5 話ではセーブの画面を出すだけで、その後の台本（21 なら探偵メニュー）へそのまま続く
-        if (ctx.inv && ctx.part < 17) {
+        // 第 5 話ではセーブの画面を出すだけで、その後の台本（21 なら探偵メニュー）へそのまま続く。
+        // 逆転裁判2・3 は引数の場所へ移る（tools/rom/game.py）
+        if (ctx.inv && (ctx.t.game === 'aa1' ? ctx.part < 17 : a.length > 0)) {
           dayEnd = true;
-          hands.put(native(o.name, a));
-          break;
+          if (ctx.t.game !== 'aa1') dayPlace = a[0]!;
         }
         hands.put(native(o.name, a));
         break;
       case 21:
       case 69:
-      case 121:
+      case 121: {
+        if (mem.lockPresent && o.op === 21) {
+          flow(o);
+          out().push(lockDemand(ctx, section, w.close('auto', false), mem, gotoSteps));
+          return finish(ctx, section, ops, i, out());
+        }
         w.close('auto');
-        if (o.op === 21) {
-          const turn = ctx.turnGoto.get(section);
-          const lum = turn === undefined ? luminolTutorial(ctx, section, gotoSteps) : null;
-          if (turn !== undefined || lum) {
-            flow(o);
-            out().push(...(lum ?? gotoSteps(turn!)));
-            return finish(ctx, section, ops, i, out());
-          }
+        const turn = o.op === 21 ? turnSteps(ctx, section, gotoSteps) : null;
+        if (turn) {
+          flow(o);
+          out().push(...turn);
+          return finish(ctx, section, ops, i, out());
         }
         if (o.op === 21 && examineWaitAt(ctx, section)) {
           flow(o);
@@ -302,12 +316,10 @@ export function convertOps(
           out().push(EXAMINE_WAIT);
           return finish(ctx, section, ops, i, out());
         }
-        // 116 8 n の直後の 21 も、下画面の遊び（字を書くなど）の結果待ち
-        {
-          const prev = ops[i - 1];
-          if (prev && prev.op === 116 && prev.args[0] === 8) minigame = 8;
-        }
-        if (minigame !== null && minigameChoice(ctx, section, minigame, gotoSteps, out())) {
+        // 116 8 n の直後の 21 も、下画面の遊び（映像・字を書くなど）の結果待ち
+        if (ops[i - 1]?.op === 116 && (ops[i - 1] as CmdOp).args[0] === 8)
+          minigame = [8, (ops[i - 1] as CmdOp).args[1] ?? 0];
+        if (minigame && minigameStep(ctx, section, minigame, gotoSteps, out())) {
           flow(o);
           return finish(ctx, section, ops, i, out());
         }
@@ -316,7 +328,8 @@ export function convertOps(
           out().push(...opts.menuReturn);
         } else if (ctx.inv && dayEnd && nextDay(section) !== null) {
           flow(o);
-          st.gap('一日の終わりの後に行く場所を推測した（52 wait_ui15 の後）', section);
+          if (dayPlace === null)
+            st.gap('一日の終わりの後に行く場所を推測した（52 wait_ui15 の後）', section);
           out().push(
             { set: { [ctx.returnFlag()]: false } },
             { investigate: ctx.placeId(nextDay(section)!) },
@@ -329,21 +342,24 @@ export function convertOps(
           out().push(native(o.name, []));
         }
         return finish(ctx, section, ops, i, out());
+      }
+      case 73: // ゲームの終わり（game+8 = 1。最終話の最後。蘇る逆転は第 5 話の結末 068 §6・§7 の後、タイトルへ）
       case 22:
         w.close('auto');
         flow(o);
-        out().push(...ctx.nextPart);
+        out().push(...(o.op === 73 ? [{ end: true }] : ctx.nextPart));
         return finish(ctx, section, ops, i, out());
       case 106: {
         // 次の語（次の命令の番号）の値のパートの台本を読み、その §0 へ（第 5 話の法廷の日の途中の区切り）
-        const nx = ops[i + 1];
-        if (!nx || nx.op === 'text') {
+        // 2・3 では次の語を引数として読んでいる（tools/rom/game.py）
+        const nx = a.length ? a[0]! : ops[i + 1]?.op;
+        if (nx === undefined || nx === 'text') {
           hands.put(native(o.name, a));
           break;
         }
         w.close('auto');
         flow(o);
-        out().push(...ctx.toPart(nx.op));
+        out().push(...ctx.toPart(nx));
         return finish(ctx, section, ops, i, out());
       }
       case 36:
@@ -365,6 +381,7 @@ export function convertOps(
   // 53 のブロックの中で次の区画を決めたなら、ブロックの最後でそこへ（ブロックのすぐ後が区画の終わり）
   if (opts.nextAtEnd !== undefined && (next !== opts.nextAtEnd || nextCond)) {
     if (nextCond)
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       out().push({ if: nextCond.flag, then: gotoSteps(nextCond.a), else: gotoSteps(nextCond.b) });
     else out().push(...gotoSteps(next));
   }
@@ -375,146 +392,4 @@ export function convertOps(
 function finish(ctx: Context, _section: number, ops: Op[], i: number, out: Step[]): Step[] {
   for (const o of ops.slice(i + 1)) ctx.stats.hit(o.op === 'text' ? 'text' : o.name, 'ignored');
   return out;
-}
-
-/** ラベルへの移動。区画の途中のラベルは「区画_位置」のシーン */
-function labelGoto(ctx: Context, o: CmdOp, gotoSteps: (t: number) => Step[]): Step[] {
-  const t = o.target;
-  if (!t || t.section === null) return [native(o.name, o.args)];
-  if (t.offset <= 2) return gotoSteps(t.section);
-  ctx.referenced.add(t.section);
-  ctx.pieces.add(`${t.section}:${t.offset}`);
-  return [{ goto: ctx.sid(t.section, t.offset) }];
-}
-
-/**
- * DS 版の下画面の遊び（116 8 / 9 / 10）の結果を、続く「どこからも行き先にならない区画」から選ぶ選択肢にする（近似）。
- * 選択肢の文はその区画の最初の文。作れたら true
- */
-function minigameChoice(
-  ctx: Context,
-  section: number,
-  kind: number,
-  gotoSteps: (t: number) => Step[],
-  out: Step[],
-): boolean {
-  const orphans = orphanSections(ctx.entry, ctx.tableRefs());
-  const picks: number[] = [];
-  // 人物の指名: 次の区画が外れ（ペナルティ）、外れから落ちていく区画の次が正解（flow.ts の nominationResults）。
-  // 探偵パート（056 §40）も同じ。続く区画から選ぶと、話題の区画（§44）まで結果にしてしまい、話題の切り替えが狂って詰む
-  if (kind === 10) picks.push(...nominationResults(ctx.entry, section));
-  else {
-    // 続く区画のうち、どこからも来ない区画（遊びの結果）。表の行き先や、次の遊びの区画まで（間の区画は飛ばす）
-    const refs = ctx.tableRefs(true);
-    // 次の遊びの始まり: 21 / 121 で待つ直前の 116 が 8 / 9 / 10（結果の区画の中の 116 8 n → 116 5 → 21 は含めない）
-    const game = (s: number) => {
-      const ops = ctx.entry.body[s]!.ops.filter((o): o is CmdOp => o.op !== 'text');
-      const w = ops.findIndex((o) => o.op === 21 || o.op === 121);
-      const last = ops.slice(0, w < 0 ? ops.length : w).findLast((o) => o.op === 116);
-      return !!last && [8, 9, 10].includes(last.args[0]!);
-    };
-    for (let s = section + 1; ctx.entry.body[s] && picks.length < 8 && s <= section + 12; s++) {
-      if (game(s)) break;
-      // 表の行き先（つきつけの要求・尋問など）に着いたら、それも結果の 1 つにして終わる（映像の遊びの正解が尋問へ続くときなど）
-      if (refs.has(s)) {
-        picks.push(s);
-        break;
-      }
-      if (orphans.has(s)) picks.push(s);
-    }
-  }
-  if (!picks.length) return false;
-  ctx.stats.gap(
-    kind === 10
-      ? '人物の指名（116 10、第 5 話）を選択肢にした'
-      : kind === 9
-        ? '指紋などの遊び（116 9、第 5 話）の結果を選択肢にした'
-        : '下画面の遊び（116 8、映像・字を書くなど）の結果を選択肢にした',
-    section,
-  );
-  const label = (s: number) => {
-    const t = ctx.entry.body[s]!.ops.find((o) => o.op === 'text');
-    return `（${t && t.op === 'text' ? t.text.slice(0, 14) : `結果 ${s}`}）`;
-  };
-  out.push({ choice: picks.map((s) => ({ text: label(s), then: gotoSteps(s) })) });
-  return true;
-}
-
-/** 四角形の位置の言い方（画面の左上など） */
-export function whereOf(quad: number[][]): string {
-  const cx = quad.reduce((a, p) => a + p[0]!, 0) / quad.length,
-    cy = quad.reduce((a, p) => a + p[1]!, 0) / quad.length;
-  const h = cx < 86 ? '左' : cx < 171 ? '中央' : '右';
-  const v = cy < 64 ? '上' : cy < 128 ? '' : '下';
-  return h === '中央' && !v ? 'まん中' : `${h}${v}`;
-}
-
-/** 63 写真の一点を指す: 正解の 2 つの四角形と外れを、選択肢にする */
-function pointChoice(
-  ctx: Context,
-  section: number,
-  k: number | null,
-  gotoSteps: (t: number) => Step[],
-): Step {
-  const p = ctx.t.courtPoints?.find((x) => x.id === k);
-  ctx.stats.gap('写真の一点を指す（62/63）を選択肢にした', section);
-  if (!p) return { native: 'examine_wait', args: [k ?? -1] };
-  const opts: { text: string; then: Step[] }[] = [];
-  if (p.section_a.section !== p.miss.section)
-    opts.push({ text: `${whereOf(p.quad_a)}を指す`, then: gotoSteps(p.section_a.section) });
-  if (p.section_b.section !== p.miss.section && p.section_b.section !== p.section_a.section) {
-    opts.push({ text: `${whereOf(p.quad_b)}を指す`, then: gotoSteps(p.section_b.section) });
-  }
-  opts.push({ text: 'ほかの所を指す', then: gotoSteps(p.miss.section) });
-  return { choice: opts };
-}
-
-/** 8 / 9 選択肢。文は下画面のボタンの絵を文字認識したもの（script_json.py --ocr） */
-function choiceStep(
-  ctx: Context,
-  section: number,
-  o: CmdOp,
-  gotoSteps: (t: number) => Step[],
-): Step {
-  const texts = ctx.entry.choices?.[String(section)]?.text ?? [];
-  if (texts.length === 0) ctx.stats.gap('選択肢の文が無い（script_json.py --ocr で読む）', section);
-  const targets = (o.targets ?? []).map((t, k) => t?.section ?? o.args[k]! - 128);
-  return {
-    choice: targets.map((t, k) => ({ text: texts[k] ?? `選択肢 ${k + 1}`, then: gotoSteps(t) })),
-  };
-}
-
-/**
- * 17 / 33 つきつけの要求。正解の表と外れの区画は court.json の present_requests。
- * 外れの区画は、最後に同じ要求へ戻るなら demand の wrong（もう一度求める）、別の所へ行くならその goto を付ける
- */
-function demandSteps(
-  ctx: Context,
-  section: number,
-  prompt: string,
-  by: string | null,
-  gotoSteps: (t: number) => Step[],
-  life: boolean,
-): Step[] {
-  const req = ctx.court?.present_requests.find((r) => r.section === section);
-  if (!req) {
-    ctx.stats.gap('つきつけの要求の表が無い', section);
-    return [native(life ? 'present_life' : 'present', [])];
-  }
-  if (!life) ctx.stats.gap('体力ゲージを出さないつきつけ（17 present）', section);
-  const present: Record<string, Step[]> = {};
-  for (const c of req.correct) {
-    if (c.flag !== null) ctx.stats.gap('フラグつきの正解（つきつけの表）', section);
-    // 人物ファイルが正解なら人物 ID をキーにする（YAML では、それで人物ファイルもつきつけられる要求になる）
-    present[ctx.shared.profileRecords.has(c.item) ? ctx.profile(c.item) : ctx.evidenceId(c.item)] =
-      gotoSteps(c.goto);
-  }
-  const wrongSec = ctx.entry.body[req.wrong];
-  const wrong = wrongSec
-    ? convertOps(ctx, req.wrong, wrongSec.ops, {
-        gotoSteps: (t) => (t === section ? [] : gotoSteps(t)),
-      })
-    : [];
-  ctx.consumed.add(req.wrong);
-  return [{ demand: prompt, ...(by ? { by } : {}), present, wrong }];
 }

@@ -1,36 +1,46 @@
 // 音と画面の演出（bgm・se・shake・flash・fade・wait）のステップの入力欄。時間の単位はフレーム（1/60 秒）
+import { DEFAULT_FLASH_FRAMES, DEFAULT_SHAKE_FRAMES } from '@gyakusai/core';
+import { useId } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { pathKey } from '@/model/paths.ts';
+import type { Path } from '@/model/yaml-doc.ts';
 import { useSetter } from '../fields.tsx';
 import type { BodyProps } from './say-fields.tsx';
 
-/** フレーム数（1/60 秒）の欄。空にするとキーを消す（既定値に戻す） */
-function FramesInput({
+/** フレーム数（1/60 秒）の欄。空にするとキーを消す（既定値に戻す）。placeholder に既定値を出す */
+export function FramesInput({
   value,
   onChange,
   placeholder,
   label,
+  path,
 }: {
   value: unknown;
   onChange: (v: number | undefined) => void;
   placeholder: string;
   label: string;
+  path?: Path;
 }) {
+  const id = useId();
   return (
-    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-      {label}
+    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+      <label htmlFor={id}>{label}</label>
       <Input
+        id={id}
         type="number"
         min={0}
         step={1}
         className="h-8 w-20"
         placeholder={placeholder}
-        aria-label={label}
+        title={`空欄なら既定の ${placeholder} フレーム`}
+        data-path={path ? pathKey(path) : undefined}
         value={typeof value === 'number' ? value : ''}
         onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
       />
       フレーム
-    </label>
+    </span>
   );
 }
 
@@ -87,6 +97,7 @@ export function BgmBody({ path, step }: BodyProps) {
       <FramesInput
         label="フェード"
         placeholder="0"
+        path={[...path, 'frames']}
         value={step.frames}
         onChange={(v) => setOptional([...path, 'frames'], v)}
       />
@@ -112,7 +123,8 @@ export function ShakeBody({ path, step }: BodyProps) {
     <div className="flex flex-wrap items-center gap-2">
       <FramesInput
         label="長さ"
-        placeholder="30"
+        placeholder={String(DEFAULT_SHAKE_FRAMES)}
+        path={[...path, 'shake']}
         value={step.shake}
         onChange={(v) => set([...path, 'shake'], v ?? true)}
       />
@@ -153,7 +165,8 @@ export function FlashBody({ path, step }: BodyProps) {
       </NativeSelect>
       <FramesInput
         label="長さ"
-        placeholder="8"
+        placeholder={String(DEFAULT_FLASH_FRAMES)}
+        path={[...path, 'frames']}
         value={step.frames}
         onChange={(v) => setOptional([...path, 'frames'], v)}
       />
@@ -163,6 +176,7 @@ export function FlashBody({ path, step }: BodyProps) {
 
 export function FadeBody({ path, step }: BodyProps) {
   const { set, setOptional } = useSetter();
+  const nowaitId = useId();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <NativeSelect
@@ -190,9 +204,20 @@ export function FadeBody({ path, step }: BodyProps) {
       <FramesInput
         label="長さ"
         placeholder="30"
+        path={[...path, 'frames']}
         value={step.frames}
         onChange={(v) => setOptional([...path, 'frames'], v)}
       />
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Checkbox
+          id={nowaitId}
+          checked={step.nowait === true}
+          onCheckedChange={(c) => setOptional([...path, 'nowait'], c === true ? true : undefined)}
+        />
+        <label htmlFor={nowaitId} title="終わるのを待たずに次へ進みます（元のゲームのフェード）">
+          待たずに進む
+        </label>
+      </span>
     </div>
   );
 }
@@ -203,6 +228,7 @@ export function WaitBody({ path, step }: BodyProps) {
     <FramesInput
       label="待つ"
       placeholder="30"
+      path={[...path, 'wait']}
       value={step.wait}
       onChange={(v) => set([...path, 'wait'], v ?? 30)}
     />

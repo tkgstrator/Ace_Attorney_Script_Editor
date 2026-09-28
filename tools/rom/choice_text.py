@@ -4,7 +4,10 @@
 # ///
 """選択肢（台本 8 / 9）の文を、下画面のボタンの絵から読み、ほかの絵の字形で描き直して確かめる。
 
-    uv run tools/rom/choice_text.py [--reocr]
+    uv run tools/rom/choice_text.py [--reocr] [--game aa2|aa3]
+
+--game aa2 / aa3: 逆転裁判2・3（assets/extracted/aa2・aa3 の中で同じことをする。絵は script_choices.py の GAMES の日本語の
+パック、直し表は tools/rom/choice_text_fixes.A2GJ.json / choice_text_fixes.YG3J.json）。
 
 1. 読む: 絵（data/tail/packs/25cf5e4/NNNN.png、日本語）を macOS の文字認識で読む（tools/rom/ocr_boxes.swift。1 字ごとの
    横の範囲も出す）。結果は font/choice/ocr.json に取っておき、--reocr で読み直す。
@@ -36,6 +39,43 @@ X = os.path.join(ROOT, 'assets', 'extracted')
 PACK = os.path.join(X, 'data', 'tail', 'packs', '25cf5e4')
 WORK = os.path.join(X, 'font', 'choice')
 FIXES = os.path.join(HERE, 'choice_text_fixes.json')
+#: --game で選ぶ 2・3 の置き場所（取り出し先の中のフォルダー、日本語の選択肢のパック、直し表）
+GAMES = {'aa2': ('aa2', '08c4464', 'choice_text_fixes.A2GJ.json'),
+         'aa3': ('aa3', '0896978', 'choice_text_fixes.YG3J.json')}
+
+
+BASE_X, BASE_PACK = X, PACK
+
+
+def add_base_samples(lib: dict) -> None:
+    """2・3: 蘇る逆転の確かめた選択肢の絵からも字形の見本を足す（ボタンの字は同じ字形で描かれている）。
+    見本の絵の番号は「aa1:NNNN」（2・3 の絵の番号と重ならないように）"""
+    global X, PACK
+    cache, table = os.path.join(BASE_X, 'font', 'choice', 'ocr.json'), os.path.join(BASE_X, 'tables', 'choice_text.json')
+    if not (os.path.exists(cache) and os.path.exists(table)):
+        return
+    ocr = json.load(open(cache, encoding='utf-8'))
+    texts = json.load(open(table, encoding='utf-8'))['items']
+    saved = X, PACK
+    X, PACK = BASE_X, BASE_PACK
+    try:
+        ids = [i for i in texts if i in ocr and os.path.exists(os.path.join(PACK, i + '.png'))]
+        base = harvest({f'aa1:{i}': ocr[i] for i in ids}, {f'aa1:{i}': darkness(i) for i in ids},
+                       {f'aa1:{i}': texts[i] for i in ids})
+    finally:
+        X, PACK = saved
+    for ch, v in base.items():
+        lib[ch].extend(v)
+
+
+def configure(key: str) -> None:
+    """2・3 のときに置き場所を切り替える"""
+    global X, PACK, WORK, FIXES
+    sub, pack, fixes = GAMES[key]
+    X = os.path.join(ROOT, 'assets', 'extracted', sub)
+    PACK = os.path.join(X, 'data', 'tail', 'packs', pack)
+    WORK = os.path.join(X, 'font', 'choice')
+    FIXES = os.path.join(HERE, fixes)
 #: 字の帯（ボタンの枠の内側）
 Y0, Y1, X0, X1 = 5, 27, 19, 237
 #: 字の点とみなす濃さ、一致とみなす食い違い、文字認識で拡大する倍率
@@ -87,8 +127,9 @@ def run_ocr(ids: list[str], cache: str, redo: bool) -> dict[str, dict]:
     return data
 
 
-def read_fixes(path: str = FIXES) -> tuple[dict[str, list], dict[str, int]]:
+def read_fixes(path: str | None = None) -> tuple[dict[str, list], dict[str, int]]:
     """(直し表, 目で確かめた絵の番号 → そのときの文字数（文が変われば確かめ直す）)"""
+    path = path or FIXES
     if not os.path.exists(path):
         return {}, {}
     d = json.load(open(path, encoding='utf-8'))
@@ -194,6 +235,9 @@ def update_script_json(table: dict[str, str]) -> int:
 def main() -> None:
     sys.path.insert(0, HERE)
     from script_choices import FIXES as COMMON  # 文字認識のよくある読み違い（文字列の置き換え）
+
+    if '--game' in sys.argv:
+        configure(sys.argv[sys.argv.index('--game') + 1])
     ids = used_pngs()
     ocr = run_ocr(ids, os.path.join(WORK, 'ocr.json'), '--reocr' in sys.argv)
     fixes, confirmed = read_fixes()
@@ -205,6 +249,8 @@ def main() -> None:
         texts[i] = apply_fixes(t.strip(), fixes.get(i, []))
     dark = {i: darkness(i) for i in ids}
     lib = harvest(ocr, dark, texts)
+    if X != BASE_X:
+        add_base_samples(lib)
     rows, n_ok, n_conf = [], 0, 0
     for i in ids:
         res, missing = rerender(i, texts[i], dark[i], lib)
@@ -220,7 +266,7 @@ def main() -> None:
     os.makedirs(WORK, exist_ok=True)
     with open(os.path.join(WORK, 'check.txt'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(head + rows) + '\n')
-    about = '選択肢の文（下画面のボタンの絵 data/tail/packs/25cf5e4/NNNN.png を読んだもの。tools/rom/choice_text.py）'
+    about = f'選択肢の文（下画面のボタンの絵 data/tail/packs/{os.path.basename(PACK)}/NNNN.png を読んだもの。tools/rom/choice_text.py）'
     with open(os.path.join(X, 'tables', 'choice_text.json'), 'w', encoding='utf-8') as f:
         f.write(json.dumps({'_about': about, 'items': texts}, ensure_ascii=False, indent=1) + '\n')
     n = update_script_json(texts)

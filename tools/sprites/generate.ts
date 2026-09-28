@@ -5,7 +5,7 @@
 // 画像生成は Codex の利用枠を消費する（通常のやり取りより 3〜5 倍速く減る）。
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { ITEMS, KIND_RULES, STYLE, rawPath, type Item, type Kind } from './manifest.ts';
+import { ITEMS, type Item, KIND_RULES, type Kind, rawPath, STYLE } from './manifest.ts';
 
 const ROOT = resolve(import.meta.dir, '../..');
 const args = process.argv.slice(2);

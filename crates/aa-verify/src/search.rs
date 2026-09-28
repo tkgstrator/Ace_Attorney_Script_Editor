@@ -61,7 +61,7 @@ pub fn rank(b: BeatKind) -> u8 {
         BeatKind::Demand => 0,
         BeatKind::Statement { .. } => 1,
         BeatKind::Investigate => 2,
-        BeatKind::Choice => 3,
+        BeatKind::Choice | BeatKind::Pick => 3,
         _ => 4,
     }
 }

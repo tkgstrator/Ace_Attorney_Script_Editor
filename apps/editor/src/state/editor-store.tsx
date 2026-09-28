@@ -3,18 +3,20 @@
 // （ステップのカードの中など）は、useActions() / useIds() / useEditorState() で必要な所だけを見る。
 import {
   createContext,
+  type ReactNode,
+  type RefObject,
   useContext,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from 'react';
 import type { Data } from '@/model/doc-session.ts';
 import {
-  EditorStore,
   type EditorActions,
   type EditorApi,
   type EditorState,
+  EditorStore,
   type FlagValue,
   type Ids,
 } from './store.ts';
@@ -47,6 +49,31 @@ export const useActions = (): EditorActions => useEditorStore().actions;
 export const useIds = (): Ids => useEditorState((s) => s.ids);
 export const useData = (): Data | null => useEditorState((s) => s.data);
 export const useFlagValues = (): Record<string, FlagValue> => useEditorState((s) => s.flagValues);
+
+/**
+ * まだ章に反映していない入力（下書き）を持つ欄から使う。active の間、保存・元に戻すの前に flush が呼ばれる。
+ * flush は、反映できれば反映して null、できなければ理由を返す。欄がなくなるときにも（反映できれば）反映する
+ */
+export function useDraft(
+  active: boolean,
+  flush: () => string | null,
+  element: RefObject<HTMLElement | null>,
+): void {
+  const store = useEditorStore();
+  const latest = useRef(flush);
+  latest.current = flush;
+  useEffect(() => {
+    if (!active) return;
+    const off = store.registerDraft({
+      flush: () => latest.current(),
+      element: () => element.current,
+    });
+    return () => {
+      off();
+      latest.current();
+    };
+  }, [store, active, element]);
+}
 
 export function EditorProvider({ children }: { children: ReactNode }) {
   const [store] = useState(() => new EditorStore());

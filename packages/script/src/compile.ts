@@ -1,34 +1,25 @@
 import {
-  ExprSyntaxError,
-  RichTextError,
-  exprRefs,
-  parseExpr,
-  parseRich,
-  plainText,
   type CompiledScenario,
   type Expr,
-  type Instr,
+  ExprSyntaxError,
+  exprRefs,
   type PartDef,
+  parseExpr,
+  parseRich,
+  RichTextError,
   type Scene,
-  type Statement,
-  type TextColor,
   type Value,
 } from '@gyakusai/core';
 import type { z } from 'zod';
-import { Builder, patch } from './builder.ts';
+import { Builder } from './builder.ts';
 import { compileInspect } from './compile-inspect.ts';
-import { compilePlace, presentKindOf, seenIds, type PlaceContext } from './compile-place.ts';
+import { collectLocks, emitEnd, lockEndScenes, lockFlags, lockOutScenes } from './compile-lock.ts';
+import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
+import { makeStepCompiler } from './compile-step.ts';
 import { compileTestimony } from './compile-testimony.ts';
-import { compileEffect } from './compile-effect.ts';
 import { describeIssue } from './issues.ts';
-import {
-  RESERVED_KEYS,
-  commandSchemas,
-  scenarioSchema,
-  type CommandName,
-  type RawPlace,
-  type RawScenario,
-} from './schema.ts';
+import { type RawPlace, type RawScenario, RESERVED_KEYS, scenarioSchema } from './schema.ts';
+import { collectSources, type SourceMap } from './source-map.ts';
 
 export type Path = (string | number)[];
 
@@ -44,6 +35,8 @@ export interface Diagnostic {
 export interface CompileResult {
   scenario: CompiledScenario | null;
   diagnostics: Diagnostic[];
+  /** シーンごとの、各命令の元になったステップの位置（コンパイルできたときだけ。エディタの「ここから再生」用） */
+  sources?: SourceMap;
 }
 
 const DEFAULT_LIFE = 10;
@@ -75,10 +68,14 @@ export function compile(raw: unknown): CompileResult {
   const src: RawScenario = parsed.data;
   const characters = src.characters;
   const evidence = src.evidence;
-  const flags: Record<string, Value> = src.flags ?? {};
+  // サイコ・ロックの状態はフラグに持つ（compile-lock.ts）。名前は __lock で始まり、YAML の flags には書かない
+  const locks = collectLocks(src);
+  const flags: Record<string, Value> = { ...(src.flags ?? {}), ...lockFlags(locks) };
+  const lockKeys = src.psycheLock?.keys ?? [];
+  const lockHeal = src.psycheLock?.heal ?? 0;
   // 編（parts）ごとのシーン・場所を、章全体の一覧にまとめる。編に分けていなければ全体を 1 つの裁判編とする
   type SceneBody = NonNullable<RawScenario['scenes']>[string];
-  const sceneEntries: { id: string; body: SceneBody; path: Path }[] = [];
+  const sceneEntries: { id: string; body: SceneBody; path: Path; trial: boolean }[] = [];
   const placeEntries: { id: string; body: RawPlace; path: Path }[] = [];
   const parts: PartDef[] = [];
   const allIds = new Map<string, Path>();
@@ -94,7 +91,7 @@ export function compile(raw: unknown): CompileResult {
   if (src.scenes) {
     for (const [id, body] of Object.entries(src.scenes)) {
       claim(id, ['scenes', id]);
-      sceneEntries.push({ id, body, path: ['scenes', id] });
+      sceneEntries.push({ id, body, path: ['scenes', id], trial: true });
     }
     parts.push({ id: 'main', kind: 'trial', title: src.title, scenes: Object.keys(src.scenes) });
   }
@@ -103,7 +100,7 @@ export function compile(raw: unknown): CompileResult {
     for (const [id, body] of partScenes) {
       const path: Path = ['parts', pi, 'scenes', id];
       claim(id, path);
-      sceneEntries.push({ id, body, path });
+      sceneEntries.push({ id, body, path, trial: part.kind === 'trial' });
     }
     const partPlaces = Object.entries(part.places ?? {});
     if (partPlaces.length > 0 && part.kind !== 'investigation')
@@ -197,249 +194,29 @@ export function compile(raw: unknown): CompileResult {
     return e;
   };
 
-  // ---- ステップ列 → 命令列 ----
-  const compileSteps = (steps: unknown, path: Path, b: Builder): void => {
-    if (!Array.isArray(steps)) {
-      error(path, 'ステップの配列を書いてください');
-      return;
-    }
-    steps.forEach((step, i) => compileStep(step, [...path, i], b));
-  };
-
-  const compileStep = (step: unknown, path: Path, b: Builder): void => {
-    if (typeof step !== 'object' || step === null || Array.isArray(step)) {
-      error(path, '各ステップは「キー: 値」の形で書いてください');
-      return;
-    }
-    const keys = Object.keys(step);
-    const cmds = keys.filter((k): k is CommandName => k in commandSchemas);
-    if (cmds.length === 0) {
-      const only = keys[0];
-      if (keys.length === 1 && only !== undefined && only in characters) {
-        const text = (step as Record<string, unknown>)[only];
-        if (typeof text !== 'string') {
-          error([...path, only], '台詞は文字列で書いてください');
-          return;
-        }
-        emitSay(only, text, undefined, b, [...path, only]);
-        return;
-      }
-      error(
-        path,
-        keys.length === 1
-          ? `「${keys[0]}」はコマンドでも人物 ID でもありません`
-          : `どのコマンドか判別できません（キー: ${keys.join(', ')}）`,
-      );
-      return;
-    }
-    if (cmds.length > 1) {
-      error(path, `1つのステップに複数のコマンドがあります: ${cmds.join(', ')}`);
-      return;
-    }
-    const cmd = cmds[0]!;
-    const res = commandSchemas[cmd].safeParse(step);
-    if (!res.success) {
-      zodIssues(path, res.error);
-      return;
-    }
-    const s = res.data as Record<string, unknown>;
-
-    switch (cmd) {
-      case 'say': {
-        const who = s.say as string | null;
-        if (who !== null) checkCharacter(who, [...path, 'say']);
-        emitSay(
-          who,
-          s.text as string,
-          s.color as TextColor | undefined,
-          b,
-          [...path, 'text'],
-          s.auto === true,
-        );
-        break;
-      }
-      case 'narrate':
-        emitSay(null, s.narrate as string, undefined, b, [...path, 'narrate']);
-        break;
-      case 'set':
-        for (const [flag, value] of Object.entries(s.set as Record<string, Value>)) {
-          const p = [...path, 'set', flag];
-          if (!(flag in flags))
-            error(p, `未定義のフラグです: ${flag}（flags に初期値を書いてください）`);
-          else if (typeof flags[flag] !== typeof value)
-            error(
-              p,
-              `フラグ ${flag} は ${typeof flags[flag]} 型です（${typeof value} は入れられません）`,
-            );
-          b.emit({ op: 'set', flag, value });
-        }
-        break;
-      case 'add':
-        for (const [flag, amount] of Object.entries(s.add as Record<string, number>)) {
-          const p = [...path, 'add', flag];
-          if (!(flag in flags)) error(p, `未定義のフラグです: ${flag}`);
-          else if (typeof flags[flag] !== 'number')
-            error(p, `フラグ ${flag} は数値ではないので add できません`);
-          b.emit({ op: 'add', flag, amount });
-        }
-        break;
-      case 'giveProfile':
-      case 'takeProfile':
-        for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
-          checkCharacter(id, [...path, cmd]);
-          b.emit({ op: cmd, character: id });
-        }
-        break;
-      case 'give':
-      case 'take':
-        for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
-          checkEvidence(id, [...path, cmd]);
-          b.emit({ op: cmd, evidence: id });
-        }
-        break;
-      case 'if': {
-        const e = cond(s.if as string, [...path, 'if']);
-        const jumpUnless = b.emit({ op: 'jumpUnless', cond: e ?? { t: 'lit', v: false }, to: -1 });
-        compileSteps(s.then, [...path, 'then'], b);
-        if (s.else !== undefined) {
-          const jumpEnd = b.emit({ op: 'jump', to: -1 });
-          patch(b, jumpUnless, b.pc);
-          compileSteps(s.else, [...path, 'else'], b);
-          patch(b, jumpEnd, b.pc);
-        } else {
-          patch(b, jumpUnless, b.pc);
-        }
-        break;
-      }
-      case 'choice': {
-        const opts = s.choice as { text: string; when?: string; then?: unknown[] }[];
-        const ins: Extract<Instr, { op: 'choice' }> = { op: 'choice', options: [] };
-        b.emit(ins);
-        const exits: number[] = [];
-        opts.forEach((o, i) => {
-          const p = [...path, 'choice', i];
-          checkText(o.text);
-          const when = o.when !== undefined ? cond(o.when, [...p, 'when']) : undefined;
-          ins.options.push({ text: o.text, ...(when ? { when } : {}), to: b.pc });
-          if (o.then) compileSteps(o.then, [...p, 'then'], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      case 'demand': {
-        checkText(s.demand as string, [...path, 'demand']);
-        if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
-        const ins: Extract<Instr, { op: 'demand' }> = {
-          op: 'demand',
-          prompt: s.demand as string,
-          options: {},
-          wrong: -1,
-          ...(s.by ? { speaker: s.by as string } : {}),
-          ...(s.profiles === true ? { profiles: {} } : {}),
-        };
-        const at = b.emit(ins);
-        const exits: number[] = [];
-        for (const [ev, body] of Object.entries(s.present as Record<string, unknown[]>)) {
-          const kind = presentKind(ev, [...path, 'present', ev]);
-          if (kind === 'profile' && s.profiles === false)
-            error(
-              [...path, 'profiles'],
-              `人物ファイル（${ev}）が正解なので、profiles: false にはできません`,
-            );
-          if (kind === 'profile') (ins.profiles ??= {})[ev] = b.pc;
-          else ins.options[ev] = b.pc;
-          b.emit({ op: 'shout', kind: 'takethat', by: player });
-          compileSteps(body, [...path, 'present', ev], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        }
-        ins.wrong = b.pc;
-        b.emit({ op: 'shout', kind: 'takethat', by: player });
-        compileWrong(s.wrong, [...path, 'wrong'], b);
-        b.emit({ op: 'jump', to: at });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      case 'goto':
-        checkScene(s.goto as string, [...path, 'goto']);
-        b.emit({ op: 'goto', scene: s.goto as string });
-        break;
-      case 'penalty':
-        b.emit({
-          op: 'penalty',
-          amount: s.penalty === true ? penaltyDefault : (s.penalty as number),
-        });
-        break;
-      case 'shout': {
-        const by = (s.by as string | undefined) ?? player;
-        if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
-        b.emit({ op: 'shout', kind: s.shout as Extract<Instr, { op: 'shout' }>['kind'], by });
-        break;
-      }
-      case 'banner':
-        checkText(s.banner as string);
-        b.emit({ op: 'banner', text: s.banner as string });
-        break;
-      case 'card':
-        checkText(s.card as string);
-        b.emit({ op: 'card', text: s.card as string });
-        break;
-      case 'location':
-        b.emit({ op: 'location', location: s.location as string | null });
-        break;
-      case 'investigate':
-        checkPlace(s.investigate as string, [...path, 'investigate']);
-        b.emit({ op: 'investigate', place: s.investigate as string });
-        break;
-      case 'end':
-        b.emit({ op: 'end' });
-        break;
-      case 'gameover':
-        b.emit({ op: 'gameover' });
-        break;
-      case 'random': {
-        const at = b.emit({ op: 'random', to: [] });
-        const exits: number[] = [];
-        (s.random as unknown[]).forEach((branch, i) => {
-          (b.code[at] as Extract<Instr, { op: 'random' }>).to.push(b.pc);
-          compileSteps(branch, [...path, 'random', i], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      default:
-        compileEffect(cmd, s, b, { checkCharacter, checkEvidence, path });
-    }
-  };
-
-  const emitSay = (
-    speaker: string | null,
-    text: string,
-    color: TextColor | undefined,
-    b: Builder,
-    path: Path,
-    auto = false,
-  ) => {
-    checkText(text, path);
-    checkInlineRefs(text, path);
-    // （ ）で囲んだ台詞は心の声として青字にする
-    const thought = /^[（(]/.test(plainText(text));
-    b.emit({
-      op: 'say',
-      speaker,
-      text,
-      color: color ?? (thought ? 'blue' : 'white'),
-      ...(auto ? { auto: true } : {}),
-    });
-  };
-
-  const compileWrong = (steps: unknown, path: Path, b: Builder) => {
-    if (steps !== undefined) compileSteps(steps, path, b);
-    else if (src.defaults?.wrongPresent)
-      compileSteps(src.defaults.wrongPresent, ['defaults', 'wrongPresent'], b);
-    else b.emit({ op: 'penalty', amount: penaltyDefault });
-  };
+  // ---- ステップ列 → 命令列（compile-step.ts） ----
+  // 今コンパイルしているシーンが裁判編か（場所・証拠品を詳しく調べる所は裁判編ではない）
+  let inTrial = false;
+  const { compileSteps, compileWrong } = makeStepCompiler({
+    inTrial: () => inTrial,
+    characters,
+    flags,
+    player,
+    penaltyDefault,
+    wrongPresent: src.defaults?.wrongPresent,
+    error,
+    zodIssues,
+    checkCharacter,
+    checkEvidence,
+    checkScene,
+    checkPlace,
+    checkText,
+    checkInlineRefs,
+    cond,
+    presentKind,
+    locks,
+    lockHeal,
+  });
 
   // ---- 全体の検証 ----
   for (const id of Object.keys(characters)) {
@@ -447,8 +224,18 @@ export function compile(raw: unknown): CompileResult {
       error(['characters', id], `「${id}」は予約語なので人物 ID に使えません`);
   }
   if (player !== null) checkCharacter(player, ['player']);
+  lockKeys.forEach((id, i) => {
+    checkEvidence(id, ['psycheLock', 'keys', i]);
+  });
+  if (locks.size > 0 && lockKeys.length === 0)
+    error(
+      ['psycheLock'],
+      'サイコ・ロックがあるので、psycheLock.keys（挑むのに使う証拠品）を書いてください',
+    );
   checkScene(src.start.scene, ['start', 'scene']);
-  (src.start.evidence ?? []).forEach((id, i) => checkEvidence(id, ['start', 'evidence', i]));
+  (src.start.evidence ?? []).forEach((id, i) => {
+    checkEvidence(id, ['start', 'evidence', i]);
+  });
   for (const [id, v] of Object.entries(flags)) {
     if (id === 'life') error(['flags', id], '「life」は組み込みの値なのでフラグ名に使えません');
     void v;
@@ -470,8 +257,11 @@ export function compile(raw: unknown): CompileResult {
     checkPlace,
     presentKind,
     error,
+    locks,
+    lockKeys,
   };
-  sceneEntries.forEach(({ id, body, path }, index) => {
+  sceneEntries.forEach(({ id, body, path, trial }, index) => {
+    inTrial = trial;
     const b = new Builder();
     if (Array.isArray(body)) {
       compileSteps(body, path, b);
@@ -482,13 +272,14 @@ export function compile(raw: unknown): CompileResult {
         if (next !== undefined) {
           b.emit({ op: 'goto', scene: next });
           referencedScenes.add(next);
-        } else b.emit({ op: 'end' });
+        } else emitEnd(b, locks);
       }
       scenes[id] = { kind: 'dialogue', id, program: b.code };
       return;
     }
     scenes[id] = compileTestimony(placeCtx, id, body, path, warn, checkText, compileWrong);
   });
+  inTrial = false;
   for (const { id, body, path } of placeEntries)
     scenes[id] = compilePlace(placeCtx, id, body, path);
   const evidenceDefs = compileInspect(placeCtx, evidence, scenes);
@@ -499,6 +290,7 @@ export function compile(raw: unknown): CompileResult {
       program: [{ op: 'gameover' }],
     };
   }
+  Object.assign(scenes, lockEndScenes(locks));
 
   // ---- 到達性・未使用の警告 ----
   for (const id of [...sceneIds, ...placeIds]) {
@@ -509,7 +301,8 @@ export function compile(raw: unknown): CompileResult {
       );
   }
   for (const id of Object.keys(flags)) {
-    if (!readFlags.has(id)) warn(['flags', id], `フラグ「${id}」は一度も参照されていません`);
+    if (!readFlags.has(id) && !id.startsWith('__lock'))
+      warn(['flags', id], `フラグ「${id}」は一度も参照されていません`);
   }
 
   if (diagnostics.some((d) => d.severity === 'error')) return { scenario: null, diagnostics };
@@ -526,11 +319,13 @@ export function compile(raw: unknown): CompileResult {
       startEvidence: src.start.evidence ?? [],
       startProfiles: src.start.profiles ?? null,
       gameoverScene,
+      ...(locks.size > 0 ? { lifeOutScenes: lockOutScenes(locks) } : {}),
       autoPause: src.defaults?.autoPause ?? false,
       autoShow: src.defaults?.autoShow ?? true,
       scenes,
       parts,
     },
     diagnostics,
+    sources: collectSources(scenes, scenePath),
   };
 }

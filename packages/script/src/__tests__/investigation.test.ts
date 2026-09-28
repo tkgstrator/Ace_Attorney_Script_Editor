@@ -1,5 +1,5 @@
 // 探索編（場所・探偵メニュー）と、章を編に分けた書き方のテスト
-import { Engine, type Beat } from '@gyakusai/core';
+import { type Beat, Engine } from '@gyakusai/core';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
 
@@ -152,6 +152,36 @@ describe('探索編', () => {
     expect(e.beat.kind).toBe('investigate');
   });
 
+  it('つきつけの「くらえ！」は裁判編だけで出る（探索編の場所・つきつけの要求では出ない）', () => {
+    const yaml = CHAPTER.replace(
+      'start: { scene: intro }',
+      'start: { scene: intro, evidence: [knife] }',
+    )
+      .replace(
+        '        - me: 事務所に来た。\n',
+        '        - me: 事務所に来た。\n        - demand: 見せて\n          present: { knife: [{ me: 探索編の正解 }] }\n',
+      )
+      .replace(
+        '        - me: 開廷だ。\n',
+        '        - me: 開廷だ。\n        - demand: 証拠を\n          present: { knife: [{ me: 裁判編の正解 }] }\n',
+      );
+    const e = new Engine(load(yaml));
+    e.advance();
+    expect(e.beat.kind).toBe('demand');
+    e.present('knife');
+    expect(e.beat).toMatchObject({ kind: 'line', text: '探索編の正解' });
+    skip(e);
+    e.present('knife');
+    expect(e.beat).toMatchObject({ kind: 'line', text: 'ナイフね。' });
+
+    const t = new Engine(load(yaml));
+    t.jumpTo('trial_start');
+    t.advance();
+    expect(t.beat.kind).toBe('demand');
+    t.present('knife');
+    expect(t.beat).toMatchObject({ kind: 'shout', shout: 'takethat' });
+  });
+
   it('移動して、条件付きの行き先から次の編へ進む', () => {
     const e = new Engine(load(CHAPTER));
     skip(e);
@@ -216,11 +246,11 @@ describe('探索編の検証', () => {
     expect(msgs.some((m) => m.includes('「street」は場所です'))).toBe(true);
   });
 
-  it('シーンと場所の ID の重複、画面からはみ出す範囲をエラーにする', () => {
+  it('シーンと場所の ID の重複、背景の左・上の端からはみ出す範囲をエラーにする', () => {
     const bad = CHAPTER.replace(
       'trial_start:\n        - me: 開廷だ。',
       'office:\n        - me: 開廷だ。',
-    ).replace('area: [0, 100, 50, 40]', 'area: [240, 100, 50, 40]');
+    ).replace('area: [0, 100, 50, 40]', 'area: [-10, 100, 50, 40]');
     const msgs = errors(bad);
     expect(msgs.some((m) => m.includes('ID「office」が重複'))).toBe(true);
     expect(msgs.some((m) => m.includes('はみ出して'))).toBe(true);

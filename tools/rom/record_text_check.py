@@ -5,6 +5,7 @@
 """法廷記録の名前・説明文（tables/record_text.json）を小さいフォントで描き直し、元の絵と点ごとに比べる。
 
     uv run tools/rom/record_text_check.py [record_text.json]
+    uv run tools/rom/record_text_check.py --game aa2|aa3 [record_text.json]   # 逆転裁判2・3（蘇る逆転のフォントで描き直す）
 
 項目ごとに、読んだ文字列の字をフォントの PNG（ds-small-*.png）の字形で描き直して、元の絵（record/desc/ja・record/name/ja）の
 字の点と比べる。説明文は影も描いて比べる。字の置き方:
@@ -45,16 +46,34 @@ VARIANT_MAX_MIN = 3
 
 
 class Checker:
-    def __init__(self):
+    def __init__(self, game=None):
+        #: 絵の置き場所（2・3 はそのゲームの取り出し先。フォントは蘇る逆転のもの）
+        self.x = str(game.out) if game else X
         self.fonts = load_fonts()
         self.m = metrics()['desc']
-        self.lines = record_lines()
+        #: 2・3: 蘇る逆転のフォントに無い字（描き直せない）と、蘇る逆転と字形が違う字の数
+        self.no_font = 0
+        self.game_shapes = 0
         #: 直し表で直した場所（画像:行:並びの番号）→ 文字
         self.fixed_at: dict[str, str] = {}
-        its = {it['id']: it for it in items()}
-        for (rec, fld), fx in read_fixes().items():
+        #: 直し表で字の数を変えた行（画像:行）と、そのために比べなかった行の数
+        self.reshaped: set[str] = set()
+        self.skipped = 0
+        its = {it['id']: it for it in items(self.x)}
+        if game:
+            from record_text23 import game_lines, read_game_fixes
+            self.lines = game_lines(self.x)
+            glyphs, fixes = read_game_fixes(game.code)
+            self.fixed_at.update(glyphs)
+        else:
+            self.lines, fixes = record_lines(), read_fixes()
+        for (rec, fld), fx in fixes.items():
             for li, j, ch in fx:
                 self.fixed_at[f'{its[rec][fld]}:{li}:{j}'] = ch
+                if len(ch) != 1:
+                    # 字を消した・2 字にした行（切り分けの誤りを直し表で直したもの）は、字と絵の字形を 1 対 1 に並べられない
+                    self.reshaped.add(f'{its[rec][fld]}:{li}')
+        self.game = game
         self._near: dict[tuple[str, bytes], list[tuple[int, str]]] = {}
 
     def nearest(self, kind: str, g) -> list[tuple[int, str]]:
@@ -73,6 +92,12 @@ class Checker:
         font = self.fonts[kind]
         if self.fixed_at.get(where) == ch or (g.key in font.confirmed and font.shapes.get(g.key) == ch):
             return 'confirmed', ''
+        if self.game and any(f.shapes.get(g.key) == ch for f in self.fonts.values()):
+            # 2・3 の名前は証拠品と人物ファイルで同じ字形。もう一方の種類の、蘇る逆転で同じ文字の字形と点まで同じ
+            return 'variant', ''
+        if self.game and not any(g.key in f.shapes for f in self.fonts.values()):
+            # 2・3 にだけある字形（同じ字でも蘇る逆転と描き方が違う）。点では比べられないので数だけ出す
+            return 'game', ''
         near = self.nearest(kind, g)
         bits = self.fonts[kind].primary[ch][0]
         own = align_dist(g.bits, bits)
@@ -91,10 +116,13 @@ class Checker:
         rows = text.replace(' ', '　').split('\n') if is_profile or lines[0].kind == 'desc' else [text]
         if len(rows) > len(lines):
             return 0, (0, 0), [f'{src}: 行の数が多い（{len(rows)} > {len(lines)}）']
-        orig = ink_of(X, lines[0])
+        orig = ink_of(self.x, lines[0])
         canvas = np.zeros_like(orig)
         variants, confirmed, bad = 0, 0, []
         for ln in lines:
+            if f'{src}:{ln.index}' in self.reshaped:
+                self.skipped += 1
+                continue
             row = list(rows[ln.index]) if ln.index < len(rows) else []
             font = self.fonts[ln.kind]
             if ln.kind == 'desc' and ln.grid:
@@ -112,7 +140,10 @@ class Checker:
                         bad.append(f'{where}\t字が足りない（絵には字がある）')
                     continue
                 if ch not in font.primary:
-                    bad.append(f'{where}\t{ch}\tフォントに無い字')
+                    if self.game and self.fixed_at.get(where) != ch and g is not None:
+                        self.no_font += 1  # 2・3 にだけある字（record_review.tsv と record_text_verify.py で見る）
+                    elif not self.game:
+                        bad.append(f'{where}\t{ch}\tフォントに無い字')
                     continue
                 bits, cx, cy = font.primary[ch]
                 if ln.kind == 'desc' and ln.grid:
@@ -131,21 +162,28 @@ class Checker:
                         variants += 1
                     elif verdict == 'confirmed':
                         confirmed += 1
+                    elif verdict == 'game':
+                        self.game_shapes += 1
                     else:
                         bad.append(f'{where}\t{ch}\t{why}')
         diff = int((canvas != orig).sum())
         if lines[0].kind == 'desc':
-            diff += int((make_shadow(canvas, self.m['shadow']['offset']) != shadow_of(X, src)).sum())
+            diff += int((make_shadow(canvas, self.m['shadow']['offset']) != shadow_of(self.x, src)).sum())
         return diff, (variants, confirmed), bad
 
 
 def main() -> None:
-    path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(X, 'tables', 'record_text.json')
+    args, game = sys.argv[1:], None
+    if '--game' in args:
+        from game import by_key
+        k = args.index('--game')
+        game, args = by_key(args[k + 1]), args[:k] + args[k + 2:]
+    ck = Checker(game)
+    path = args[0] if args else os.path.join(ck.x, 'tables', 'record_text.json')
     texts = json.load(open(path, encoding='utf-8'))['items']
-    ck = Checker()
     exact = n_var_items = n_var = n_conf = 0
     report = []
-    its = items()
+    its = items(ck.x)
     for it in its:
         t = texts.get(str(it['id']), {'name': '', 'desc': ''})
         name_kind = ck.lines.get(it['name'], [None])[0]
@@ -164,9 +202,12 @@ def main() -> None:
         else:
             n_var_items += 1
     head = [f'項目 {len(its)}: 描き直して点まで同じ {exact}、異体の字を除けば同じ {n_var_items}'
-            f'（異体の字: 自動で通した {n_var}・目で確かめた {n_conf}）、一致しない字 {len(report)}',
+            f'（異体の字: 自動で通した {n_var}・目で確かめた {n_conf}）、一致しない字 {len(report)}'
+            + (f'、蘇る逆転のフォントに無い字 {ck.no_font}・蘇る逆転と字形が違う字 {ck.game_shapes}（2・3 にだけある字形。'
+               f'record_review.tsv を目で確かめる）' if game else '')
+            + (f'、直し表で字の数を直したので比べなかった行 {ck.skipped}' if ck.skipped else ''),
             '# 項目\t欄\t画像:行:並びの番号\t読んだ字\t理由']
-    out = os.path.join(X, 'font', 'small', 'record_check.txt')
+    out = os.path.join(ck.x, 'font', 'small', 'record_check.txt')
     with open(out, 'w', encoding='utf-8') as f:
         f.write('\n'.join(head + report) + '\n')
     print('\n'.join(head + report[:40]))

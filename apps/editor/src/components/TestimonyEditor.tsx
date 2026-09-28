@@ -1,9 +1,11 @@
 // 証言（testimony）シーンの編集: タイトル・証人・証言の一覧（ゆさぶり・つきつけ）・after / loop / wrong
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { uniqueId } from '@/model/paths.ts';
+import { extraRecordKeys } from '@/model/form-keys.ts';
+import { pathKey, uniqueId } from '@/model/paths.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useActions, useIds } from '@/state/editor-store.tsx';
+import { ExtraFields } from './ExtraFields.tsx';
 import {
   CondInput,
   Field,
@@ -13,9 +15,11 @@ import {
   useCharacterLabels,
   useSetter,
 } from './fields.tsx';
-import { OptionalSteps } from './steps/flow-fields.tsx';
+import { Nested, OptionalSteps } from './steps/flow-fields.tsx';
+import { PlayHere } from './steps/PlayHere.tsx';
 import { PresentMap } from './steps/PresentMap.tsx';
 import { IconButton } from './steps/StepCard.tsx';
+import { useRows } from './use-rows.ts';
 
 type Rec = Record<string, unknown>;
 
@@ -25,6 +29,7 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
   const { set } = useSetter();
   const labels = useCharacterLabels();
   const statements = Array.isArray(scene.statements) ? (scene.statements as Rec[]) : [];
+  const rows = useRows(statements);
   const listPath = [...path, 'statements'];
   const addStatement = () => {
     const id = uniqueId(
@@ -38,10 +43,15 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
     <div className="space-y-6">
       <div className="grid grid-cols-[1fr_auto] gap-3">
         <Field label="証言のタイトル">
-          <TextInput path={[...path, 'testimony']} value={scene.testimony} />
+          <TextInput
+            path={[...path, 'testimony']}
+            value={scene.testimony}
+            aria-label="証言のタイトル"
+          />
         </Field>
         <Field label="証人">
           <IdSelect
+            path={[...path, 'witness']}
             value={scene.witness}
             options={ids.characters}
             labels={labels}
@@ -60,13 +70,13 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
         }
       >
         <div className="space-y-3">
-          {statements.map((st, i) => {
+          {rows.items.map((st, i) => {
             const p = [...listPath, i];
             return (
               <div
-                key={i}
+                key={rows.keys[i]}
                 className="rounded-lg border bg-card p-3 shadow-xs"
-                data-path={JSON.stringify(p)}
+                data-path={pathKey(p)}
               >
                 <div className="flex items-center gap-2">
                   <span className="whitespace-nowrap text-sm font-semibold text-orange-600">
@@ -79,16 +89,17 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
                     mono
                     className="w-32"
                     placeholder="ID（推奨）"
-                    aria-label="証言の ID"
+                    aria-label={`証言 ${i + 1} の ID`}
                   />
                   <CondInput
                     path={[...p, 'when']}
                     value={st.when}
                     optional
                     placeholder="現れる条件（隠し証言）"
-                    aria-label="現れる条件"
+                    aria-label={`証言 ${i + 1} が現れる条件`}
                   />
                   <div className="ml-auto flex">
+                    <PlayHere path={p} label={`証言 ${i + 1}`} what="この証言（尋問）" />
                     <IconButton
                       title="上へ"
                       disabled={i === 0}
@@ -118,9 +129,17 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
                   value={st.text}
                   className="mt-2 text-orange-700"
                   placeholder="証言の文"
-                  aria-label="証言の文"
+                  aria-label={`証言 ${i + 1} の文`}
                 />
                 <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap gap-x-2">
+                    <OptionalSteps
+                      path={[...p, 'before']}
+                      value={st.before}
+                      label="before: 尋問でこの証言を出す前（人物の動き・背景・音など、止まらない命令）"
+                      addLabel="出す前の命令を追加"
+                    />
+                  </div>
                   <div>
                     <OptionalSteps
                       path={[...p, 'press']}
@@ -140,30 +159,43 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
                         <Plus /> つきつけを追加
                       </Button>
                     ) : (
-                      <div className="border-l-2 border-muted pl-2">
-                        <div className="mb-1 flex items-center text-[11px] font-medium text-muted-foreground">
-                          つきつけたとき
+                      <Nested
+                        label="つきつけたとき"
+                        path={[...p, 'present']}
+                        actions={
                           <IconButton
                             title="つきつけを消す"
-                            className="ml-auto hover:text-destructive"
+                            className="hover:text-destructive"
                             onClick={() => edit([{ op: 'delete', path: [...p, 'present'] }])}
                           >
                             <Trash2 />
                           </IconButton>
-                        </div>
+                        }
+                      >
                         <PresentMap path={[...p, 'present']} value={st.present} />
-                      </div>
+                      </Nested>
                     )}
                   </div>
                 </div>
+                <ExtraFields
+                  path={p}
+                  value={st}
+                  keys={extraRecordKeys(st, ['id', 'text', 'when', 'press', 'before', 'present'])}
+                />
               </div>
             );
           })}
         </div>
       </Section>
 
-      <Section title="証言の後・尋問のくり返し">
+      <Section title="証言を聞く場面・証言の後・尋問のくり返し">
         <div className="space-y-2">
+          <OptionalSteps
+            path={[...path, 'reading']}
+            value={scene.reading}
+            label="reading: 証言を最初に聞く場面（書けば、証言の文の代わりにこれを見せる）"
+            addLabel="reading を追加"
+          />
           <OptionalSteps
             path={[...path, 'after']}
             value={scene.after}
@@ -184,6 +216,19 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
           />
         </div>
       </Section>
+      <ExtraFields
+        path={path}
+        value={scene}
+        keys={extraRecordKeys(scene, [
+          'testimony',
+          'witness',
+          'statements',
+          'reading',
+          'after',
+          'loop',
+          'wrong',
+        ])}
+      />
     </div>
   );
 }

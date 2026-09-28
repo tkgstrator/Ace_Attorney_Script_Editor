@@ -129,9 +129,6 @@ export const REC_COLORS = {
 /** メイン画面の配置 */
 export const TOP = {
   box: { x: 0, y: 144, w: 256, h: 48 },
-  /** 選択肢を出すときは、テキストウィンドウを上にずらし、下に帯を出す */
-  choiceBox: { x: 0, y: 120, w: 256, h: 48 },
-  choiceBand: { x: 0, y: 168, w: 256, h: 24 },
   nameTagH: 12,
   textX: 10,
   /** テキストウィンドウの上端から、1 行目の文字（インク）の上端まで。DS 版では y 152 */
@@ -150,17 +147,29 @@ export const UI = {
   recordTab: { x: 196, y: 0, w: 60, h: 16 },
   pressTab: { x: 108, y: 112, w: 72, h: 18 },
   presentTab: { x: 184, y: 112, w: 72, h: 18 },
-  /** 選択肢のボタン。上にずらしたテキストウィンドウの、さらに上の空きに並べる */
-  choice: (i: number, n: number): Rect => ({
-    x: 16,
-    y: Math.round(56 - (n * 32 - 8) / 2) + i * 32,
-    w: 224,
-    h: 24,
-  }),
+  /**
+   * 選択肢のボタン。テキストウィンドウ（y 144〜）とその名札より上の空きで、画面の縦の中央にまとめて並べる。
+   * 数が多くて収まらないときは、間を詰め、それでも足りなければボタンを低くする
+   */
+  choice: (i: number, n: number): Rect => {
+    const top = 4;
+    // テキストウィンドウの名札（上に 12 ドットはみ出す）にかからないところまで
+    const bottom = TOP.box.y - TOP.nameTagH - 2;
+    const step = n > 1 ? Math.min(32, (bottom - top - 24) / (n - 1)) : 32;
+    const h = Math.min(24, Math.floor(step) - 2);
+    const total = (n - 1) * step + h;
+    const y0 = Math.min(Math.max(SCREEN_H / 2 - total / 2, top), bottom - total);
+    return { x: 16, y: Math.round(y0 + i * step), w: 224, h };
+  },
   /** 探偵メニューのボタン（調べる・移動する・話す・つきつける）。テキストウィンドウの位置に横に並べる */
   invButton: (i: number): Rect => ({ x: 4 + i * 63, y: 156, w: 59, h: 28 }),
   /** 探偵メニューの行き先・話題の一覧と、調べるときの「もどる」 */
   invBack: { x: 0, y: 162, w: 78, h: 30 },
+  /** 調べるときの、背景を動かすボタン（元のゲームの下の画面の真ん中のボタン。ここでは「もどる」と左右対称の右下） */
+  examineScroll: { x: 196, y: 162, w: 60, h: 30 },
+  /** 範囲を選ぶ（pick）ときの、絵の早戻し・早送り（元のゲームの映像の操作。右下に並べる） */
+  pickPrev: { x: 134, y: 162, w: 60, h: 30 },
+  pickNext: { x: 196, y: 162, w: 60, h: 30 },
   /** 調べるときのカーソルの動く量（ドット） */
   cursorStep: 4,
   /**

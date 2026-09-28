@@ -25,3 +25,8 @@ coverage/
 # === Act (GitHub Actions local runner) ===
 .secrets
 !.secrets.example
+
+# === 立ち絵の取り込み・チェックの出力（tools/sprites が作り直す） ===
+assets/generated/check/
+assets/generated/sheets/
+assets/generated/unpatched/

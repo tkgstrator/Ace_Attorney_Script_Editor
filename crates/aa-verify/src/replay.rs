@@ -44,7 +44,9 @@ fn apply(e: &mut Engine, m: &Model, a: &str) -> Result<(), String> {
     match c {
         "a" => e.advance(),
         "p" => e.press(),
+        "g" => e.give_up(),
         "c" => e.choose(rest.parse().map_err(|_| "番号")?),
+        "k" => e.pick(rest.parse().map_err(|_| "番号")?),
         "v" => e.present(ev(rest)?),
         "r" => e.present(item(rest, true)?),
         "e" => {

@@ -68,7 +68,8 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       if (ins.on) s.stage.overlays.push(ins.id);
       return true;
     case 'scroll':
-      s.stage.scroll = ins.scroll;
+      // 実行のたびに別の値にする（表示側は、調べるで背景を動かした後、同じスクロールをもう一度は当てない）
+      s.stage.scroll = ins.scroll ? { ...ins.scroll } : null;
       return true;
     case 'showEvidence':
       s.stage.evidence = ins.evidence;
@@ -89,6 +90,12 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       if (ins.record !== undefined) s.stage.recordLocked = !ins.record;
       if (ins.life !== undefined) s.stage.lifeGauge = ins.life;
       return true;
+    case 'lifeRisk':
+      s.stage.lifeRisk = ins.amount;
+      return true;
+    case 'locks':
+      applyLocks(ins.show, s, events);
+      return true;
     case 'bgmPause':
       s.stage.bgmPaused = ins.pause;
       events.push({ type: 'bgmPause', pause: ins.pause, frames: ins.frames });
@@ -100,6 +107,31 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       return !ins.wait;
     default:
       return false;
+  }
+}
+
+/** サイコ・ロックの錠の表示を変える */
+function applyLocks(
+  show: number | boolean | 'break' | 'unlock',
+  s: GameState,
+  events: EngineEvent[],
+): void {
+  const st = s.stage;
+  if (typeof show === 'number') {
+    // 壊せる錠は 5 つまで（元のゲームは 6 以上なら 5 にする。YG3J 0x02088d9c。錠を壊す処理も同じ。compile-lock.ts）
+    st.locks = { total: show, left: Math.min(show, 5), hidden: false };
+    events.push({ type: 'locks', fx: 'show' });
+  } else if (show === 'break') {
+    if (st.locks) st.locks = { ...st.locks, left: Math.max(0, st.locks.left - 1) };
+    events.push({ type: 'locks', fx: 'break' });
+  } else if (show === 'unlock') {
+    st.locks = null;
+    events.push({ type: 'locks', fx: 'unlock' });
+  } else if (show) {
+    if (st.locks) st.locks = { ...st.locks, hidden: false };
+  } else {
+    if (st.locks) st.locks = { ...st.locks, hidden: true };
+    events.push({ type: 'locks', fx: 'hide' });
   }
 }
 

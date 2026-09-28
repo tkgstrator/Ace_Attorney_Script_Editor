@@ -16,6 +16,7 @@
     sound     sound_data.sdat を sound/ に書き出す（sdatxtract があれば変換も行う）
 
 フォント（font/）と台本（mes_all.bin）は別のスクリプトで扱うので、ここでは触らない。
+逆転裁判2（A2GJ）・3（YG3J）の ROM も扱える（番地は game_assets.py・ex_desks.py。書き出し先は assets/extracted/aa2・aa3）。
 """
 import argparse
 import sys
@@ -28,16 +29,17 @@ import ex_archives  # noqa: E402
 import ex_desks  # noqa: E402
 import ex_tail  # noqa: E402
 import sound  # noqa: E402
+from game_assets import assets_of  # noqa: E402
 from nds import arm9, list_files  # noqa: E402
+from tbl_bg_render import table_rows  # noqa: E402
 
 STEPS = ('files', 'archives', 'tail', 'desks', 'sound')
-DEFAULT_OUT = Path(__file__).resolve().parents[2] / 'assets' / 'extracted'
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description='ROM から素材を取り出す')
     ap.add_argument('rom', help='ROM イメージ（.nds）')
-    ap.add_argument('--out', type=Path, default=DEFAULT_OUT, help='書き出し先（既定: assets/extracted）')
+    ap.add_argument('--out', type=Path, help='書き出し先（既定: 蘇る逆転 = assets/extracted、2 = assets/extracted/aa2、3 = assets/extracted/aa3）')
     ap.add_argument('--only', default=','.join(STEPS), help=f'行う手順（カンマ区切り、{"/".join(STEPS)}）')
     ap.add_argument('--no-raw', action='store_true', help='画像にできたものの展開済み .bin を書き出さない')
     ap.add_argument('--no-sheet', action='store_true', help='一覧画像（_sheet.png）を作らない')
@@ -49,8 +51,10 @@ def main() -> None:
         if s not in STEPS:
             sys.exit(f'知らない手順です: {s}')
     rom = Path(args.rom).read_bytes()
+    A = assets_of(rom)
+    agyj = A.code == 'AGYJ'
     files = {f.path: rom[f.start:f.end] for f in list_files(rom)}
-    out: Path = args.out
+    out: Path = args.out or A.game.out
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
@@ -63,17 +67,26 @@ def main() -> None:
         print(f'  {len(files)} 個')
 
     data = files['data.bin']
-    if 'archives' in steps:
+    if 'archives' in steps and not agyj:
+        print('archives: このゲームの data.bin には先頭の画像アーカイブが無いので飛ばします')
+    elif 'archives' in steps:
         print('archives: data.bin の先頭の画像アーカイブを書き出します')
         ex_archives.export(data, out / 'data', raw=not args.no_raw, sheets=not args.no_sheet)
 
     if 'tail' in steps:
         print('tail: data.bin の後半を書き出します')
-        ex_tail.export(data, arm9(rom), out / 'data' / 'tail', raw=not args.no_raw, sheets=not args.no_sheet)
+        # 2・3: 先頭のアーカイブは無く、背景の名前は背景の表の番号（台本の 27 の番号）にする
+        bgs = None
+        if not agyj:
+            bgs = {}
+            for i, (off, *_rest) in enumerate(table_rows(arm9(rom), A)):
+                bgs.setdefault(off, i)
+        ex_tail.export(data, arm9(rom), out / 'data' / 'tail', raw=not args.no_raw, sheets=not args.no_sheet,
+                       archive_count=ex_tail.ARCHIVE_COUNT if agyj else 0, bgs=bgs)
 
     if 'desks' in steps:
         print('desks: 法廷の机を書き出します')
-        ex_desks.export(data, arm9(rom), out / 'data' / 'desks')
+        ex_desks.export(data, arm9(rom), out / 'data' / 'desks', A.code)
 
     if 'sound' in steps:
         print('sound: sound_data.sdat を書き出します')

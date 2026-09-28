@@ -4,7 +4,11 @@
 # ///
 """話し手の名札と法廷記録（証拠品・人物ファイル）の表の書き出し。
 
-    uv run tools/rom/tbl_record.py <rom.nds> [出力先（既定: assets/extracted）]
+    uv run tools/rom/tbl_record.py <rom.nds> [出力先（既定: ゲームの置き場所。蘇る逆転は assets/extracted）]
+
+蘇る逆転・2・3 のどれでも動く（ROM の見出しで見分ける。ゲームごとの場所は record_games.py）。
+以下の番地は蘇る逆転のもの。2・3 の名札の文字は tools/rom/record_nametags.py で絵から読んだもの
+（tools/rom/record_nametags.<ゲームコード>.json）。2・3 には命令 118 の絵（icon_ds）と 3D の番号（model3d）は無い。
 
 書き出すもの:
     tables/names.json      命令 14 name の名前の番号 → 名札の画像・文字送りの音
@@ -48,29 +52,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gfx  # noqa: E402
 import nds  # noqa: E402
 from databin import read_pack  # noqa: E402
+from game import detect  # noqa: E402
 from nitro import decompress  # noqa: E402
+from record_games import LAYOUTS, Layout  # noqa: E402
 
 B = 0x02000000
 LANGS = ('ja', 'en')
-
-# 名札（0x0201abb4）
-NAMETAG = {'ja': 0x1a81c54, 'en': 0x1a87454}
-NAMETAG_PAL = 0x1a807b4           # 文字の枠のパレット（0x0202a1f4 で BG パレット 0 へ）
-NAMETAG_COUNT = 55                # 0x5800 バイト / 0x800 * 5
-BLIP_TABLE = 0x020aabc0           # 名前 → 文字送りの音の種類（0x0202ab3c）
 BLIP_SE = {0: 0x2d, 1: 0x2e, 2: 0x44}
-
-# 法廷記録（0x02030a40）
-REC_TABLE, REC_SIZE, REC_COUNT = 0x020ab27c, 0x18, 209
-ICON = {'ja': 0x1b1dbb4, 'en': 0x1b68614}
 ICON_DS = 0x1bb3074
 ICON_DS_END = 0x1bcc3a8          # unknown.tsv の領域の終わり（個数は推測）
 ICON_STRIDE = 0x820
-NAME_PACK = {'ja': 0x1b0b10c, 'en': 0x1b14878}
-NAME_PAL = 0x1b0b0ec
-DESC_PACK = {'ja': 0x1ab13d4, 'en': 0x1ae2ea4}
-DESC_PAL = 0x1ab13b4
-START_TABLE, START_COUNT = 0x020b4554, 35
 
 # 画像から読んだ名札の文字（日本語・英語）。0 と 41・42・54 は空
 NAMETAG_TEXT = {
@@ -122,9 +113,13 @@ def pack_items(d: bytes, base: int) -> list[bytes]:
     return out
 
 
-def nametag_image(d: bytes, lang: str, n: int) -> np.ndarray:
-    q, r = divmod(n, 5)
-    s = NAMETAG[lang] + q * 0x800 + r * 0xc0
+def tag_addr(L: Layout, lang: str, m: int) -> int:
+    q, r = divmod(m, 5)
+    return L.nametag[lang] + q * 0x800 + r * 0xc0
+
+
+def nametag_image(d: bytes, L: Layout, lang: str, m: int) -> np.ndarray:
+    s = tag_addr(L, lang, m)
     return gfx.tiled(gfx.unpack4(d[s:s + 0xc0] + d[s + 0x400:s + 0x4c0]), 48, 16)
 
 
@@ -151,16 +146,18 @@ def blank_fields(i: int, icon: int, nja: int, nen: int, desc: int, icon0: int) -
     0 を指してよいのは項目 0 と、アイコンも項目 0 と同じ（同じ人物の別の版。項目 10）ものだけ。
     ほかの 0 は埋められていない欄（第 5 話の 171〜191 など、命令 show_item でアイコンだけ出す項目や、
     108〜115 の表の形の説明文だけの項目）で、これらは法廷記録に入ることが無く、名前・説明文の絵は無い。
-    確かめ方は record_text_verify.py（空き欄の項目が台本・話の最初の中身で法廷記録に入らないこと）"""
+    確かめ方は record_text_verify.py（空き欄の項目が台本・話の最初の中身で法廷記録に入らないこと）。
+    2・3 では 0 を指すのは項目 0 だけ"""
     if i == 0 or icon == icon0:
         return []
     return [k for k, v in (('name_ja', nja), ('name_en', nen), ('desc', desc)) if v == 0]
 
 
-def start_lists(a: bytes) -> list[dict]:
+def start_lists(a: bytes, L: Layout) -> list[dict]:
+    """話ごとの最初の法廷記録。3 は part を最初の台本の項目の半分にし、game_part にパートの番号を残す"""
     out = []
-    for part in range(START_COUNT):
-        p = struct.unpack_from('<I', a, START_TABLE - B + 4 * part)[0] - B
+    for part in range(L.start_count):
+        p = struct.unpack_from('<I', a, L.start_table - B + 4 * part)[0] - B
         prof, ev = [], []
         while a[p] != 0xfe:
             prof.append(a[p])
@@ -169,52 +166,93 @@ def start_lists(a: bytes) -> list[dict]:
         while a[p] != 0xff:
             ev.append(a[p])
             p += 1
-        out.append({'part': part, 'profiles': prof, 'evidence': ev})
+        if L.part_first:
+            out.append({'part': L.part_first[part], 'game_part': part, 'profiles': prof, 'evidence': ev})
+        else:
+            out.append({'part': part, 'profiles': prof, 'evidence': ev})
     return out
 
 
-def main() -> None:
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    a, d = load(sys.argv[1])
-    root = Path(sys.argv[2] if len(sys.argv) > 2 else Path(__file__).resolve().parents[2] / 'assets/extracted')
-    rec, tables = root / 'record', root / 'tables'
-    tables.mkdir(parents=True, exist_ok=True)
+def nametag_texts(code: str) -> dict[str, list[str]]:
+    """絵の番号ごとの名札の文字。蘇る逆転は NAMETAG_TEXT、2・3 は record_nametags.<コード>.json（読んだ文字 + 直し）"""
+    if code == 'AGYJ':
+        return NAMETAG_TEXT
+    p = Path(__file__).resolve().parent / f'record_nametags.{code}.json'
+    if not p.exists():
+        return {lang: [] for lang in LANGS}
+    doc = json.loads(p.read_text(encoding='utf-8'))
+    out = {}
+    for lang in LANGS:
+        got = list(doc.get('ocr', {}).get(lang, []))
+        for k, v in doc.get('fixes', {}).get(lang, {}).items():
+            got += [''] * (int(k) + 1 - len(got))
+            got[int(k)] = v
+        out[lang] = got
+    return out
 
-    # ---- 名札 ----
-    tag_pal = gfx.palette(d[NAMETAG_PAL:NAMETAG_PAL + 32])
-    names = []
-    for n in range(NAMETAG_COUNT):
-        imgs = {}
-        for lang in LANGS:
-            p = rec / 'nametag' / lang / f'{n:02}.png'
+
+def tag_of(a: bytes, L: Layout, n: int) -> int | None:
+    """名前の番号 → 名札の絵の番号（None = 名札を消す）"""
+    if L.name_map is None:
+        return n
+    m = struct.unpack_from('<I', a, L.name_map - B + 4 * n)[0]
+    return None if m == L.name_none else m
+
+
+def write_names(a: bytes, d: bytes, L: Layout, root: Path) -> None:
+    rec, tables = root / 'record', root / 'tables'
+    tag_pal = gfx.palette(d[L.nametag_pal:L.nametag_pal + 32])
+    for lang in LANGS:
+        for m in range(L.nametag_count[lang]):
+            p = rec / 'nametag' / lang / f'{m:02}.png'
             p.parent.mkdir(parents=True, exist_ok=True)
-            gfx.write_png(p, nametag_image(d, lang, n), tag_pal)
-            imgs[lang] = str(p.relative_to(root))
-        q, r = divmod(n, 5)
-        blip = a[BLIP_TABLE - B + n]
-        names.append({
-            'id': n,
-            'text': {lang: NAMETAG_TEXT[lang][n] for lang in LANGS},
-            'image': imgs,
-            'data_bin': {lang: hex(NAMETAG[lang] + q * 0x800 + r * 0xc0) for lang in LANGS},
+            gfx.write_png(p, nametag_image(d, L, lang, m), tag_pal)
+    texts = nametag_texts(L.code)
+    text = lambda lang, m: texts[lang][m] if m is not None and m < len(texts[lang]) else ''  # noqa: E731
+    names = []
+    for n in range(L.name_count):
+        m = tag_of(a, L, n)
+        blip = a[L.blip_table - B + n]
+        e = {'id': n}
+        if L.name_map is not None:
+            e['tag'] = m
+        e.update({
+            'text': {lang: text(lang, m) for lang in LANGS},
+            'image': {lang: None if m is None else f'record/nametag/{lang}/{m:02}.png' for lang in LANGS},
+            'data_bin': {lang: None if m is None else hex(tag_addr(L, lang, m)) for lang in LANGS},
             'blip': blip, 'blip_se': BLIP_SE.get(blip),
         })
+        if L.name_en_swap and m == L.name_en_swap[0]:
+            alt = L.name_en_swap[1]
+            e['en_swap'] = {'tag': alt, 'text': text('en', alt), 'image': f'record/nametag/en/{alt:02}.png',
+                            'unless_flag': list(L.name_en_swap[2])}
+        names.append(e)
+    if L.code == 'AGYJ':
+        about = ('命令 14 name の名前の番号（引数 >> 8）。下位 8 ビットが 0 でなければ名札を右端（x=208）に出す（台本では未使用）。'
+                 '名札は 48×16。日本語は BG の行 16〜17（y=128）、英語は行 14〜15（y=112）、x=0。その下の行に枠の下端。'
+                 'blip = 文字送りの音の種類（0x020aabc0）、blip_se = その効果音の番号。text は画像から読み取ったもの')
+    else:
+        about = ('命令 14 name の名前の番号（引数 >> 8 & 0x7f）。名札の置き方は蘇る逆転と同じ。'
+                 f'blip = 文字送りの音の種類（{L.blip_table:#010x}）、blip_se = その効果音の番号。'
+                 'text は名札の絵を文字認識で読んで手で直したもの（tools/rom/record_nametags.py）。'
+                 + ('tag = 名札の絵の番号（名前の番号の表 0x020ad728。null = 名札を消す）。en_swap = 英語でフラグが立っていないときに'
+                    '代わりに出す絵。名前 21 はパート 10 より前でフラグ 0:0x8f が無ければ 2 として扱う（命令 14）'
+                    if L.name_map is not None else ''))
     (tables / 'names.json').write_text(json.dumps({
-        '_about': '命令 14 name の名前の番号（引数 >> 8）。下位 8 ビットが 0 でなければ名札を右端（x=208）に出す（台本では未使用）。'
-                  '名札は 48×16。日本語は BG の行 16〜17（y=128）、英語は行 14〜15（y=112）、x=0。その下の行に枠の下端。'
-                  'blip = 文字送りの音の種類（0x020aabc0）、blip_se = その効果音の番号。text は画像から読み取ったもの',
-        'palette_data_bin': hex(NAMETAG_PAL),
+        '_about': about,
+        'palette_data_bin': hex(L.nametag_pal),
         'layout': {'ja': {'x': 0, 'y': 128, 'x_right': 208}, 'en': {'x': 0, 'y': 112, 'x_right': 208},
                    'size': [48, 16]},
         'names': names,
     }, ensure_ascii=False, indent=1), encoding='utf-8')
 
-    # ---- 法廷記録 ----
-    name_pal = gfx.palette(d[NAME_PAL:NAME_PAL + 32])
-    desc_pal = gfx.palette(d[DESC_PAL:DESC_PAL + 32])
-    name_imgs = {lang: pack_items(d, NAME_PACK[lang]) for lang in LANGS}
-    desc_imgs = {lang: pack_items(d, DESC_PACK[lang]) for lang in LANGS}
+
+def write_images(d: bytes, L: Layout, rec: Path) -> tuple[dict, dict]:
+    """名前・説明文・アイコン（・命令 118 の絵）の絵を書き出し、パックの中身（言語 → 絵のデータ）を返す"""
+    name_pal = gfx.palette(d[L.name_pal:L.name_pal + 32])
+    desc_pal = gfx.palette(d[L.desc_pal:L.desc_pal + 32])
+    name_imgs = {lang: pack_items(d, L.name_pack[lang]) for lang in LANGS}
+    desc_imgs = {lang: pack_items(d, L.desc_pack[lang]) for lang in LANGS}
     for lang in LANGS:
         for kind, items, fn, pal in (('name', name_imgs[lang], name_image, name_pal),
                                      ('desc', desc_imgs[lang], desc_image, desc_pal)):
@@ -222,69 +260,102 @@ def main() -> None:
                 p = rec / kind / lang / f'{i:03}.png'
                 p.parent.mkdir(parents=True, exist_ok=True)
                 gfx.write_png(p, fn(b), pal)
-    n_icons = (ICON['en'] - ICON['ja']) // ICON_STRIDE
     for lang in LANGS:
-        for i in range(n_icons):
-            idx, pal = icon_image(d, ICON[lang] + i * ICON_STRIDE)
+        for i in range(L.icon_count):
+            idx, pal = icon_image(d, L.icon[lang] + i * ICON_STRIDE)
             p = rec / 'icon' / lang / f'{i:03}.png'
             p.parent.mkdir(parents=True, exist_ok=True)
             gfx.write_png(p, idx, pal, transparent0=True)
-    for i in range((ICON_DS_END - ICON_DS) // ICON_STRIDE):
-        s = ICON_DS + i * ICON_STRIDE
-        idx, pal = icon_image(d, s)
-        p = rec / 'icon_ds' / f'{i:03}.png'
-        p.parent.mkdir(parents=True, exist_ok=True)
-        gfx.write_png(p, idx, pal, transparent0=True)
+    if L.code == 'AGYJ':
+        for i in range((ICON_DS_END - ICON_DS) // ICON_STRIDE):
+            s = ICON_DS + i * ICON_STRIDE
+            idx, pal = icon_image(d, s)
+            p = rec / 'icon_ds' / f'{i:03}.png'
+            p.parent.mkdir(parents=True, exist_ok=True)
+            gfx.write_png(p, idx, pal, transparent0=True)
+    return name_imgs, desc_imgs
 
-    starts = start_lists(a)
-    icon0 = u16(a, REC_TABLE)
+
+def record_item(a: bytes, L: Layout, i: int, icon0: int, n_names: int, n_desc: int) -> dict:
+    base = L.rec_table + i * L.rec_size
+    f = struct.unpack_from('<6H', a, base - B)
+    icon, nja, nen, desc, desc_en2, check = f
+    blank = blank_fields(i, icon, nja, nen, desc, icon0)
+    # 表の外と重なる項目 208 の英語の名前（143）など、パックに無い番号も絵が無い
+    blank += [k for k, v, n in (('name_en', nen, n_names), ('desc', desc, n_desc)) if v >= n and k not in blank]
+    icons = {lang: icon for lang in LANGS}
+    alt = u16(a, base + 14) if L.icon_alt is not None else 0xff
+    if alt != 0xff:
+        icons = {lang: L.icon_alt + 2 * alt + k for k, lang in enumerate(LANGS)}
+    e = {'id': i, 'icon': icon}
+    if alt != 0xff:
+        e['icon_lang'] = icons
+    e.update({
+        'name_index': {'ja': nja, 'en': nen},
+        'desc_index': desc,
+        'desc_index_alt': desc_en2,
+        'check': check,
+    })
+    if L.code == 'AGYJ':
+        e['model3d'] = u16(a, base + 12)
+    e['image'] = {
+        'icon': {lang: f'record/icon/{lang}/{icons[lang]:03}.png' for lang in LANGS},
+        'name': {lang: None if f'name_{lang}' in blank else
+                 f'record/name/{lang}/{(nja if lang == "ja" else nen):03}.png' for lang in LANGS},
+        'desc': {lang: None if 'desc' in blank else f'record/desc/{lang}/{desc:03}.png' for lang in LANGS},
+    }
+    if blank:
+        e['blank'] = blank
+    if L.code == 'AGYJ' and i in TEXT:
+        e['text_ja'] = {'name': TEXT[i][0], 'desc': TEXT[i][1]}
+    return e
+
+
+ABOUT_AGYJ = ('法廷記録の番号（命令 23/24/25/19 の下位 14 ビット、または 8 ビット）→ 絵と文字。証拠品と人物ファイルは'
+              '同じ表を使い、ビット 15 は入れる一覧（0 = 証拠品 0x020ce240, 1 = 人物 0x020ce260、各 32 個）だけを決める。'
+              'image.name / image.desc が null（blank に欄の名前）= 表の欄が空き（0 のまま）で絵が無い（blank_fields）。'
+              'check = 0 でなければ「詳しく調べる」がある、model3d = 第 5 話の 3D の番号（推測）。'
+              'text_ja は第 1 話で使うものだけ画像から読み取った。desc_index_alt は英語のときの下画面の処理（0x02083fe8、0x02b62684 + 番号 * 0x2034）が使う別の番号で、説明文のパックの番号とは合わない（未解明）')
+ABOUT_23 = ('法廷記録の番号（台本の命令の番号）→ 絵。表の形は蘇る逆転と同じ（tools/rom/record_games.py）。'
+            'image.name / image.desc が null（blank に欄の名前）= 表の欄が空きで絵が無い。check = 0 でなければ「詳しく調べる」がある。'
+            'desc_index_alt（+8）はどの項目も desc_index と同じ。icon_lang = 言語ごとに違うアイコン（3 の +14）。'
+            'start = 話（パート）ごとの最初の中身。名前・説明文の文字は record_text.json')
+
+
+def write_evidence(a: bytes, d: bytes, L: Layout, root: Path) -> None:
+    name_imgs, desc_imgs = write_images(d, L, root / 'record')
+    starts = start_lists(a, L)
+    icon0 = u16(a, L.rec_table)
     ev_used = {x for s in starts for x in s['evidence']}
     pr_used = {x for s in starts for x in s['profiles']}
     items = []
-    for i in range(REC_COUNT):
-        f = struct.unpack_from('<6H', a, REC_TABLE - B + i * REC_SIZE)
-        icon, nja, nen, desc, desc_en2, check, model = f[0], f[1], f[2], f[3], f[4], f[5], None
-        model = u16(a, REC_TABLE + i * REC_SIZE + 12)
-        blank = blank_fields(i, icon, nja, nen, desc, icon0)
-        # 表の外と重なる項目 208 の英語の名前（143）など、パックに無い番号も絵が無い
-        blank += [k for k, v, n in (('name_en', nen, len(name_imgs['en'])), ('desc', desc, len(desc_imgs['ja'])))
-                  if v >= n and k not in blank]
-        e = {
-            'id': i,
-            'icon': icon,
-            'name_index': {'ja': nja, 'en': nen},
-            'desc_index': desc,
-            'desc_index_alt': desc_en2,
-            'check': check,
-            'model3d': model,
-            'image': {
-                'icon': {lang: f'record/icon/{lang}/{icon:03}.png' for lang in LANGS},
-                'name': {lang: None if f'name_{lang}' in blank else
-                         f'record/name/{lang}/{(nja if lang == "ja" else nen):03}.png' for lang in LANGS},
-                'desc': {lang: None if 'desc' in blank else f'record/desc/{lang}/{desc:03}.png' for lang in LANGS},
-            },
-        }
-        if blank:
-            e['blank'] = blank
-        if i in TEXT:
-            e['text_ja'] = {'name': TEXT[i][0], 'desc': TEXT[i][1]}
+    for i in range(L.rec_count):
+        e = record_item(a, L, i, icon0, len(name_imgs['en']), len(desc_imgs['ja']))
         if i in pr_used:
             e['start_as'] = 'profile'
         elif i in ev_used:
             e['start_as'] = 'evidence'
         items.append(e)
-    (tables / 'evidence.json').write_text(json.dumps({
-        '_about': '法廷記録の番号（命令 23/24/25/19 の下位 14 ビット、または 8 ビット）→ 絵と文字。証拠品と人物ファイルは'
-                  '同じ表を使い、ビット 15 は入れる一覧（0 = 証拠品 0x020ce240, 1 = 人物 0x020ce260、各 32 個）だけを決める。'
-                  'image.name / image.desc が null（blank に欄の名前）= 表の欄が空き（0 のまま）で絵が無い（blank_fields）。'
-                  'check = 0 でなければ「詳しく調べる」がある、model3d = 第 5 話の 3D の番号（推測）。'
-                  'text_ja は第 1 話で使うものだけ画像から読み取った。desc_index_alt は英語のときの下画面の処理（0x02083fe8、0x02b62684 + 番号 * 0x2034）が使う別の番号で、説明文のパックの番号とは合わない（未解明）',
-        'palette_data_bin': {'name': hex(NAME_PAL), 'desc': hex(DESC_PAL), 'icon': '各アイコンの先頭 32 バイト'},
+    (root / 'tables' / 'evidence.json').write_text(json.dumps({
+        '_about': ABOUT_AGYJ if L.code == 'AGYJ' else ABOUT_23,
+        'palette_data_bin': {'name': hex(L.name_pal), 'desc': hex(L.desc_pal), 'icon': '各アイコンの先頭 32 バイト'},
         'detail_window': {'icon': [16, 16, 64, 64], 'note': '上画面の「ファイルした」窓: アイコン 64×64・名前 128×16・説明文 128×64（OBJ）'},
         'start': starts,
         'items': items,
     }, ensure_ascii=False, indent=1), encoding='utf-8')
-    print(f'名札 {NAMETAG_COUNT} 個、法廷記録 {REC_COUNT} 個、アイコン {n_icons} × 2 → {root}')
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    game = detect(Path(sys.argv[1]).read_bytes())
+    L = LAYOUTS[game.code]
+    a, d = load(sys.argv[1])
+    root = Path(sys.argv[2]) if len(sys.argv) > 2 else game.out
+    (root / 'tables').mkdir(parents=True, exist_ok=True)
+    write_names(a, d, L, root)
+    write_evidence(a, d, L, root)
+    print(f'{game.title}: 名前 {L.name_count} 個、法廷記録 {L.rec_count} 個、アイコン {L.icon_count} × 2 → {root}')
 
 
 if __name__ == '__main__':

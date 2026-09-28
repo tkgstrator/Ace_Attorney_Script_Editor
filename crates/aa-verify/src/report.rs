@@ -79,7 +79,7 @@ fn describe(e: &Engine, b: BeatKind) -> String {
     }
     if let Some(t) = scene.and_then(|s| s.testimony()) {
         let mut answers: Vec<u32> = vec![];
-        for st in &t.statements { for (x, _) in &st.present { if !answers.contains(x) { answers.push(*x); } } }
+        for st in &t.statements { for (x, _) in st.present.iter().chain(st.present_profile.iter().flatten()) { if !answers.contains(x) { answers.push(*x); } } }
         let lack = missing(&answers);
         return format!(
             "尋問「{}」から先へ進めません（つきつけで使う {} のうち、持っていない: {}）",
@@ -143,7 +143,7 @@ pub fn compact(ops: &[String]) -> String {
 pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
     for (i, sc) in m.scenes.iter().enumerate() {
         // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
-        if sc.id.starts_with("__") || m.gameover_scene == Some(i as u32) { continue; }
+        if sc.id.starts_with("__") || m.gameover_scene == Some(i as u32) || m.life_out.contains(&(i as u32)) { continue; }
         let Some(p) = sc.place() else {
             if !r.visited.has(i as u32) { out.push(Finding::warning(format!("シーン「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone()))); }
             continue;
@@ -164,11 +164,25 @@ pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
     }
 }
 
+/// ロックを外さないままクリアしたときに通る印のシーンの ID の頭（core の LOCK_END_PREFIX）
+pub const LOCK_END_PREFIX: &str = "__lockend_";
+
+/// サイコ・ロックを外さないままクリアできる（印のシーンを通った。verify.ts の lockEndMessage と同じ文）
+pub fn lock_end_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
+    for (i, sc) in m.scenes.iter().enumerate() {
+        let Some(id) = sc.id.strip_prefix(LOCK_END_PREFIX) else { continue };
+        if r.visited.has(i as u32) {
+            out.push(Finding::error(format!("サイコ・ロック「{id}」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）"), None));
+        }
+    }
+}
+
 /// 探索の結果の報告をすべて並べる（TS 版と同じ順）
 pub fn findings<'a>(m: &Model, stop_of: impl Fn(u32) -> Stop<'a> + Copy, prep: &Prep, r: &Search, limit: usize, confirm: Option<usize>) -> Vec<Finding> {
     let mut out: Vec<Finding> = r.crashes.iter().map(|(msg, s)| Finding::error(msg.clone(), Some(m.scene_name(*s).to_string()))).collect();
     if !r.truncated {
         if !r.cleared { out.push(Finding::error("どう遊んでもクリア（end）にたどり着けません".into(), None)); }
+        lock_end_findings(m, r, &mut out);
         trap_findings(m, stop_of, prep, r, confirm, &mut out);
         unreached_findings(m, r, &mut out);
     } else {

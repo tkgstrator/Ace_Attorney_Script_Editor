@@ -99,6 +99,7 @@ export function DialogHost() {
                 <button
                   key={c.value}
                   type="button"
+                  aria-pressed={choice === c.value}
                   onClick={() => setChoice(c.value)}
                   className={cn(
                     'flex-1 rounded-md border px-3 py-2 text-sm',
@@ -113,17 +114,28 @@ export function DialogHost() {
             </div>
           )}
           {req?.fields?.map((f, i) => (
-            <label key={f.name} className="block space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{f.label}</span>
+            <div key={f.name} className="block space-y-1">
+              <label
+                htmlFor={`ask-field-${f.name}`}
+                className="block text-xs font-medium text-muted-foreground"
+              >
+                {f.label}
+              </label>
               <Input
+                id={`ask-field-${f.name}`}
                 autoFocus={i === 0}
                 value={values[f.name] ?? ''}
                 placeholder={f.placeholder}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
                 aria-invalid={errors[i] !== null}
+                aria-describedby={errors[i] ? `ask-error-${f.name}` : undefined}
               />
-              {errors[i] && <span className="text-xs text-destructive">{errors[i]}</span>}
-            </label>
+              {errors[i] && (
+                <span id={`ask-error-${f.name}`} className="text-xs text-destructive">
+                  {errors[i]}
+                </span>
+              )}
+            </div>
           ))}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => close(null)}>

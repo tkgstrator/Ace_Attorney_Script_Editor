@@ -1,5 +1,5 @@
 {
-  "title": "igiari シナリオ",
+  "title": "gyakusai シナリオ",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
@@ -63,7 +63,12 @@
           "blip": {
             "description": "文字送りの音（既定 male。元のゲームは話し手の名前ごとに標準・女性・タイプライターのどれか）",
             "type": "string",
-            "enum": ["male", "female", "typewriter", "none"]
+            "enum": [
+              "male",
+              "female",
+              "typewriter",
+              "none"
+            ]
           },
           "profile": {
             "description": "法廷記録の人物ファイルに載せる内容",
@@ -87,11 +92,15 @@
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             },
-            "required": ["description"],
+            "required": [
+              "description"
+            ],
             "additionalProperties": false
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false
       }
     },
@@ -136,12 +145,18 @@
                   "$ref": "#/$defs/__schema0"
                 }
               },
-              "required": ["spot", "then"],
+              "required": [
+                "spot",
+                "then"
+              ],
               "additionalProperties": false
             }
           }
         },
-        "required": ["name", "description"],
+        "required": [
+          "name",
+          "description"
+        ],
         "additionalProperties": false
       }
     },
@@ -153,7 +168,11 @@
         "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
       },
       "additionalProperties": {
-        "type": ["boolean", "number", "string"]
+        "type": [
+          "boolean",
+          "number",
+          "string"
+        ]
       }
     },
     "start": {
@@ -179,13 +198,40 @@
           }
         }
       },
-      "required": ["scene"],
+      "required": [
+        "scene"
+      ],
       "additionalProperties": false
     },
     "gameover": {
       "description": "ライフが尽きたときに移るシーン",
       "type": "string",
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "psycheLock": {
+      "description": "サイコ・ロック（逆転裁判2・3）。ロックそのものはステップ psycheLock で決める",
+      "type": "object",
+      "properties": {
+        "keys": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "description": "探偵パートで人物につきつけるとロックに挑む証拠品（勾玉）"
+        },
+        "heal": {
+          "description": "ロックを解除したときに回復するライフ（既定 0）",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "additionalProperties": false
     },
     "scenes": {
       "description": "編に分けないときのシーン（裁判編として扱う）",
@@ -249,7 +295,9 @@
                       }
                     }
                   },
-                  "required": ["text"],
+                  "required": [
+                    "text"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -270,7 +318,11 @@
                 "$ref": "#/$defs/__schema0"
               }
             },
-            "required": ["testimony", "witness", "statements"],
+            "required": [
+              "testimony",
+              "witness",
+              "statements"
+            ],
             "additionalProperties": false
           }
         ]
@@ -288,7 +340,10 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["investigation", "trial"],
+            "enum": [
+              "investigation",
+              "trial"
+            ],
             "description": "investigation: 探索編 / trial: 裁判編"
           },
           "title": {
@@ -356,7 +411,9 @@
                             }
                           }
                         },
-                        "required": ["text"],
+                        "required": [
+                          "text"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -377,7 +434,11 @@
                       "$ref": "#/$defs/__schema0"
                     }
                   },
-                  "required": ["testimony", "witness", "statements"],
+                  "required": [
+                    "testimony",
+                    "witness",
+                    "statements"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -402,6 +463,19 @@
                   "type": "string",
                   "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                 },
+                "examineScroll": {
+                  "description": "「調べる」の間に背景をスクロールできるか（true / false か条件式。背景が画面より大きいときだけ効く。省略するとできる）",
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "条件式。例: has(repair) and not pressed_s2"
+                    }
+                  ]
+                },
                 "person": {
                   "description": "その場所にいる人物。一覧なら、when が真の最初の人物",
                   "anyOf": [
@@ -424,7 +498,9 @@
                             "description": "条件式。例: has(repair) and not pressed_s2"
                           }
                         },
-                        "required": ["id"],
+                        "required": [
+                          "id"
+                        ],
                         "additionalProperties": false
                       }
                     }
@@ -468,7 +544,7 @@
                         "items": false,
                         "minItems": 4,
                         "maxItems": 4,
-                        "description": "画面（256×192 ドット）上の範囲 [x, y, 幅, 高さ]"
+                        "description": "背景の上の範囲 [x, y, 幅, 高さ]（ドット。横長の背景なら 0〜512 など、背景の座標）"
                       },
                       "when": {
                         "type": "string",
@@ -479,7 +555,10 @@
                         "$ref": "#/$defs/__schema0"
                       }
                     },
-                    "required": ["area", "then"],
+                    "required": [
+                      "area",
+                      "then"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -507,11 +586,19 @@
                         "type": "string",
                         "minLength": 1
                       },
+                      "locked": {
+                        "description": "この条件が真のとき、話題にサイコ・ロックの印を出す（既読の印の代わり。選べば then を実行する。先へ進ませないのは、解除するまで話題を切り替えない台本の側）",
+                        "type": "string",
+                        "minLength": 1
+                      },
                       "then": {
                         "$ref": "#/$defs/__schema0"
                       }
                     },
-                    "required": ["topic", "then"],
+                    "required": [
+                      "topic",
+                      "then"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -552,24 +639,38 @@
                             "description": "条件式。例: has(repair) and not pressed_s2"
                           }
                         },
-                        "required": ["to"],
+                        "required": [
+                          "to"
+                        ],
                         "additionalProperties": false
                       }
                     ]
                   }
                 }
               },
-              "required": ["name"],
+              "required": [
+                "name"
+              ],
               "additionalProperties": false
             }
           }
         },
-        "required": ["id", "kind", "title"],
+        "required": [
+          "id",
+          "kind",
+          "title"
+        ],
         "additionalProperties": false
       }
     }
   },
-  "required": ["id", "title", "characters", "evidence", "start"],
+  "required": [
+    "id",
+    "title",
+    "characters",
+    "evidence",
+    "start"
+  ],
   "additionalProperties": false,
   "$defs": {
     "__schema0": {
@@ -596,14 +697,23 @@
               },
               "color": {
                 "type": "string",
-                "enum": ["white", "blue", "green", "orange", "red"]
+                "enum": [
+                  "white",
+                  "blue",
+                  "green",
+                  "orange",
+                  "red"
+                ]
               },
               "auto": {
                 "description": "出し終えたら、ボタンを待たずに次へ進む",
                 "type": "boolean"
               }
             },
-            "required": ["say", "text"],
+            "required": [
+              "say",
+              "text"
+            ],
             "additionalProperties": false,
             "description": "台詞（省略形: `- 人物ID: 台詞`）"
           },
@@ -614,7 +724,9 @@
                 "type": "string"
               }
             },
-            "required": ["narrate"],
+            "required": [
+              "narrate"
+            ],
             "additionalProperties": false,
             "description": "ナレーション（名前欄なし）"
           },
@@ -628,11 +740,17 @@
                   "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                 },
                 "additionalProperties": {
-                  "type": ["boolean", "number", "string"]
+                  "type": [
+                    "boolean",
+                    "number",
+                    "string"
+                  ]
                 }
               }
             },
-            "required": ["set"],
+            "required": [
+              "set"
+            ],
             "additionalProperties": false,
             "description": "フラグに値を入れる"
           },
@@ -650,7 +768,9 @@
                 }
               }
             },
-            "required": ["add"],
+            "required": [
+              "add"
+            ],
             "additionalProperties": false,
             "description": "数値フラグに加算する"
           },
@@ -673,7 +793,9 @@
                 ]
               }
             },
-            "required": ["give"],
+            "required": [
+              "give"
+            ],
             "additionalProperties": false,
             "description": "証拠品を法廷記録に加える"
           },
@@ -696,7 +818,9 @@
                 ]
               }
             },
-            "required": ["giveProfile"],
+            "required": [
+              "giveProfile"
+            ],
             "additionalProperties": false,
             "description": "人物を法廷記録の人物ファイルに加える"
           },
@@ -719,7 +843,9 @@
                 ]
               }
             },
-            "required": ["takeProfile"],
+            "required": [
+              "takeProfile"
+            ],
             "additionalProperties": false,
             "description": "人物を人物ファイルから外す"
           },
@@ -742,7 +868,9 @@
                 ]
               }
             },
-            "required": ["take"],
+            "required": [
+              "take"
+            ],
             "additionalProperties": false,
             "description": "証拠品を法廷記録から外す"
           },
@@ -761,7 +889,10 @@
                 "$ref": "#/$defs/__schema0"
               }
             },
-            "required": ["if", "then"],
+            "required": [
+              "if",
+              "then"
+            ],
             "additionalProperties": false,
             "description": "条件分岐"
           },
@@ -786,12 +917,16 @@
                       "$ref": "#/$defs/__schema0"
                     }
                   },
-                  "required": ["text"],
+                  "required": [
+                    "text"
+                  ],
                   "additionalProperties": false
                 }
               }
             },
-            "required": ["choice"],
+            "required": [
+              "choice"
+            ],
             "additionalProperties": false,
             "description": "選択肢。選んだ then を実行した後、次のステップへ進む"
           },
@@ -825,11 +960,155 @@
                 "description": "問いかける人物（名前欄に出す）",
                 "type": "string",
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "giveUp": {
+                "description": "サイコ・ロックの挑戦中の「やめる」を出す（選ぶと、挑んでいるロックの quit のシーンへ）",
+                "type": "boolean",
+                "const": true
               }
             },
-            "required": ["demand", "present"],
+            "required": [
+              "demand",
+              "present"
+            ],
             "additionalProperties": false,
             "description": "証拠品のつきつけを求める"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "pick": {
+                "type": "string",
+                "description": "案内の文（テキストの枠に出す。空なら既定の案内）"
+              },
+              "images": {
+                "description": "選ぶ絵（背景のキー）。複数なら早送り・早戻しで切り替える。省略すると今の背景（調べると同じ座標）",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                ]
+              },
+              "areas": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "エディタ・報告での表示名",
+                      "type": "string"
+                    },
+                    "area": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 4,
+                      "maxItems": 4,
+                      "description": "絵の上の範囲 [x, y, 幅, 高さ]（ドット。絵・背景の座標）"
+                    },
+                    "image": {
+                      "description": "images のどの絵の上か（番号。省略するとどの絵でも）",
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "when": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "条件式。例: has(repair) and not pressed_s2"
+                    },
+                    "then": {
+                      "$ref": "#/$defs/__schema0"
+                    }
+                  },
+                  "required": [
+                    "area"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "選べる範囲。重なっていれば先に書いたもの。選んだ then の後、次のステップへ"
+              },
+              "miss": {
+                "description": "範囲の外を選んだとき。実行後にもう一度選ばせる（省略すると範囲の外は選べない）",
+                "$ref": "#/$defs/__schema0"
+              },
+              "quit": {
+                "description": "「やめる」を出す。選んだら実行して次のステップへ（省略すると出さない）",
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": [
+              "pick",
+              "areas"
+            ],
+            "additionalProperties": false,
+            "description": "絵の上の範囲を選ぶ（DS 版の指紋・映像などの遊び。探索編の「調べる」と同じ操作）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "nominate": {
+                "type": "string",
+                "description": "案内の文（テキストの枠に出す。空なら既定の案内）"
+              },
+              "people": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "description": "並べる人物 ID（顔の絵。4 人ずつ 2 段に、左上から順に。顔の絵がなければ名前）"
+              },
+              "present": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "description": "正解の人物 ID（people のどれか）→ 選んだときのステップ。then の後、次のステップへ"
+              },
+              "wrong": {
+                "description": "ほかの人物を選んだとき。実行後にもう一度選ばせる（省略すると何もせず選び直す）",
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": [
+              "nominate",
+              "people",
+              "present"
+            ],
+            "additionalProperties": false,
+            "description": "人物を選ぶ（DS 版の第 5 話の指紋の照合・人物の指名。顔の並びから 1 人を選ぶ）"
           },
           {
             "type": "object",
@@ -839,7 +1118,9 @@
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             },
-            "required": ["goto"],
+            "required": [
+              "goto"
+            ],
             "additionalProperties": false,
             "description": "別のシーンへ移る"
           },
@@ -853,29 +1134,174 @@
                     "const": true
                   },
                   {
+                    "type": "string",
+                    "const": "risk"
+                  },
+                  {
                     "type": "number",
                     "exclusiveMinimum": 0
                   }
                 ]
               }
             },
-            "required": ["penalty"],
+            "required": [
+              "penalty"
+            ],
             "additionalProperties": false,
-            "description": "ライフを減らす。true なら defaults.penalty"
+            "description": "ライフを減らす。true なら defaults.penalty、risk なら lifeRisk で予告した量"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "heal": {
+                "anyOf": [
+                  {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                ]
+              }
+            },
+            "required": [
+              "heal"
+            ],
+            "additionalProperties": false,
+            "description": "ライフを回復する（true は最大まで。最大は超えない）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "lifeRisk": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "lifeRisk"
+            ],
+            "additionalProperties": false,
+            "description": "見当違いのときに減るライフの量を、ゲージの点滅で予告する（0 で消す）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "psycheLock": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "description": "ロックの ID（元のゲームの枠 lock0〜lock3 など）"
+              },
+              "locks": {
+                "description": "錠の数",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "person": {
+                "description": "ロックのかかった人物",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "place": {
+                "description": "その人物がいる場所（そこで勾玉をつきつけると挑む）",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "start": {
+                "description": "挑んだときのシーン",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "quit": {
+                "description": "「やめる」を選んだときのシーン",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "gaugeOut": {
+                "description": "挑戦中にライフが尽きたときのシーン（ライフは 1 に戻る）",
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "required": [
+              "psycheLock"
+            ],
+            "additionalProperties": false,
+            "description": "サイコ・ロックを決める・変える（書いた欄だけ変わる。書くと有効になる）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "breakLock": {
+                "anyOf": [
+                  {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  {
+                    "type": "string",
+                    "const": "hold"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "breakLock"
+            ],
+            "additionalProperties": false,
+            "description": "錠を 1 つ壊す。最後の錠なら解除する（hold なら解除しない）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "unlock": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "unlock"
+            ],
+            "additionalProperties": false,
+            "description": "挑んでいるロックをその場で解除する（回復し、ロックを無効にする）"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "quitLock": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "quitLock"
+            ],
+            "additionalProperties": false,
+            "description": "挑んでいるロックの挑戦をやめて quit のシーンへ（挑んでいなければ何もしない）"
           },
           {
             "type": "object",
             "properties": {
               "shout": {
                 "type": "string",
-                "enum": ["objection", "hold", "takethat"]
+                "enum": [
+                  "objection",
+                  "hold",
+                  "takethat"
+                ]
               },
               "by": {
                 "type": "string",
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             },
-            "required": ["shout"],
+            "required": [
+              "shout"
+            ],
             "additionalProperties": false,
             "description": "「異議あり！」などの吹き出し"
           },
@@ -886,7 +1312,9 @@
                 "type": "string"
               }
             },
-            "required": ["banner"],
+            "required": [
+              "banner"
+            ],
             "additionalProperties": false,
             "description": "画面中央の帯テキスト"
           },
@@ -897,7 +1325,9 @@
                 "type": "string"
               }
             },
-            "required": ["card"],
+            "required": [
+              "card"
+            ],
             "additionalProperties": false,
             "description": "日時・場所の表示。背景を暗くし、テキストウィンドウに中央寄せで出す"
           },
@@ -918,10 +1348,15 @@
               "side": {
                 "description": "小窓を出す側（既定 left）",
                 "type": "string",
-                "enum": ["left", "right"]
+                "enum": [
+                  "left",
+                  "right"
+                ]
               }
             },
-            "required": ["showEvidence"],
+            "required": [
+              "showEvidence"
+            ],
             "additionalProperties": false,
             "description": "画面の上の小窓に証拠品を見せる。null で消す（シーンが変わっても消える）"
           },
@@ -936,7 +1371,9 @@
                 }
               }
             },
-            "required": ["random"],
+            "required": [
+              "random"
+            ],
             "additionalProperties": false,
             "description": "ステップ列のどれかを乱数で選んで実行する"
           },
@@ -945,10 +1382,15 @@
             "properties": {
               "palette": {
                 "type": "string",
-                "enum": ["normal", "grayscale"]
+                "enum": [
+                  "normal",
+                  "grayscale"
+                ]
               }
             },
-            "required": ["palette"],
+            "required": [
+              "palette"
+            ],
             "additionalProperties": false,
             "description": "画面の色の変え方（grayscale: 白黒の回想。normal で戻す）"
           },
@@ -1001,7 +1443,9 @@
                 "maximum": 9007199254740991
               }
             },
-            "required": ["show"],
+            "required": [
+              "show"
+            ],
             "additionalProperties": false,
             "description": "表示する人物を切り替える。talk / idle で動きを指定すると、文字送りの間は talk、止まっている間は idle"
           },
@@ -1020,7 +1464,9 @@
                 ]
               }
             },
-            "required": ["location"],
+            "required": [
+              "location"
+            ],
             "additionalProperties": false,
             "description": "場所（背景）を変える。null で法廷に戻る"
           },
@@ -1046,7 +1492,9 @@
                 "maximum": 9007199254740991
               }
             },
-            "required": ["bgm"],
+            "required": [
+              "bgm"
+            ],
             "additionalProperties": false,
             "description": "BGM を流す（繰り返し）。セーブデータに残り、ロードすると流れ直す"
           },
@@ -1059,7 +1507,9 @@
                 "description": "効果音の ID"
               }
             },
-            "required": ["se"],
+            "required": [
+              "se"
+            ],
             "additionalProperties": false,
             "description": "効果音を鳴らす"
           },
@@ -1087,7 +1537,9 @@
                 "maximum": 2
               }
             },
-            "required": ["shake"],
+            "required": [
+              "shake"
+            ],
             "additionalProperties": false,
             "description": "画面を揺らす"
           },
@@ -1102,7 +1554,10 @@
                   },
                   {
                     "type": "string",
-                    "enum": ["white", "red"]
+                    "enum": [
+                      "white",
+                      "red"
+                    ]
                   }
                 ],
                 "description": "true は white"
@@ -1114,7 +1569,9 @@
                 "maximum": 9007199254740991
               }
             },
-            "required": ["flash"],
+            "required": [
+              "flash"
+            ],
             "additionalProperties": false,
             "description": "画面を一瞬光らせる"
           },
@@ -1123,13 +1580,19 @@
             "properties": {
               "fade": {
                 "type": "string",
-                "enum": ["out", "in"],
+                "enum": [
+                  "out",
+                  "in"
+                ],
                 "description": "out: 画面を覆う（暗転） / in: 覆いを外す"
               },
               "color": {
                 "description": "覆う色（既定 black）",
                 "type": "string",
-                "enum": ["black", "white"]
+                "enum": [
+                  "black",
+                  "white"
+                ]
               },
               "frames": {
                 "description": "長さ（フレーム、既定 30）",
@@ -1142,7 +1605,9 @@
                 "type": "boolean"
               }
             },
-            "required": ["fade"],
+            "required": [
+              "fade"
+            ],
             "additionalProperties": false,
             "description": "画面のフェード。out の後は in まで覆ったまま（台詞は覆いの上に出る）"
           },
@@ -1156,7 +1621,9 @@
                 "description": "フレーム（1/60 秒）"
               }
             },
-            "required": ["wait"],
+            "required": [
+              "wait"
+            ],
             "additionalProperties": false,
             "description": "待つ"
           },
@@ -1174,7 +1641,9 @@
                 "maximum": 9007199254740991
               }
             },
-            "required": ["bgmPause"],
+            "required": [
+              "bgmPause"
+            ],
             "additionalProperties": false,
             "description": "BGM を一時停止する・再開する"
           },
@@ -1226,7 +1695,10 @@
                 ]
               }
             },
-            "required": ["pan", "to"],
+            "required": [
+              "pan",
+              "to"
+            ],
             "additionalProperties": false,
             "description": "法廷の視点の流し（元のゲームの 26。31 フレームかけて全景を流す。止まらない。背景を変えるまで流し終えた絵のまま）"
           },
@@ -1252,7 +1724,9 @@
                 "type": "boolean"
               }
             },
-            "required": ["overlay"],
+            "required": [
+              "overlay"
+            ],
             "additionalProperties": false,
             "description": "背景・人物・机の上に重ね絵を出す・消す（止まらない）"
           },
@@ -1285,7 +1759,9 @@
                 ]
               }
             },
-            "required": ["scroll"],
+            "required": [
+              "scroll"
+            ],
             "additionalProperties": false,
             "description": "背景の表示位置を毎フレーム動かす（画面より大きい背景だけ。端で止まる。背景を変えると止まる。null で止める）"
           },
@@ -1296,7 +1772,9 @@
                 "type": "boolean"
               }
             },
-            "required": ["textbox"],
+            "required": [
+              "textbox"
+            ],
             "additionalProperties": false,
             "description": "文字の枠を出す・隠す（書かなければ台詞のときだけ出る）"
           },
@@ -1312,13 +1790,31 @@
                   },
                   "life": {
                     "description": "ライフを出すか（null で既定に戻す）",
-                    "type": ["boolean", "null"]
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "locks": {
+                    "description": "サイコ・ロックの錠を出す（数）・出し直す（true）・隠す（false）",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
               }
             },
-            "required": ["ui"],
+            "required": [
+              "ui"
+            ],
             "additionalProperties": false,
             "description": "画面の部品の表示"
           },
@@ -1327,10 +1823,16 @@
             "properties": {
               "resume": {
                 "type": "string",
-                "enum": ["next", "stay", "first"]
+                "enum": [
+                  "next",
+                  "stay",
+                  "first"
+                ]
               }
             },
-            "required": ["resume"],
+            "required": [
+              "resume"
+            ],
             "additionalProperties": false,
             "description": "尋問のゆさぶり・つきつけのブロックから証言へ戻る（next: 次の証言 / stay: 同じ証言 / first: 最初の証言）"
           },
@@ -1348,7 +1850,9 @@
                 }
               }
             },
-            "required": ["native"],
+            "required": [
+              "native"
+            ],
             "additionalProperties": false,
             "description": "元のゲームの命令で、まだ対応していないもの（元の台本から変換したときに残す。今は何もしない）"
           },
@@ -1360,7 +1864,9 @@
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             },
-            "required": ["investigate"],
+            "required": [
+              "investigate"
+            ],
             "additionalProperties": false,
             "description": "探索編の場所へ行き、探偵メニュー（調べる・移動する・話す・つきつける）を出す"
           },
@@ -1372,7 +1878,9 @@
                 "const": true
               }
             },
-            "required": ["end"],
+            "required": [
+              "end"
+            ],
             "additionalProperties": false,
             "description": "ゲームクリア"
           },
@@ -1384,7 +1892,9 @@
                 "const": true
               }
             },
-            "required": ["gameover"],
+            "required": [
+              "gameover"
+            ],
             "additionalProperties": false,
             "description": "ゲームオーバー"
           },

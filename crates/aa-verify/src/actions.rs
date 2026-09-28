@@ -13,6 +13,8 @@ pub enum Act {
     Press,
     /// 表示される選択肢の番号
     Choose(usize),
+    /// pick で今選べるもの（範囲・範囲の外・やめる）の番号
+    Pick(usize),
     Present(u32),
     Examine(i64, i64),
     Move(u32),
@@ -20,6 +22,8 @@ pub enum Act {
     Talk(usize),
     /// 証拠品を詳しく調べて、表示される場所の選択肢の番号を選ぶ（選択肢がなければ None）
     Inspect(u32, Option<usize>),
+    /// サイコ・ロックのつきつけをやめる
+    GiveUp,
 }
 
 impl Act {
@@ -28,6 +32,7 @@ impl Act {
             Act::Advance => e.advance(),
             Act::Press => e.press(),
             Act::Choose(i) => e.choose(i),
+            Act::Pick(i) => e.pick(i),
             Act::Present(ev) => e.present(ev),
             Act::Examine(x, y) => e.examine(x, y),
             Act::Move(p) => e.move_to(p),
@@ -36,6 +41,7 @@ impl Act {
                 e.inspect(ev)?;
                 match n { Some(n) => e.choose(n), None => Ok(()) }
             }
+            Act::GiveUp => e.give_up(),
         }
     }
 
@@ -45,20 +51,25 @@ impl Act {
             Act::Advance => "a".into(),
             Act::Press => "p".into(),
             Act::Choose(i) => format!("c{i}"),
+            Act::Pick(i) => format!("k{i}"),
             Act::Present(ev) => format!("{}{}", if m.is_profile(ev) { 'r' } else { 'v' }, m.evidence[ev as usize].id),
             Act::Examine(x, y) => format!("e{x},{y}"),
             Act::Move(p) => format!("m{}", m.scene_name(p)),
             Act::Talk(i) => format!("t{}", m.seen_ids[e.place().map(|p| p.talk[i].seen).unwrap_or(0) as usize]),
             Act::Inspect(ev, Some(n)) => format!("i{}:{n}", m.evidence[ev as usize].id),
             Act::Inspect(ev, None) => format!("i{}", m.evidence[ev as usize].id),
+            Act::GiveUp => "g".into(),
         }
     }
 }
 
+/// 4:3 の画面の大きさ（背景の座標）
 const SCREEN_W: i64 = 256;
 const SCREEN_H: i64 = 192;
 
-/// 場所で試す「調べる」の点（範囲の辺で区切った升目のうち、どの範囲に入るかの組み合わせごとに 1 点）
+/// 場所で試す「調べる」の点（背景の座標。範囲の辺で区切った升目のうち、どの範囲に入るかの組み合わせごとに 1 点）。
+/// 背景の大きさは分からないので、画面の大きさと範囲の右・下の端のうち大きい方までを背景とみなす（verify-actions.ts と同じ）
+/// 画面の幅（4:3 / 16:9）によらない: プレイヤーは 16:9 でも、背景の座標でこの範囲の点しか調べさせない
 pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
     let cut = |lo: Vec<i64>, max: i64| {
         let mut v: Vec<i64> = std::iter::once(0).chain(lo).filter(|&v| v >= 0 && v < max).collect();
@@ -66,8 +77,10 @@ pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
         v.dedup();
         v
     };
-    let xs = cut(p.examine.iter().flat_map(|e| [e.area[0], e.area[0] + e.area[2]]).collect(), SCREEN_W);
-    let ys = cut(p.examine.iter().flat_map(|e| [e.area[1], e.area[1] + e.area[3]]).collect(), SCREEN_H);
+    let max_x = p.examine.iter().map(|e| e.area[0] + e.area[2]).fold(SCREEN_W, i64::max);
+    let max_y = p.examine.iter().map(|e| e.area[1] + e.area[3]).fold(SCREEN_H, i64::max);
+    let xs = cut(p.examine.iter().flat_map(|e| [e.area[0], e.area[0] + e.area[2]]).collect(), max_x);
+    let ys = cut(p.examine.iter().flat_map(|e| [e.area[1], e.area[1] + e.area[3]]).collect(), max_y);
     let mut pts = vec![];
     let mut sigs: Vec<Vec<bool>> = vec![];
     for &y in &ys {
@@ -141,9 +154,16 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
             for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Choose(n)); n += 1; } }
             out.append(&mut inspect);
         }
+        // 範囲を選ぶ間は法廷記録を開けない（詳しく調べない）
+        BeatKind::Pick => {
+            let Op::Pick(opts) = e.instr()? else { unreachable!() };
+            let mut n = 0;
+            for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Pick(n)); n += 1; } }
+        }
         BeatKind::Demand => {
-            let Op::Demand { options, profiles, .. } = e.instr()? else { unreachable!() };
+            let Op::Demand { options, profiles, give_up, .. } = e.instr()? else { unreachable!() };
             present(options, profiles.as_deref(), &mut out);
+            if give_up.is_some() { out.push(Act::GiveUp); }
             out.append(&mut inspect);
         }
         BeatKind::Statement { cross } => {
@@ -151,7 +171,7 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
             if cross {
                 let st = e.testimony()?.statements.get(s.statement as usize);
                 if st.is_some_and(|st| st.press.is_some()) { out.push(Act::Press); }
-                present(st.map_or(&[][..], |st| &st.present), None, &mut out);
+                present(st.map_or(&[][..], |st| &st.present), st.and_then(|st| st.present_profile.as_deref()), &mut out);
             }
             out.append(&mut inspect);
         }

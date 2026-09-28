@@ -4,6 +4,9 @@ use crate::model::*;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
+#[path = "load_place.rs"]
+mod place;
+
 type Obj = Map<String, Value>;
 
 /// 文字列を番号にする入れ物
@@ -162,12 +165,21 @@ impl Ctx {
                 }
                 Op::Choice(opts)
             }
+            "pick" => {
+                let mut opts = vec![];
+                for x in o["options"].as_array().ok_or("pick の options がありません")? {
+                    let xo = obj(x)?;
+                    opts.push(Opt { when: self.when(xo)?, to: pc_of(xo, "to")? });
+                }
+                Op::Pick(opts)
+            }
             "demand" => Op::Demand {
                 prompt: str_of(o, "prompt").unwrap_or("").to_string(),
                 speaker: o.get("speaker").is_some_and(|s| s.is_string()),
                 options: self.answers(o.get("options")),
                 profiles: o.get("profiles").map(|p| self.profile_answers(Some(p))),
                 wrong: pc_of(o, "wrong")?,
+                give_up: opt_pc(o, "giveUp"),
             },
             "giveProfile" => self.profile_op(o, true)?,
             "takeProfile" => self.profile_op(o, false)?,
@@ -194,7 +206,8 @@ impl Ctx {
             "gameover" => Op::Gameover,
             "penalty" => Op::Penalty(num_of(o, "amount")?),
             "showEvidence" | "palette" | "pan" | "overlay" | "scroll" | "textbox"
-            | "bgmPause" | "show" | "location" | "bgm" | "se" | "shake" | "flash" => Op::Nop(static_name(op)),
+            | "bgmPause" | "show" | "location" | "bgm" | "se" | "shake" | "flash"
+            | "heal" | "lifeRisk" | "locks" => Op::Nop(static_name(op)),
             x => return Err(err(format!("未知の命令です: {x}"))),
         })
     }
@@ -212,10 +225,8 @@ impl Ctx {
                 for st in o["statements"].as_array().ok_or("statements がありません")? {
                     let so = obj(st)?;
                     statements.push(Statement {
-                        when: self.when(so)?,
-                        press: opt_pc(so, "press"),
-                        present: self.answers(so.get("present")),
-                        before: opt_pc(so, "before"),
+                        when: self.when(so)?, press: opt_pc(so, "press"), present: self.answers(so.get("present")),
+                        present_profile: so.get("presentProfile").map(|p| self.profile_answers(Some(p))), before: opt_pc(so, "before"),
                     });
                 }
                 Kind::Testimony(Testimony {
@@ -231,47 +242,6 @@ impl Ctx {
             k => return Err(err(format!("未知のシーンの種類です: {k}"))),
         };
         Ok(Scene { id: id.to_string(), kind, program, nop_end: vec![], stop_run: vec![], defer: vec![], segment: vec![], trivial: vec![] })
-    }
-
-    fn place(&mut self, o: &Obj) -> Result<Place, String> {
-        let arr = |k: &str| o.get(k).and_then(Value::as_array).cloned().unwrap_or_default();
-        let mut person = vec![];
-        for p in arr("person") { person.push(self.when(obj(&p)?)?); }
-        let mut examine = vec![];
-        for x in arr("examine") {
-            let xo = obj(&x)?;
-            let a = xo["area"].as_array().ok_or("area がありません")?;
-            let n = |i: usize| a.get(i).and_then(Value::as_f64).unwrap_or(0.0) as i64;
-            examine.push(Examine {
-                seen: self.seen.get(str_of(xo, "id")?),
-                name: xo.get("name").and_then(Value::as_str).map(str::to_string),
-                area: [n(0), n(1), n(2), n(3)],
-                when: self.when(xo)?,
-                pc: pc_of(xo, "pc")?,
-            });
-        }
-        let mut talk = vec![];
-        for x in arr("talk") {
-            let xo = obj(&x)?;
-            talk.push(Talk { seen: self.seen.get(str_of(xo, "id")?), topic: str_of(xo, "topic")?.to_string(), when: self.when(xo)?, pc: pc_of(xo, "pc")? });
-        }
-        let mut moves = vec![];
-        for m in arr("move") {
-            let mo = obj(&m)?;
-            moves.push((self.scene_ref(str_of(mo, "to")?), self.when(mo)?));
-        }
-        Ok(Place {
-            name: str_of(o, "name").unwrap_or("").to_string(),
-            person,
-            enter: opt_pc(o, "enter"),
-            examine,
-            examine_default: pc_of(o, "examineDefault")?,
-            talk,
-            present: self.answers(o.get("present")),
-            present_profile: self.profile_answers(o.get("presentProfile")),
-            present_wrong: pc_of(o, "presentWrong")?,
-            moves,
-        })
     }
 }
 
@@ -327,6 +297,9 @@ pub fn load(text: &str) -> Result<Model, String> {
         None => start_evidence.extend(ch_obj.keys().filter_map(|id| cx.profiles.get(id).copied())),
     }
     let gameover_scene = o.get("gameoverScene").and_then(Value::as_str).map(|s| cx.scene_ref(s));
+    let life_out: Vec<u32> = o.get("lifeOutScenes").and_then(Value::as_array).map(|a| {
+        a.iter().filter_map(Value::as_str).map(|s| cx.scene_ref(s)).collect()
+    }).unwrap_or_default();
     let mut parts = vec![];
     for p in o.get("parts").and_then(Value::as_array).cloned().unwrap_or_default() {
         let po = obj(&p)?;
@@ -374,12 +347,14 @@ pub fn load(text: &str) -> Result<Model, String> {
         inspect_skip: vec![],
         defer: Default::default(),
         gameover_scene,
+        life_out,
         max_life: o.get("maxLife").and_then(Value::as_f64).unwrap_or(5.0),
         parts,
         missing_scenes: cx.missing.names,
     };
     model.profile_points = model.scenes.iter().any(|sc| sc.place().is_some_and(|p| !p.person.is_empty())
-        || sc.program.iter().any(|op| matches!(op, Op::Demand { profiles: Some(_), .. })));
+        || sc.program.iter().any(|op| matches!(op, Op::Demand { profiles: Some(_), .. }))
+        || matches!(&sc.kind, Kind::Testimony(t) if t.statements.iter().any(|st| st.present_profile.is_some())));
     (model.inspect_all, model.inspect_effective) = crate::inspect::inspect_info(&model);
     for (j, &x) in model.inspect_effective.iter().enumerate() {
         model.evidence[x as usize].effective = true;

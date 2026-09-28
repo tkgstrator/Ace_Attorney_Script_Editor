@@ -1,9 +1,8 @@
 import type { Expr, PlaceScene } from '@gyakusai/core';
 import { Builder } from './builder.ts';
 import type { Path } from './compile.ts';
+import { emitChallenge, type LockRegistry } from './compile-lock.ts';
 import type { RawPlace, RawScenario } from './schema.ts';
-
-const SCREEN = { w: 256, h: 192 };
 
 /** 場所の変換に使う、コンパイラ本体の検証・変換の関数 */
 export interface PlaceContext {
@@ -16,6 +15,9 @@ export interface PlaceContext {
   /** つきつけの表のキーが、証拠品か人物ファイルか（どちらでもなければエラーを報告して null） */
   presentKind(id: string, path: Path): 'evidence' | 'profile' | null;
   error(path: Path, message: string): void;
+  /** サイコ・ロック（compile-lock.ts）と、挑むのに使う証拠品 */
+  locks?: LockRegistry;
+  lockKeys?: string[];
 }
 
 /** つきつけの表（demand・場所の present）のキーの種類を決める関数を作る */
@@ -60,16 +62,14 @@ export function seenIds(id: string, raw: RawPlace): string[] {
  */
 export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path: Path): PlaceScene {
   const b = new Builder();
-  const block = (steps: unknown, p: Path, before?: () => void): number => {
+  const block = (steps: unknown, p: Path): number => {
     const pc = b.pc;
-    before?.();
     ctx.compileSteps(steps, p, b);
     b.emit({ op: 'menu' });
     return pc;
   };
   const when = (src: string | undefined, p: Path) =>
     src !== undefined ? ctx.cond(src, p) : undefined;
-  const takeThat = () => b.emit({ op: 'shout', kind: 'takethat', by: ctx.player });
 
   const person = typeof raw.person === 'string' ? [{ id: raw.person }] : (raw.person ?? []);
   const scene: PlaceScene = {
@@ -94,17 +94,20 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
     presentWrong: -1,
     move: [],
   };
+  if (raw.examineScroll === false) scene.examineScroll = { t: 'lit', v: false };
+  else if (typeof raw.examineScroll === 'string') {
+    const c = when(raw.examineScroll, [...path, 'examineScroll']);
+    if (c) scene.examineScroll = c;
+  }
   if (raw.enter) scene.enter = block(raw.enter, [...path, 'enter']);
 
   const seen = seenIds(id, raw);
   (raw.examine ?? []).forEach((e, i) => {
     const p = [...path, 'examine', i];
     const [x, y, w, h] = e.area;
-    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > SCREEN.w || y + h > SCREEN.h) {
-      ctx.error(
-        [...p, 'area'],
-        `範囲が画面（${SCREEN.w}×${SCREEN.h}）の外にはみ出しているか、大きさが 0 です`,
-      );
+    // 範囲は背景の座標（背景の大きさはここでは分からないので、右・下の端は見ない）
+    if (w <= 0 || h <= 0 || x < 0 || y < 0) {
+      ctx.error([...p, 'area'], '範囲が背景の左・上の端より外にはみ出しているか、大きさが 0 です');
     }
     const c = when(e.when, [...p, 'when']);
     scene.examine.push({
@@ -123,10 +126,12 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
   (raw.talk ?? []).forEach((t, i) => {
     const p = [...path, 'talk', i];
     const c = when(t.when, [...p, 'when']);
+    const locked = when(t.locked, [...p, 'locked']);
     scene.talk.push({
       id: seen[talkBase + i]!,
       topic: t.topic,
       ...(c ? { when: c } : {}),
+      ...(locked ? { locked } : {}),
       pc: block(t.then, [...p, 'then']),
     });
   });
@@ -135,13 +140,23 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
 
   for (const [ev, steps] of Object.entries(raw.present ?? {})) {
     const kind = ctx.presentKind(ev, [...path, 'present', ev]);
-    const pc = block(steps, [...path, 'present', ev], takeThat);
-    if (kind === 'profile') (scene.presentProfile ??= {})[ev] = pc;
-    else scene.present[ev] = pc;
+    const pc = block(steps, [...path, 'present', ev]);
+    if (kind === 'profile') {
+      scene.presentProfile ??= {};
+      scene.presentProfile[ev] = pc;
+    } else scene.present[ev] = pc;
   }
   scene.presentWrong = raw.presentWrong
-    ? block(raw.presentWrong, [...path, 'presentWrong'], takeThat)
-    : block([{ narrate: '特に反応はなかった。' }], [...path, 'presentWrong'], takeThat);
+    ? block(raw.presentWrong, [...path, 'presentWrong'])
+    : block([{ narrate: '特に反応はなかった。' }], [...path, 'presentWrong']);
+  // サイコ・ロック: この場所で決められたロックがあれば、勾玉をつきつけたときに挑む（無ければ元の反応）
+  if (ctx.locks && [...ctx.locks.values()].some((l) => l.places.has(id))) {
+    for (const key of ctx.lockKeys ?? []) {
+      const fallback = scene.present[key] ?? scene.presentWrong;
+      scene.present[key] = b.pc;
+      emitChallenge(b, ctx.locks, id, scene.person, fallback);
+    }
+  }
 
   (raw.move ?? []).forEach((m, i) => {
     const to = typeof m === 'string' ? m : m.to;

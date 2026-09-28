@@ -65,7 +65,7 @@ function invOnly(ctx: Context, s: number): boolean {
   const walk = (x: unknown, key = ''): void => {
     if (hit || key === 'court_present') return;
     if (Array.isArray(x)) {
-      x.forEach((v) => walk(v));
+      for (const v of x) walk(v);
       return;
     }
     if (typeof x !== 'object' || x === null) return;
@@ -104,9 +104,15 @@ function referencedScenes(scenario: Record<string, unknown>): Set<string> {
       return;
     }
     if (typeof x !== 'object' || x === null) return;
+    // サイコ・ロックの行き先（start / quit / gaugeOut）もシーンへの参照
+    const lock = 'psycheLock' in x;
     for (const [k, v] of Object.entries(x)) {
       if (
-        (k === 'goto' || k === 'investigate' || k === 'scene' || k === 'gameover') &&
+        (k === 'goto' ||
+          k === 'investigate' ||
+          k === 'scene' ||
+          k === 'gameover' ||
+          (lock && (k === 'start' || k === 'quit' || k === 'gaugeOut'))) &&
         typeof v === 'string'
       )
         out.add(v);

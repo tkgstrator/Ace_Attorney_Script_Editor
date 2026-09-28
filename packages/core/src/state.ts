@@ -43,6 +43,8 @@ export function initialState(scenario: CompiledScenario): GameState {
       bgmPaused: false,
       recordLocked: false,
       lifeGauge: null,
+      lifeRisk: 0,
+      locks: null,
       scroll: null,
       pan: null,
       overlays: [],
@@ -70,6 +72,8 @@ export function migrateState(s: GameState, scenario: CompiledScenario): GameStat
   st.bgmPaused ??= false;
   st.recordLocked ??= false;
   st.lifeGauge ??= null;
+  st.lifeRisk ??= 0; // ゲージ（逆転裁判2・3）の追加前
+  st.locks ??= null;
   st.scroll ??= null;
   st.pan ??= null;
   st.overlays ??= [];

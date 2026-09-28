@@ -5,6 +5,7 @@
 """人物の動き（台本の命令 30 の「動きの番号」）と人物の番号の表を ROM から作る。
 
     uv run tools/rom/tbl_chars.py <rom.nds> [--root assets/extracted] [--no-png]
+    （--root の既定はゲームごとの置き場所。2 = assets/extracted/aa2、3 = assets/extracted/aa3。番地は game_assets.py）
 
 書き出すもの:
     tables/char_anims.json   動きの番号 → アニメーションのファイル・区間・コマ送り・終わり方・原点
@@ -34,20 +35,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ex_chars  # noqa: E402
 import gfx  # noqa: E402
 from arm9 import Arm9  # noqa: E402
+from game_assets import Assets, assets_of  # noqa: E402
 from nds import list_files  # noqa: E402
 from nitro import decompress  # noqa: E402
-from script_format import ARGC  # noqa: E402
 
-PACK = 0x2202220           # data.bin の中の人物のパック
-ANIM_TABLE = 0x020a8f80    # 動きの番号 → (NNN, 区間の位置)
-ANIM_COUNT = 704
-SCRIPT_ANIMS = 505         # 台本の 30 で使う動きは 1〜504（0 は使わない）
-CHAR_TABLE = 0x020a8c20    # 人物 → OAM の数の上限
-CHAR_COUNT = 64
 SCREEN_X, SCREEN_Y = 128, 96   # 0x02022530: 人物の基準点は上画面の (128, 96)
 END = {0xFF: 'loop', 0xFE: 'hold', 0xFD: 'delete'}
 
-# 名前（確かなものだけ。人物の番号と名前の番号（14 name）はほぼ同じ）
+# 名前（蘇る逆転の確かなものだけ。人物の番号と名前の番号（14 name）はほぼ同じ）
 NAMES = {
     2: '成歩堂 龍一', 4: '綾里 真宵', 7: '綾里 千尋', 8: '裁判長', 9: '御剣 怜侍', 10: '亜内 武文',
     12: '星影 宇宙ノ介', 20: '糸鋸 圭介', 25: '矢張 政志', 26: '山野 星雄', 44: '宝月 茜',
@@ -60,10 +55,10 @@ def data_bin(rom: bytes) -> bytes:
     return rom[f.start:f.end]
 
 
-def pack_parts(d: bytes) -> list[bytes]:
-    n = struct.unpack_from('<I', d, PACK)[0]
-    ents = [struct.unpack_from('<II', d, PACK + 4 + 8 * k) for k in range(n)]
-    return [d[PACK + p:PACK + p + s] for p, s in ents]
+def pack_parts(d: bytes, pack: int = 0x2202220) -> list[bytes]:
+    n = struct.unpack_from('<I', d, pack)[0]
+    ents = [struct.unpack_from('<II', d, pack + 4 + 8 * k) for k in range(n)]
+    return [d[pack + p:pack + p + s] for p, s in ents]
 
 
 def parse_block(anim: bytes, off: int):
@@ -85,11 +80,13 @@ def parse_block(anim: bytes, off: int):
     return gofs, seq, end
 
 
-def script_usage(rom: bytes):
-    """台本の命令 30 から (動き → 人物の出現回数, 人物 → 動き, (項目, 人物, 話す, 黙る) の一覧) を集める"""
+def script_usage(rom: bytes, argc: dict):
+    """台本の命令 30 から (動き → 人物の出現回数, (項目, 人物, 話す, 黙る) の一覧, 人物 → 話し手の名前の番号の回数) を集める。
+    話し手は、人物が出ている間の文（0x80 以上の語の並び）ごとに、そのときの名前（14 name）を数える"""
     f = next(f for f in list_files(rom) if f.path == 'mes_all.bin')
     mes = rom[f.start:f.end]
     anim_char: dict[int, Counter] = defaultdict(Counter)
+    speakers: dict[int, Counter] = defaultdict(Counter)
     uses = []
     for e in range(struct.unpack_from('<I', mes, 0)[0]):
         off, _ = struct.unpack_from('<II', mes, 4 + 8 * e)
@@ -97,20 +94,40 @@ def script_usage(rom: bytes):
         w = struct.unpack(f'<{len(b) // 2}H', b[:len(b) // 2 * 2])
         first = (w[2] | w[3] << 16) // 2        # 最初の区画の位置（区画は続けて並ぶ）
         i = first
+        name, shown, in_text = 0, 0, False
         while i < len(w):
             op = w[i]
             if op >= 0x80:
+                if not in_text and shown and name:
+                    speakers[shown][name] += 1
+                in_text = True
                 i += 1
                 continue
-            n = ARGC.get(op, 0)
+            in_text = False
+            n = argc.get(op, 0)
             a = w[i + 1:i + 1 + n]
+            if op == 14 and a:
+                name = (a[0] >> 8) & 0x7F
+            if op == 30 and len(a) == 3:
+                shown = a[0] & 0x1FFF
             if op == 30 and len(a) == 3 and a[0]:
                 c = a[0] & 0x1FFF
                 for x in a[1:]:
                     anim_char[x][c] += 1
                 uses.append((e, a[0], a[1], a[2]))
             i += 1 + n
-    return anim_char, uses
+    return anim_char, uses, speakers
+
+
+def speaker_of(c: int, tags: dict[int, str], speakers: dict[int, Counter]) -> int | None:
+    """名札の無い人物（大写しの顔など）の名前の番号: 出ている間の文の話し手の 3/4 以上が同じ名前ならその番号"""
+    if tags.get(c):
+        return None
+    cnt = speakers.get(c)
+    if not cnt:
+        return None
+    n, k = cnt.most_common(1)[0]
+    return n if tags.get(n) and k * 4 >= sum(cnt.values()) * 3 else None
 
 
 def render_anim(gfx_b: bytes, anim_b: bytes, gofs: int, seq, dst: Path | None):
@@ -134,12 +151,19 @@ def render_anim(gfx_b: bytes, anim_b: bytes, gofs: int, seq, dst: Path | None):
     return order, list(origin), size
 
 
-def build(rom: bytes, root: Path, png: bool) -> tuple[dict, dict]:
+def build(rom: bytes, root: Path, png: bool, A: Assets) -> tuple[dict, dict]:
     a = Arm9(rom)
-    parts = pack_parts(data_bin(rom))
-    assert len(parts) // 2 == a.u32(0x020235a0), '人物のパックの数が ARM9 と合わない'
-    anim_char, uses = script_usage(rom)
-    table = [(a.u16(ANIM_TABLE + 4 * i), a.u16(ANIM_TABLE + 4 * i + 2)) for i in range(ANIM_COUNT)]
+    parts = pack_parts(data_bin(rom), A.char_pack)
+    if A.char_pack_count_word:
+        assert len(parts) // 2 == a.u32(A.char_pack_count_word), '人物のパックの数が ARM9 と合わない'
+    anim_char, uses, speakers = script_usage(rom, A.game.argc)
+    # 2・3: 名札の文字（tables/names.json。tbl_record.py が先に書く）。名札の無い人物を話し手に結び付けるのに使う
+    npath = root / 'tables' / 'names.json'
+    tags = ({x['id']: x['text']['ja'] for x in json.loads(npath.read_text())['names']}
+            if A.code != 'AGYJ' and npath.exists() else {})
+    SCRIPT_ANIMS = A.script_anims
+    names = NAMES if A.code == 'AGYJ' else {}
+    table = [(a.u16(A.anim_table + 4 * i), a.u16(A.anim_table + 4 * i + 2)) for i in range(A.anim_count)]
     # ファイル NNN → 人物（台本で使われた動きから。使われていない動きは同じファイルの人物とみなす）
     file_char: dict[int, Counter] = defaultdict(Counter)
     for i, (nnn, _o) in enumerate(table):
@@ -192,14 +216,16 @@ def build(rom: bytes, root: Path, png: bool) -> tuple[dict, dict]:
         entries_of[c & 0x1FFF].add(e)
     for c in sorted(per_char):
         ids = per_char[c]
+        sp = speaker_of(c, tags, speakers)
         chars[str(c)] = {
-            'name': NAMES.get(c),
-            'name_id': c,
+            'name': names.get(c),
+            'name_id': c if sp is None else sp,
+            **({'name_from': 'speaker'} if sp is not None else {}),
             'anims': ids,
             'files': sorted({anims[str(i)]['file'] for i in ids}),
             'script_entries': sorted(entries_of.get(c, ())),
             'pos': {'x': SCREEN_X, 'y': SCREEN_Y},
-            'oam_max': a.u16(CHAR_TABLE + 4 * c) if c < CHAR_COUNT else None,
+            'oam_max': a.u16(A.char_table + 4 * c) if A.char_table and c < A.char_count else None,
         }
     return anims, chars
 
@@ -208,12 +234,13 @@ def main() -> None:
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     rom = open(sys.argv[1], 'rb').read()
-    root = Path(sys.argv[sys.argv.index('--root') + 1]) if '--root' in sys.argv else Path('assets/extracted')
-    anims, chars = build(rom, root, '--no-png' not in sys.argv)
+    A = assets_of(rom)
+    root = Path(sys.argv[sys.argv.index('--root') + 1]) if '--root' in sys.argv else A.game.out
+    anims, chars = build(rom, root, '--no-png' not in sys.argv, A)
     t = root / 'tables'
     t.mkdir(parents=True, exist_ok=True)
     meta = {
-        '_about': '動きの番号（台本 30 の話す/黙る動き）→ アニメーション。ARM9 0x020a8f80 の表と data.bin 0x2202220 のパック',
+        '_about': f'動きの番号（台本 30 の話す/黙る動き）→ アニメーション。ARM9 {A.anim_table:#010x} の表と data.bin {A.char_pack:#x} のパック',
         '_screen': '人物の基準点は上画面 (128, 96)。origin は PNG の中の基準点。0x4000/0x8000 は tables/chars.json の _flags',
         '_frames': 'frame = png_dir の fNN（区間の中のコマの番号）、dur = 表示する長さ（1/60 秒）。'
                    'end: loop = 最初へ戻る / hold = 最後のコマで止まる / delete = 人物を消す',
@@ -221,7 +248,8 @@ def main() -> None:
     (t / 'char_anims.json').write_text(json.dumps({**meta, 'anims': anims}, ensure_ascii=False, indent=1))
     cmeta = {
         '_about': '人物の番号（台本 30 の第 1 引数の下位 13 ビット）。名前は確かなものだけ（ほかは null）。'
-                  'name_id = 14 name の名前の番号（ほぼ同じ番号）',
+                  'name_id = 14 name の名前の番号（ほぼ同じ番号）。2・3 で名札の無い人物（大写しの顔など）は、'
+                  '出ている間の文の話し手の 3/4 以上が同じ名前ならその番号（name_from = speaker）',
         '_flags': {
             '0x8000': '背景の表のフラグに 0x10 があるとき x = 128 - 256（横長の背景の左側に置く）。無ければ 128',
             '0x4000': '背景の表のフラグに 0x20 があるとき x = 128 + 256（横長の背景の右側に置く）。無ければ 128',

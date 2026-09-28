@@ -4,10 +4,10 @@
 //   bun crates/aa-verify/scripts/pathdiff.ts <IR.json> [個数=100]
 import { readFileSync } from 'node:fs';
 import {
-  Engine,
-  heldProfiles,
   type CompiledScenario,
+  Engine,
   type GameState,
+  heldProfiles,
 } from '../../../packages/core/src/index.ts';
 import { prepare } from '../../../packages/script/src/verify-key.ts';
 
@@ -44,6 +44,9 @@ function apply(e: Engine, a: string) {
       break;
     case 'c':
       e.choose(Number(rest));
+      break;
+    case 'k':
+      e.pick(Number(rest));
       break;
     case 'v':
       e.present(rest, 'evidence');

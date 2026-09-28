@@ -17,20 +17,21 @@
 // - 同じ場面で同じ操作をして、実行中に読んだ変数の値も同じなら、覚えておいた結果を使う（verify-memo.ts）
 // - 展開し終えた状態は捨て、キーと番号・辺だけを持つ（詰みの説明は、操作をたどり直して作る）
 import {
-  Engine,
-  holds,
-  recordName,
   type Beat,
   type CompiledScenario,
+  Engine,
   type Expr,
   type GameState,
+  holds,
+  LOCK_END_PREFIX,
+  recordName,
 } from '@gyakusai/core';
 import { actions, step } from './verify-actions.ts';
 import { analyzeFlow } from './verify-flow.ts';
 import { Graph, IntList, traps } from './verify-graph.ts';
+import { flagBounds, keyMaker, prepare } from './verify-key.ts';
 import { apply, Memo, Recorder } from './verify-memo.ts';
 import { packer } from './verify-pack.ts';
-import { flagBounds, keyMaker, prepare } from './verify-key.ts';
 
 export interface Finding {
   severity: 'error' | 'warning';
@@ -93,13 +94,19 @@ function usesLife(sc: CompiledScenario): boolean {
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond);
-      if (ins.op === 'choice') ins.options.forEach((o) => walk(o.when));
+      if (ins.op === 'choice' || ins.op === 'pick')
+        ins.options.forEach((o) => {
+          walk(o.when);
+        });
     }
-    if (scene.kind === 'testimony') scene.statements.forEach((st) => walk(st.when));
+    if (scene.kind === 'testimony')
+      scene.statements.forEach((st) => {
+        walk(st.when);
+      });
     if (scene.kind === 'place')
-      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) =>
-        walk(x.when),
-      );
+      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) => {
+        walk(x.when);
+      });
   }
   return bad;
 }
@@ -107,9 +114,6 @@ function usesLife(sc: CompiledScenario): boolean {
 /** 詰みの場面の説明（何を求められていて、何が足りないか） */
 function describe(sc: CompiledScenario, e: Engine, b: Beat): string {
   const s = e.state;
-  const held = new Set(s.evidence);
-  const name = (id: string) => sc.evidence[id]?.name ?? id;
-  const missing = (ids: string[]) => ids.filter((id) => !held.has(id)).map(name);
   const scene = sc.scenes[s.scene];
   if (b.kind === 'demand') {
     const ins = scene?.program[s.pc];
@@ -129,8 +133,17 @@ function describe(sc: CompiledScenario, e: Engine, b: Beat): string {
     );
   }
   if (scene?.kind === 'testimony') {
-    const answers = [...new Set(scene.statements.flatMap((st) => Object.keys(st.present)))];
-    return `尋問「${scene.title}」から先へ進めません（つきつけで使う ${answers.map(name).join('・')} のうち、持っていない: ${missing(answers).join('・') || 'なし'}）`;
+    // 証言ごとに証拠品・人物ファイルの順（人物ファイルは逆転裁判2・3 の presentProfile）
+    const seen = new Set<string>();
+    const answers = scene.statements
+      .flatMap((st) => [
+        ...Object.keys(st.present).map((id) => [id, 'evidence'] as const),
+        ...Object.keys(st.presentProfile ?? {}).map((id) => [id, 'profile'] as const),
+      ])
+      .filter(([id, k]) => !seen.has(`${k}:${id}`) && !!seen.add(`${k}:${id}`));
+    const names = (list: typeof answers) => list.map(([id, k]) => recordName(sc, id, k)).join('・');
+    const lack = answers.filter(([id, k]) => !holds(sc, s, id, k));
+    return `尋問「${scene.title}」から先へ進めません（つきつけで使う ${names(answers)} のうち、持っていない: ${names(lack) || 'なし'}）`;
   }
   if (b.kind === 'investigate')
     return `探索編の「${b.name}」から先へ進めません（移動先・話題・調べる所の条件を満たせない可能性）`;
@@ -145,10 +158,14 @@ function rank(b: Beat): number {
       ? 1
       : b.kind === 'investigate'
         ? 2
-        : b.kind === 'choice'
+        : b.kind === 'choice' || b.kind === 'pick'
           ? 3
           : 4;
 }
+
+/** ロックを外さないままクリアできるときの報告（Rust 版 report.rs と同じ文） */
+export const lockEndMessage = (id: string): string =>
+  `サイコ・ロック「${id}」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）`;
 
 export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions = {}): VerifyResult {
   const sc: CompiledScenario = prepare({ ...scenario, maxLife: IMMORTAL });
@@ -192,7 +209,9 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
     return id;
   };
   const first = new Engine(sc);
-  first.state.visited.forEach((v) => visitedScenes.add(v));
+  first.state.visited.forEach((v) => {
+    visitedScenes.add(v);
+  });
   visitedScenes.add(first.state.scene);
   found(keyOf(first.state as GameState), -1, -1, () => first.state as GameState);
 
@@ -252,8 +271,12 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
         for (let j = state.seen.length; j < next.seen.length; j++) seenIds.add(next.seen[j]!);
         visitedScenes.add(next.scene);
       } else {
-        d!.visited.forEach((v) => visitedScenes.add(v));
-        d!.seen.forEach((v) => seenIds.add(v));
+        d!.visited.forEach((v) => {
+          visitedScenes.add(v);
+        });
+        d!.seen.forEach((v) => {
+          seenIds.add(v);
+        });
         visitedScenes.add(d!.control.scene);
       }
       const k = next ? keyOf(next) : keyOf(state, d);
@@ -277,6 +300,13 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
   if (!truncated) {
     if (!cleared)
       findings.push({ severity: 'error', message: 'どう遊んでもクリア（end）にたどり着けません' });
+    // サイコ・ロックを外さないままクリアできる（ロックが先へ進むのを止めていない。compile-lock.ts の emitEnd）
+    for (const id of Object.keys(sc.scenes))
+      if (id.startsWith(LOCK_END_PREFIX) && visitedScenes.has(id))
+        findings.push({
+          severity: 'error',
+          message: lockEndMessage(id.slice(LOCK_END_PREFIX.length)),
+        });
     // 詰み: 抜け出せない状態のかたまり（出ていく先がなく、終わりでもない強連結成分）ごとに、判断の場面を 1 つ報告する
     const reported = new Set<string>();
     for (const trap of traps(graph, ids.size, (v) => goals.has(v))) {
@@ -294,7 +324,8 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
 
     // 一度も到達しないもの（打ち切ったときは、調べきれていないので出さない）
     for (const [id, scene] of Object.entries(sc.scenes)) {
-      if (id.startsWith('__') || id === sc.gameoverScene) continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
+      if (id.startsWith('__') || id === sc.gameoverScene || sc.lifeOutScenes?.includes(id))
+        continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
       if (!visitedScenes.has(id)) {
         findings.push({
           severity: 'warning',

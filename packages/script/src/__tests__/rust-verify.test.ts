@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
-import { verifyScenario, type Finding } from '../verify.ts';
+import { type Finding, lockEndMessage, verifyScenario } from '../verify.ts';
 
 const bin = fileURLToPath(new URL('../../../../target/release/aa-verify', import.meta.url));
 const sample = readFileSync(
@@ -171,6 +171,63 @@ ${topics.map((i) => `        - text: 話題${i}\n          when: not t${i}\n    
     );
   });
 
+  it('範囲を選ぶ（pick）の範囲・範囲の外・やめるも、TS 版と同じく試す', () => {
+    const pick = (glove: string) =>
+      tiny(
+        '  glove: false',
+        `
+  s:
+    - pick: 指を選ぶ
+      images: [a, b]
+      areas:
+        - area: [0, 0, 10, 10]
+          image: 0
+          when: not glove
+          then:
+            - set: { glove: true }
+            - goto: s
+        - area: [20, 0, 10, 10]
+          image: 1
+          when: ${glove}
+          then:
+            - end: true
+      miss:
+        - a: 何もない
+      quit:
+        - goto: dead
+  dead:
+    - a: 抜け出せない
+    - goto: dead`,
+      );
+    expect(same(pick('glove')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+    expect(same(pick('glove and false')).findings.length).toBeGreaterThan(0);
+  });
+
+  it('人物を選ぶ（nominate）の正解・外れも、TS 版と同じく試す', () => {
+    const nominate = (answer: string) =>
+      tiny(
+        '  tries: 0',
+        `
+  s:
+    - nominate: だれ？
+      people: [a, b]
+      present:
+        ${answer}:
+          - end: true
+      wrong:
+        - add: { tries: 1 }
+        - if: tries > 1
+          then:
+            - goto: dead
+  dead:
+    - a: 抜け出せない
+    - goto: dead`,
+      ).replace('  a: { name: A }\n', '  a: { name: A }\n  b: { name: B }\n');
+    // 外れを 2 回選ぶと詰む（どちらの人物が正解でも同じ）
+    expect(same(nominate('a')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+    expect(same(nominate('b')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+  });
+
   it('証拠品を詳しく調べて手に入る証拠品も、TS 版と同じく扱う', () => {
     const yaml = `
 id: t
@@ -216,6 +273,37 @@ parts:
       'start: { scene: intro, evidence: [], profiles: [] }',
     );
     same(onlyProfile);
+  });
+
+  it('サイコ・ロック（勾玉で挑む・やめる・錠を壊す）も、TS 版と同じく扱う', () => {
+    const yaml = readFileSync(
+      fileURLToPath(new URL('../fixtures/psyche-lock.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(yaml).findings).toEqual([]);
+    // 2 つ目の錠の正解を持っていないと、挑戦は抜け出せる（やめる）が、話題が開かずに詰む
+    const noPhoto = yaml.replace('evidence: [magatama, news, photo]', 'evidence: [magatama, news]');
+    expect(same(noPhoto).findings.some((f) => f.severity === 'error')).toBe(true);
+    // 話題の中身が解除を待たないと、ロックを外さないままクリアできる（両方で報告する）
+    const open = yaml.replace('- if: unlocked\n', '- if: unlocked or not unlocked\n');
+    expect(same(open).findings.map((f) => f.message)).toEqual([lockEndMessage('lock0')]);
+    // 尋問で人物ファイルをつきつける・選択肢で挑戦をやめる（quitLock）
+    const lock23 = readFileSync(
+      fileURLToPath(new URL('../fixtures/lock23.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(lock23).findings).toEqual([]);
+    // 人物ファイルを持っていないと尋問から先へ進めない
+    const noProfile = lock23.replace('profiles: [larry]', 'profiles: []');
+    expect(same(noProfile).findings.some((f) => f.severity === 'error')).toBe(true);
+  });
+
+  it('横長の背景の場所（範囲は背景の座標）で、画面の幅より右の範囲も TS 版と同じく試す', () => {
+    const wide = readFileSync(
+      fileURLToPath(new URL('../fixtures/wide-examine.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(wide).findings).toEqual([]);
   });
 
   it('台詞の途中で詳しく調べたときにだけ起きる詰みも、TS 版と同じく見つける', () => {

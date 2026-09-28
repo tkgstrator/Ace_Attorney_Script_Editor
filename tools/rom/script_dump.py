@@ -2,6 +2,8 @@
 
     python3 tools/rom/script_dump.py <rom.nds または mes_all.bin> [出力先（assets/extracted/script）]
 
+2・3 の ROM も読める（ゲームコードで見分ける。game.py）。出力先の既定は assets/extracted/aa2/script・aa3/script。
+
 mes_all.bin の形:
   - u32 項目の数（74）、(u32 位置, u32 大きさ) × 項目の数。各項目は DS 標準の圧縮（LZ77 0x10）
   - 偶数番の項目が日本語、次の奇数番が同じ場面の英語（区画の数と命令の並びが同じ）
@@ -27,18 +29,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_font import read_tsv  # noqa: E402
 from charset import CODE_BASE, LAYOUT  # noqa: E402
 from nitro import decompress  # noqa: E402
+from game import GAMES, Game, detect_path  # noqa: E402
 from script_format import ARGC, OPCODES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def load_chars() -> dict[int, str]:
-    """フォントの番号 → 文字（LAYOUT、OCR の結果、手で直したものの順に上書き）"""
+def load_chars(game: Game | None = None) -> dict[int, str]:
+    """フォントの番号 → 文字（LAYOUT、OCR の結果、手で直したものの順に上書き）。2・3 は font/A2GJ・YG3J の結果。
+    2・3 は LAYOUT の範囲でも字形が違う所がある（243 が「，」、256〜268 が「ー保存現在状況中断選下失敗」）。
+    2・3 の mapping.tsv はその範囲も蘇る逆転の字形との点の一致で決めてある（ocr_font.py --base）ので、そちらを使う"""
+    g = game or GAMES['AGYJ']
     out = dict(enumerate(LAYOUT))
-    m = ROOT / 'assets/extracted/font/mapping.tsv'
+    m = g.font_dir / 'mapping.tsv'
     if m.exists():
-        out.update({k: v for k, v in read_tsv(str(m)).items() if k >= len(LAYOUT) and v})
-    out.update({k: v for k, v in read_tsv(str(ROOT / 'tools/rom/font_fixes.tsv')).items() if v})
+        whole = g.code != 'AGYJ'
+        out.update({k: v for k, v in read_tsv(str(m)).items() if (whole or k >= len(LAYOUT)) and v})
+    out.update({k: v for k, v in read_tsv(str(g.font_fixes)).items() if v})
     return out
 
 
@@ -63,13 +70,20 @@ def entries(mes: bytes) -> list[list[int]]:
 
 
 def sections(e: list[int]) -> list[list[int]]:
-    """項目を区画に分ける（区画の位置はバイト単位）"""
+    """項目を区画に分ける（区画の位置はバイト単位）。
+
+    3 の分割された項目（004 など）は、見出しが前の項目の写しで、先頭の数個だけが本物の区画になっている。
+    位置が増えなくなった所（または中身の外）で区画を打ち切り、残りは空の区画（ラベルと同じ扱い）にする"""
     n = e[0] | e[1] << 16
-    offs = [(e[2 + 2 * i] | e[3 + 2 * i] << 16) // 2 for i in range(n)] + [len(e)]
-    return [e[offs[i]:offs[i + 1]] for i in range(n)]
+    heads = [(e[2 + 2 * i] | e[3 + 2 * i] << 16) // 2 for i in range(n)]
+    k = 0
+    while k < n and heads[k] < len(e) and (k == 0 or heads[k] > heads[k - 1]) and e[heads[k]] == 0:
+        k += 1
+    offs = heads[:k] + [len(e)]
+    return [e[offs[i]:offs[i + 1]] for i in range(k)] + [[] for _ in range(n - k)]
 
 
-def decode(s: list[int]) -> list[tuple]:
+def decode(s: list[int], argc: dict[int, int] = ARGC) -> list[tuple]:
     """区画を ('T', 文) と (命令の番号, 引数のタプル) の並びにする"""
     out, i = [], 0
     while i < len(s):
@@ -81,7 +95,7 @@ def decode(s: list[int]) -> list[tuple]:
             out.append(('T', [x - CODE_BASE for x in s[i:j]]))
             i = j
             continue
-        n = ARGC.get(w, 0)
+        n = argc.get(w, 0)
         out.append((w, tuple(s[i + 1:i + 1 + n])))
         i += 1 + n
     return out
@@ -133,13 +147,13 @@ def text(glyphs: list[int], chars: dict[int, str]) -> str:
     return ''.join(chars.get(g, f'{{{g}}}') for g in glyphs)
 
 
-def dump(entry: list[int], chars: dict[int, str], stats: dict) -> tuple[str, str]:
+def dump(entry: list[int], chars: dict[int, str], stats: dict, argc: dict[int, int] = ARGC) -> tuple[str, str]:
     """項目を文字にし、(本文, 最初の日時と場所の表示) を返す"""
     lines, caption = [], ''
     for k, s in enumerate(sections(entry)):
         lines.append(f'\n== 区画 {k} ==\n')
         cur_name, centered = None, False
-        for t in decode(s):
+        for t in decode(s, argc):
             if t[0] == 'T':
                 txt = text(t[1], chars)
                 lines.append(txt)
@@ -184,9 +198,10 @@ def bg_map(rom: bytes) -> list[str]:
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit('使い方: python3 tools/rom/script_dump.py <rom.nds または mes_all.bin> [出力先]')
-    out = Path(sys.argv[2] if len(sys.argv) > 2 else ROOT / 'assets/extracted/script')
+    g = detect_path(sys.argv[1])
+    out = Path(sys.argv[2] if len(sys.argv) > 2 else g.script)
     out.mkdir(parents=True, exist_ok=True)
-    chars = load_chars()
+    chars = load_chars(g)
     ents = entries(read_mes(sys.argv[1]))
     stats = {'name': collections.defaultdict(lambda: [0, []]),
              'char': collections.defaultdict(lambda: {'anims': set(), 'names': collections.Counter()})}
@@ -197,7 +212,7 @@ def main() -> None:
                  'char': collections.defaultdict(lambda: {'anims': set(), 'names': collections.Counter()})}
         else:
             s = stats
-        body, cap = dump(e, chars, s)
+        body, cap = dump(e, chars, s, g.argc)
         (out / f'{i:03}.txt').write_text(body.lstrip('\n') + '\n', encoding='utf-8')
         index.append(f'{i:03}\t{"英" if i % 2 else "日"}\t{len(sections(e))}\t{cap}')
     (out / 'index.tsv').write_text('\n'.join(index) + '\n', encoding='utf-8')
@@ -214,7 +229,7 @@ def main() -> None:
         rng = f'{an[0]}-{an[-1]} ({len(an)} 個)' if an else ''
         rows.append(f'{k}\t{rng}\t' + ' '.join(f'{n}({m})' for n, m in c['names'].most_common(3)))
     (out / 'chars.tsv').write_text('\n'.join(rows) + '\n', encoding='utf-8')
-    if sys.argv[1].endswith('.nds'):
+    if sys.argv[1].endswith('.nds') and g.code == 'AGYJ':
         (out / 'bg_map.tsv').write_text('\n'.join(bg_map(open(sys.argv[1], 'rb').read())) + '\n', encoding='utf-8')
     print(f'{len(ents)} 項目を {out} に書き出しました')
 

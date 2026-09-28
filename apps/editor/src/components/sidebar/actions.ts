@@ -1,5 +1,6 @@
 // 左の一覧からの操作（名前を聞くダイアログを出してから、編集操作を当てる）
-import { allNodeIds, isValidId, uniqueId, type PartKind } from '@/model/paths.ts';
+import { allNodeIds, isValidId, type PartKind, uniqueId } from '@/model/paths.ts';
+import { findRefs } from '@/model/refs.ts';
 import {
   addPartOps,
   addPlaceOps,
@@ -59,9 +60,10 @@ export async function addScene(api: EditorApi, part: number | null) {
 }
 
 export async function renameScene(api: EditorApi, part: number | null, id: string) {
+  const refs = findRefs(api.data, 'scene', id).length;
   const r = await ask({
     title: 'シーンの ID を変更',
-    description: 'goto・start.scene・gameover の参照も書き換えます。',
+    description: `goto・start.scene・gameover・条件式の visited() など、参照している ${refs} か所も書き換えます。`,
     fields: [
       {
         name: 'id',
@@ -117,10 +119,10 @@ export async function addPlace(api: EditorApi, part: number) {
 }
 
 export async function renamePlace(api: EditorApi, part: number, id: string) {
+  const refs = findRefs(api.data, 'place', id).length;
   const r = await ask({
     title: '場所の ID を変更',
-    description:
-      'investigate と「移動する」の行き先の参照も書き換えます。背景のキーを省略している場合は、背景も変わります。',
+    description: `investigate・「移動する」の行き先・条件式の visited() など、参照している ${refs} か所も書き換えます。背景のキーを省略している場合は、背景も変わります。`,
     fields: [
       {
         name: 'id',
