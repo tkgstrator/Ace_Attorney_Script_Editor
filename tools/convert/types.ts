@@ -99,6 +99,11 @@ export interface Tables {
   }[];
   /** 法廷記録の名前と説明文（文字認識。tables/record_text.json） */
   recordText?: Record<string, { name: string; desc: string }>;
+  /**
+   * 2・3: 法廷記録の番号 → 英語の名前の絵の番号・名前と、話し手の名前の番号（tables/profiles.json。
+   * tools/rom/record_profiles.py。null = 台詞の無い人物）
+   */
+  profiles?: Record<string, { name_image: number; name_en: string; name_id: number | null }>;
   /** 探偵パートの最初の場所（tables/invest_start.json） */
   investStart?: Record<string, number>;
   court: {
