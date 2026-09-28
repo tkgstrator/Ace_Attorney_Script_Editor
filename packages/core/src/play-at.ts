@@ -19,6 +19,8 @@ const DISPLAY_OPS = new Set<Instr['op']>([
   'bgmPause',
   'showEvidence',
   'ui',
+  'lifeRisk',
+  'locks',
 ]);
 
 /**

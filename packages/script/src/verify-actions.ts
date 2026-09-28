@@ -100,9 +100,9 @@ export function actions(sc: CompiledScenario, e: Engine, passed?: Set<string>): 
       ];
     case 'demand': {
       const ins = scene?.program[s.pc];
-      return ins?.op === 'demand'
-        ? [...present(ins.options, ins.profiles ?? null), ...inspect]
-        : inspect;
+      if (ins?.op !== 'demand') return inspect;
+      const giveUp: Act[] = ins.giveUp !== undefined ? [{ d: 'g', f: (x) => x.giveUp() }] : [];
+      return [...present(ins.options, ins.profiles ?? null), ...giveUp, ...inspect];
     }
     case 'statement': {
       if (!b.cross) return [ADVANCE, ...inspect];

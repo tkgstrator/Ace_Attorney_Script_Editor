@@ -183,6 +183,15 @@ export class Engine {
     this.#m.settle();
   }
 
+  /** サイコ・ロックのつきつけをやめる（つきつけの要求に giveUp があるときだけ） */
+  giveUp(): void {
+    const ins = this.#m.state.mode === 'run' ? this.#m.instr() : null;
+    if (ins?.op !== 'demand' || ins.giveUp === undefined)
+      throw new EngineError('今はやめられません');
+    this.#m.state.pc = ins.giveUp;
+    this.#m.settle();
+  }
+
   choose(index: number): void {
     const ins = this.#m.state.mode === 'run' ? this.#m.instr() : null;
     if (ins?.op !== 'choice') throw new EngineError('選択肢は表示されていません');

@@ -90,6 +90,12 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       if (ins.record !== undefined) s.stage.recordLocked = !ins.record;
       if (ins.life !== undefined) s.stage.lifeGauge = ins.life;
       return true;
+    case 'lifeRisk':
+      s.stage.lifeRisk = ins.amount;
+      return true;
+    case 'locks':
+      applyLocks(ins.show, s, events);
+      return true;
     case 'bgmPause':
       s.stage.bgmPaused = ins.pause;
       events.push({ type: 'bgmPause', pause: ins.pause, frames: ins.frames });
@@ -101,6 +107,30 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       return !ins.wait;
     default:
       return false;
+  }
+}
+
+/** サイコ・ロックの錠の表示を変える */
+function applyLocks(
+  show: number | boolean | 'break' | 'unlock',
+  s: GameState,
+  events: EngineEvent[],
+): void {
+  const st = s.stage;
+  if (typeof show === 'number') {
+    st.locks = { total: show, left: show, hidden: false };
+    events.push({ type: 'locks', fx: 'show' });
+  } else if (show === 'break') {
+    if (st.locks) st.locks = { ...st.locks, left: Math.max(0, st.locks.left - 1) };
+    events.push({ type: 'locks', fx: 'break' });
+  } else if (show === 'unlock') {
+    st.locks = null;
+    events.push({ type: 'locks', fx: 'unlock' });
+  } else if (show) {
+    if (st.locks) st.locks = { ...st.locks, hidden: false };
+  } else {
+    if (st.locks) st.locks = { ...st.locks, hidden: true };
+    events.push({ type: 'locks', fx: 'hide' });
   }
 }
 

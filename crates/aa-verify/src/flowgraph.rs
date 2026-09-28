@@ -191,10 +191,11 @@ pub fn build(m: &Model) -> Built {
                     anywhere(&mut succ, &mut ev_gen, node);
                 }
                 Op::Stop(_) if record_stop(ins) => { edge(&mut succ, node, next, -1); anywhere(&mut succ, &mut ev_gen, node); }
-                Op::Demand { options, profiles, wrong, .. } => {
+                Op::Demand { options, profiles, wrong, give_up, .. } => {
                     let all = options.iter().chain(profiles.iter().flatten());
                     all.clone().for_each(|(_, t)| edge(&mut succ, node, Some(b + t), -1));
                     edge(&mut succ, node, Some(b + wrong), -1);
+                    if let Some(g) = give_up { edge(&mut succ, node, Some(b + g), -1); }
                     inspects(&mut succ, &mut ev_gen, node);
                     let answers: Vec<u32> = all.map(|(x, _)| *x).collect();
                     ev_gen[node as usize].extend(&answers);

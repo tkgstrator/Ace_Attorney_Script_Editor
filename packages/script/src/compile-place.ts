@@ -1,6 +1,7 @@
 import type { Expr, PlaceScene } from '@gyakusai/core';
 import { Builder } from './builder.ts';
 import type { Path } from './compile.ts';
+import { emitChallenge, type LockRegistry } from './compile-lock.ts';
 import type { RawPlace, RawScenario } from './schema.ts';
 
 /** 場所の変換に使う、コンパイラ本体の検証・変換の関数 */
@@ -14,6 +15,9 @@ export interface PlaceContext {
   /** つきつけの表のキーが、証拠品か人物ファイルか（どちらでもなければエラーを報告して null） */
   presentKind(id: string, path: Path): 'evidence' | 'profile' | null;
   error(path: Path, message: string): void;
+  /** サイコ・ロック（compile-lock.ts）と、挑むのに使う証拠品 */
+  locks?: LockRegistry;
+  lockKeys?: string[];
 }
 
 /** つきつけの表（demand・場所の present）のキーの種類を決める関数を作る */
@@ -122,10 +126,12 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
   (raw.talk ?? []).forEach((t, i) => {
     const p = [...path, 'talk', i];
     const c = when(t.when, [...p, 'when']);
+    const locked = when(t.locked, [...p, 'locked']);
     scene.talk.push({
       id: seen[talkBase + i]!,
       topic: t.topic,
       ...(c ? { when: c } : {}),
+      ...(locked ? { locked } : {}),
       pc: block(t.then, [...p, 'then']),
     });
   });
@@ -143,6 +149,14 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
   scene.presentWrong = raw.presentWrong
     ? block(raw.presentWrong, [...path, 'presentWrong'])
     : block([{ narrate: '特に反応はなかった。' }], [...path, 'presentWrong']);
+  // サイコ・ロック: この場所で決められたロックがあれば、勾玉をつきつけたときに挑む（無ければ元の反応）
+  if (ctx.locks && [...ctx.locks.values()].some((l) => l.places.has(id))) {
+    for (const key of ctx.lockKeys ?? []) {
+      const fallback = scene.present[key] ?? scene.presentWrong;
+      scene.present[key] = b.pc;
+      emitChallenge(b, ctx.locks, id, scene.person, fallback);
+    }
+  }
 
   (raw.move ?? []).forEach((m, i) => {
     const to = typeof m === 'string' ? m : m.to;

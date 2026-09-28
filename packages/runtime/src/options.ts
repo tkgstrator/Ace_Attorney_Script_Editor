@@ -81,6 +81,7 @@ export const DEFAULT_LABELS = {
   back: 'もどる',
   press: 'ゆさぶる',
   present: 'つきつける',
+  giveUp: 'やめる',
   examine: '調べる',
   move: '移動する',
   talk: '話す',

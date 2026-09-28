@@ -5,6 +5,13 @@ import type { z } from 'zod';
 import { type Builder, patch } from './builder.ts';
 import type { Path } from './compile.ts';
 import { compileEffect } from './compile-effect.ts';
+import {
+  emitBreak,
+  emitDefine,
+  emitGiveUp,
+  emitUnlock,
+  type LockRegistry,
+} from './compile-lock.ts';
 import type { PlaceContext } from './compile-place.ts';
 import { type CommandName, commandSchemas, type RawScenario } from './schema.ts';
 
@@ -25,6 +32,9 @@ export interface StepContext
   checkInlineRefs(text: string, path: Path): void;
   /** 今コンパイルしているシーンが裁判編のものか（つきつけの「くらえ！」は裁判編だけで出す） */
   inTrial(): boolean;
+  /** 章の中のサイコ・ロック（compile-lock.ts）と、解除したときの回復量 */
+  locks: LockRegistry;
+  lockHeal: number;
 }
 
 /** ステップ列の変換（compileSteps）と、見当違いのつきつけの反応の変換（compileWrong）を作る */
@@ -46,6 +56,8 @@ export function makeStepCompiler(ctx: StepContext) {
     cond,
     presentKind,
     inTrial,
+    locks,
+    lockHeal,
   } = ctx;
 
   // ---- ステップ列 → 命令列 ----
@@ -215,18 +227,49 @@ export function makeStepCompiler(ctx: StepContext) {
         if (inTrial()) b.emit({ op: 'shout', kind: 'takethat', by: player });
         compileWrong(s.wrong, [...path, 'wrong'], b);
         b.emit({ op: 'jump', to: at });
+        if (s.giveUp === true) {
+          if (locks.size === 0)
+            error([...path, 'giveUp'], 'サイコ・ロック（psycheLock のステップ）が章にありません');
+          ins.giveUp = b.pc;
+          // どのロックにも当たらなければ（挑戦していないのに来たら）もう一度求める
+          for (const j of emitGiveUp(b, locks)) patch(b, j, at);
+        }
         for (const j of exits) patch(b, j, b.pc);
         break;
       }
+      case 'psycheLock': {
+        for (const k of ['start', 'quit', 'gaugeOut'] as const)
+          if (typeof s[k] === 'string') checkScene(s[k] as string, [...path, k]);
+        if (typeof s.person === 'string') checkCharacter(s.person, [...path, 'person']);
+        if (typeof s.place === 'string') checkPlace(s.place, [...path, 'place']);
+        emitDefine(b, s);
+        break;
+      }
+      case 'breakLock':
+        emitBreak(b, locks, lockHeal, s.breakLock === 'hold');
+        break;
+      case 'unlock':
+        emitUnlock(b, locks, lockHeal);
+        break;
+      case 'heal':
+        b.emit({ op: 'heal', amount: s.heal === true ? 'full' : (s.heal as number) });
+        break;
+      case 'lifeRisk':
+        b.emit({ op: 'lifeRisk', amount: s.lifeRisk as number });
+        break;
       case 'goto':
         checkScene(s.goto as string, [...path, 'goto']);
         b.emit({ op: 'goto', scene: s.goto as string });
         break;
       case 'penalty':
-        b.emit({
-          op: 'penalty',
-          amount: s.penalty === true ? penaltyDefault : (s.penalty as number),
-        });
+        b.emit(
+          s.penalty === 'risk'
+            ? { op: 'penalty', amount: 0, risk: true }
+            : {
+                op: 'penalty',
+                amount: s.penalty === true ? penaltyDefault : (s.penalty as number),
+              },
+        );
         break;
       case 'shout': {
         const by = (s.by as string | undefined) ?? player;

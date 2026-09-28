@@ -218,6 +218,7 @@ export class InvestigationUI {
       this.#sel,
       blinkOn,
       this.view === 'talk' ? b.talk.map((x) => x.seen) : [],
+      this.view === 'talk' ? b.talk.map((x) => !!x.locked) : [],
     );
     p.tab(UI.invBack, 'tr', labels.back);
   }

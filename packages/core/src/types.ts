@@ -46,6 +46,8 @@ export type Instr =
       profiles?: Record<string, number>;
       wrong: number;
       speaker?: string;
+      /** サイコ・ロックの「やめる」の行き先（あれば、つきつけずにやめられる） */
+      giveUp?: number;
     }
   | { op: 'set'; flag: string; value: Value }
   | { op: 'add'; flag: string; amount: number }
@@ -69,7 +71,14 @@ export type Instr =
   | { op: 'jump'; to: number }
   | { op: 'jumpUnless'; cond: Expr; to: number }
   | { op: 'goto'; scene: string }
-  | { op: 'penalty'; amount: number }
+  /** risk: 減る量は lifeRisk で予告した量（元のゲームのゲージの点滅した部分） */
+  | { op: 'penalty'; amount: number; risk?: boolean }
+  /** ライフを回復する（full は最大まで）。最大は超えない */
+  | { op: 'heal'; amount: number | 'full' }
+  /** 見当違いのときに減るライフの量を予告する（ゲージの点滅。0 で消す） */
+  | { op: 'lifeRisk'; amount: number }
+  /** サイコ・ロックの錠の表示（数 = 出す、true = 出し直す、false = 隠す、break = 1 つ壊す、unlock = 解除） */
+  | { op: 'locks'; show: number | boolean | 'break' | 'unlock' }
   /** frames があれば、人物をだんだん出す（消すときはだんだん消す） */
   | { op: 'show'; character: string | null; pose: Pose | null; frames?: number }
   | { op: 'location'; location: string | null }
@@ -152,7 +161,8 @@ export interface PlaceScene {
     pc: number;
   }[];
   examineDefault: number;
-  talk: { id: string; topic: string; when?: Expr; pc: number }[];
+  /** locked: 真ならサイコ・ロックの印を出す（表示だけ） */
+  talk: { id: string; topic: string; when?: Expr; locked?: Expr; pc: number }[];
   present: Record<string, number>;
   /** 人物 ID → 人物ファイルをつきつけたときのブロック（無い人物は presentWrong） */
   presentProfile?: Record<string, number>;
@@ -216,6 +226,8 @@ export interface CompiledScenario {
   /** 最初に人物ファイルに載っている人物（null なら profile のある全員） */
   startProfiles: string[] | null;
   gameoverScene: string | null;
+  /** ライフが尽きたときにだけ入るシーン（サイコ・ロックの挑戦中にライフが尽きたとき。整合性チェックでは調べない） */
+  lifeOutScenes?: string[];
   /** 句読点のあとで自動的に少し待つか（元のゲームにはない。既定 false） */
   autoPause: boolean;
   /** 台詞の話し手を自動で表示するか（元のゲームは false 相当） */
@@ -267,6 +279,10 @@ export interface GameState {
     /** 法廷記録を開けなくする / ライフの表示（null は既定） */
     recordLocked: boolean;
     lifeGauge: boolean | null;
+    /** 見当違いのときに減るライフの予告（0 なら無し） */
+    lifeRisk: number;
+    /** サイコ・ロックの錠の表示（null は出していない） */
+    locks: { total: number; left: number; hidden: boolean } | null;
   };
   /** 文中の {evidence} などに差し込む一時的な値 */
   vars: Record<string, string>;
@@ -307,7 +323,15 @@ export type Beat =
   | { kind: 'card'; text: string; inspect?: string[] }
   | { kind: 'choice'; options: string[]; inspect?: string[] }
   /** inspect: 詳しく調べられる証拠品（あるときだけ）。profiles: 人物ファイルもつきつけられるか */
-  | { kind: 'demand'; prompt: string; name: string | null; inspect?: string[]; profiles?: boolean }
+  /** giveUp: サイコ・ロックの挑戦中で、やめられる */
+  | {
+      kind: 'demand';
+      prompt: string;
+      name: string | null;
+      inspect?: string[];
+      profiles?: boolean;
+      giveUp?: boolean;
+    }
   | {
       kind: 'statement';
       cross: boolean;
@@ -331,7 +355,7 @@ export type Beat =
       /** 「調べる」の間に背景をスクロールできるか（場所の examineScroll。背景が画面より大きいときだけ効く） */
       examineScroll: boolean;
       move: { id: string; name: string }[];
-      talk: { id: string; topic: string; seen: boolean }[];
+      talk: { id: string; topic: string; seen: boolean; locked?: boolean }[];
       /** 証拠品・人物ファイルをつきつけられるか（人物がいるとき） */
       present: boolean;
       /** 詳しく調べられる証拠品（あるときだけ） */
@@ -345,6 +369,9 @@ export type Beat =
 
 export type EngineEvent =
   | { type: 'penalty'; amount: number; life: number }
+  | { type: 'heal'; amount: number; life: number }
+  /** サイコ・ロックの錠の演出（出す・壊す・解除） */
+  | { type: 'locks'; fx: 'show' | 'break' | 'unlock' | 'hide' }
   | { type: 'evidence'; id: string; added: boolean }
   /** 音と画面の演出（表示側が音を鳴らし、画面を揺らす・光らせる） */
   | { type: 'bgm'; id: string | null; frames: number }

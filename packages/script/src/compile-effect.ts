@@ -99,12 +99,14 @@ export function compileEffect(cmd: string, s: Step, b: Builder, ctx: Ctx): void 
       break;
     }
     case 'ui': {
-      const ui = s.ui as { record?: boolean; life?: boolean | null };
-      b.emit({
-        op: 'ui',
-        ...(ui.record !== undefined ? { record: ui.record } : {}),
-        ...(ui.life !== undefined ? { life: ui.life } : {}),
-      });
+      const ui = s.ui as { record?: boolean; life?: boolean | null; locks?: number | boolean };
+      if (ui.record !== undefined || ui.life !== undefined)
+        b.emit({
+          op: 'ui',
+          ...(ui.record !== undefined ? { record: ui.record } : {}),
+          ...(ui.life !== undefined ? { life: ui.life } : {}),
+        });
+      if (ui.locks !== undefined) b.emit({ op: 'locks', show: ui.locks });
       break;
     }
     case 'resume':

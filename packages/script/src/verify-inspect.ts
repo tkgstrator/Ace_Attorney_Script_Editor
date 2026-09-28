@@ -9,11 +9,11 @@
 // 状態として持たずにまとめて進めるが、状態を変えうる証拠品（effective）を持っていて法廷記録を開けるときは、
 // そこで止まって「詳しく調べる」も試す（持っていない・法廷記録を開けないなら、今までどおりまとめて進める）
 import {
-  canInspectAt,
-  evalExpr,
   type Beat,
   type CompiledScenario,
+  canInspectAt,
   type Engine,
+  evalExpr,
   type GameState,
   type Instr,
 } from '@gyakusai/core';
@@ -43,6 +43,9 @@ const PURE = new Set<Instr['op']>([
   'shake',
   'flash',
   'penalty',
+  'heal',
+  'lifeRisk',
+  'locks',
   'jump',
   'jumpUnless',
 ]);
@@ -115,6 +118,8 @@ export const DISPLAY = new Set<Instr['op']>([
   'se',
   'shake',
   'flash',
+  'lifeRisk',
+  'locks',
 ]);
 const STOPS = new Set<Instr['op']>(['say', 'shout', 'banner', 'card', 'wait']);
 const deferCache = new WeakMap<Instr[], boolean[]>();
@@ -125,7 +130,7 @@ const deferCache = new WeakMap<Instr[], boolean[]>();
  * 同じ結果になる（調べた後に別のシーンへ移るときも、移る前の状態が同じ）。止まるのは、表示が続くかたまりの最後の台詞だけでよい
  */
 function deferrable(sc: CompiledScenario, program: Instr[]): boolean[] {
-  let v = deferCache.get(program);
+  const v = deferCache.get(program);
   if (v) return v;
   const quietOp = (ins: Instr) =>
     DISPLAY.has(ins.op) ||

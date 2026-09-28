@@ -75,6 +75,7 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
           id: Id.optional().describe('話した印（seen() で使う）の ID。省略すると 場所ID_talk番号'),
           topic: z.string().describe('話題の名前'),
           when: Cond.optional().describe('この条件が真のときだけ話題に出る'),
+          locked: Cond.optional().describe('この条件が真のとき、話題にサイコ・ロックの印を出す'),
           // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           then: steps,
         }),
@@ -188,6 +189,21 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
         .describe('最初に人物ファイルに載っている人物（省略すると profile のある全員）'),
     }),
     gameover: Id.optional().describe('ライフが尽きたときに移るシーン'),
+    psycheLock: z
+      .strictObject({
+        keys: z
+          .array(Id)
+          .min(1)
+          .describe('探偵パートで人物につきつけるとロックに挑む証拠品（勾玉）'),
+        heal: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe('ロックを解除したときに回復するライフ（既定 0）'),
+      })
+      .optional()
+      .describe('サイコ・ロック（逆転裁判2・3）。ロックそのものはステップ psycheLock で決める'),
     scenes: z
       .record(Id, z.union([steps, Testimony]))
       .optional()

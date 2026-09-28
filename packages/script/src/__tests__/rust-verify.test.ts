@@ -218,6 +218,17 @@ parts:
     same(onlyProfile);
   });
 
+  it('サイコ・ロック（勾玉で挑む・やめる・錠を壊す）も、TS 版と同じく扱う', () => {
+    const yaml = readFileSync(
+      fileURLToPath(new URL('../fixtures/psyche-lock.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(yaml).findings).toEqual([]);
+    // 2 つ目の錠の正解を持っていないと、挑戦は抜け出せる（やめる）が、話題が開かずに詰む
+    const noPhoto = yaml.replace('evidence: [magatama, news, photo]', 'evidence: [magatama, news]');
+    expect(same(noPhoto).findings.some((f) => f.severity === 'error')).toBe(true);
+  });
+
   it('横長の背景の場所（範囲は背景の座標）で、画面の幅より右の範囲も TS 版と同じく試す', () => {
     const wide = readFileSync(
       fileURLToPath(new URL('../fixtures/wide-examine.yaml', import.meta.url)),

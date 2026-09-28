@@ -143,7 +143,7 @@ pub fn compact(ops: &[String]) -> String {
 pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
     for (i, sc) in m.scenes.iter().enumerate() {
         // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
-        if sc.id.starts_with("__") || m.gameover_scene == Some(i as u32) { continue; }
+        if sc.id.starts_with("__") || m.gameover_scene == Some(i as u32) || m.life_out.contains(&(i as u32)) { continue; }
         let Some(p) = sc.place() else {
             if !r.visited.has(i as u32) { out.push(Finding::warning(format!("シーン「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone()))); }
             continue;

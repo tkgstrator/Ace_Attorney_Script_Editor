@@ -64,6 +64,11 @@ export const COMMAND_LABELS: Record<CommandName, string> = {
   takeProfile: '人物ファイルから外す',
   end: 'クリア',
   gameover: 'ゲームオーバー',
+  heal: 'ライフの回復',
+  lifeRisk: 'ライフの減りの予告',
+  psycheLock: 'サイコ・ロック',
+  breakLock: '錠を壊す',
+  unlock: 'ロックの解除',
 };
 
 /** 追加メニューでの並び（よく使うものから） */
@@ -156,6 +161,16 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
       return { goto: first(ctx.scenes, 'scene') };
     case 'penalty':
       return { penalty: true };
+    case 'heal':
+      return { heal: true };
+    case 'lifeRisk':
+      return { lifeRisk: 10 };
+    case 'psycheLock':
+      return { psycheLock: 'lock0', locks: 1, person: first(ctx.characters, 'character') };
+    case 'breakLock':
+      return { breakLock: true };
+    case 'unlock':
+      return { unlock: true };
     case 'shout':
       return { shout: 'objection' };
     case 'banner':

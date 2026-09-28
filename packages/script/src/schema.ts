@@ -33,6 +33,7 @@ export const RESERVED_KEYS = new Set<string>([
   'off',
   'side',
   'profiles',
+  'giveUp',
 ]);
 
 /** 検証用（ネストしたステップはコンパイラが個別に検証する） */
