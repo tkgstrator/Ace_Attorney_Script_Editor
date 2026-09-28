@@ -7,8 +7,10 @@ import { Engine, restoreEngine } from '@gyakusai/core';
 import { fitCanvas, loadFonts, Player } from '@gyakusai/runtime';
 import { memo, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useAspect } from '@/preview/aspect.ts';
 import { getAssets, getAudio, getDsFont } from '@/preview/assets.ts';
 import type { Compiled } from '@/preview/use-compile.ts';
+import { AspectToggle } from './AspectToggle.tsx';
 import { Diagnostics } from './Diagnostics.tsx';
 import { ExamineMarkersToggle } from './ExamineMarkersToggle.tsx';
 import { type From, PlayControls, type Restart } from './PlayControls.tsx';
@@ -52,6 +54,11 @@ export const Preview = memo(function Preview({
   const stage = useRef<HTMLDivElement>(null);
   const player = useRef<Player | null>(null);
   const [ready, setReady] = useState(false);
+  /** 画面の幅（変えたら、遊んでいる状態のまま Player を作り直す） */
+  const aspect = useAspect();
+  const kept = useRef<Engine | null>(null);
+  /** Player を作り直した回数（目印の切り替えに新しい Player を渡すため） */
+  const [, setGeneration] = useState(0);
   const [auto, setAuto] = useState(false);
   const [from, setFrom] = useState<From | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +125,7 @@ export const Preview = memo(function Preview({
   const restartRef = useRef(restart);
   restartRef.current = restart;
 
-  // Player は、最初に正しくコンパイルできたときに 1 回だけ作る
+  // Player は、最初に正しくコンパイルできたときに作る（画面の幅を変えたら、遊んでいる状態を引き継いで作り直す）
   const hasGood = lastGood.current !== null;
   useEffect(() => {
     if (!hasGood) return;
@@ -134,16 +141,20 @@ export const Preview = memo(function Preview({
       const g = lastGood.current;
       if (!alive || !canvas.current || !stage.current || !g) return;
       stopFit = fitCanvas(canvas.current, stage.current, 0.5);
+      const engine = kept.current;
+      kept.current = null;
       player.current = new Player({
         canvas: canvas.current,
-        engine: new Engine(g.scenario),
+        engine: engine ?? new Engine(g.scenario),
+        aspect,
         assets,
         audio: getAudio(),
         ...fonts,
         onRestart: () => restartRef.current(lastGood.current, { kind: 'start' }),
       });
-      setPlaying(g.version);
+      if (!engine) setPlaying(g.version);
       setReady(true);
+      setGeneration((n) => n + 1);
       const wait = pending.current;
       pending.current = null;
       if (wait) restartRef.current(wait.g, wait.how);
@@ -151,10 +162,11 @@ export const Preview = memo(function Preview({
     return () => {
       alive = false;
       stopFit();
+      kept.current = player.current?.engine ?? null;
       player.current?.destroy();
       player.current = null;
     };
-  }, [hasGood]);
+  }, [hasGood, aspect]);
 
   // コンパイルし直したら（自動再読み込みがオンなら）、遊んでいた場面の続きから作り直す
   // biome-ignore lint/correctness/useExhaustiveDependencies: 新しい結果が来たときだけ
@@ -230,6 +242,7 @@ export const Preview = memo(function Preview({
         ))}
         <VolumeControl />
         <ExamineMarkersToggle player={player.current} />
+        <AspectToggle />
       </div>
       <section
         className={cn('space-y-2 border-b p-3', !panels.game && 'hidden')}
