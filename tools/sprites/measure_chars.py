@@ -1,9 +1,6 @@
-# /// script
-# dependencies = ["numpy", "pillow"]
-# ///
 """DS 版の人物ごとに、動きの数・コマの数・色数（パレット）を数え、出番の多さの段ごとにまとめる。
 
-    uv run tools/sprites/measure_chars.py [--json tools/sprites/official-chars.json]
+    uv run python tools/sprites/measure_chars.py [--json tools/sprites/official-chars.json]
 
 measure_official.py と同じ入力を使う（手元だけにあり、配布しない）。
 出力は統計だけで、人物の名前や番号は含まない。
@@ -84,7 +81,7 @@ def main() -> None:
     if not rows:
         sys.exit('assets/extracted に取り出したデータがありません')
     result = {
-        '_about': '公式の人物ごとの動き・コマ・色の数（統計のみ）。uv run tools/sprites/measure_chars.py で作り直せる',
+        '_about': '公式の人物ごとの動き・コマ・色の数（統計のみ）。uv run python tools/sprites/measure_chars.py で作り直せる',
         'tiers': {t: lo for t, lo in TIERS},
         'all': summarize(rows),
         'per_game': {g: summarize([r for r in rows if r['game'] == g]) for g in GAMES},

@@ -1,5 +1,5 @@
 {
-  "_about": "公式の人物のコマの統計（数値のみ）。uv run tools/sprites/measure_official.py で作り直せる",
+  "_about": "公式の人物のコマの統計（数値のみ）。uv run python tools/sprites/measure_official.py で作り直せる",
   "games": ["aa1", "aa2", "aa3"],
   "all": {
     "unique_frames": 6339,

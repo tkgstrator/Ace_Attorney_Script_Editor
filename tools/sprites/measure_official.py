@@ -1,9 +1,6 @@
-# /// script
-# dependencies = ["numpy", "pillow"]
-# ///
 """DS 版（蘇る逆転・2・3）の人物のコマを測り、立ち絵の仕様（tools/sprites/SPEC.md）の数値の根拠を作る。
 
-    uv run tools/sprites/measure_official.py [--json tools/sprites/official-stats.json]
+    uv run python tools/sprites/measure_official.py [--json tools/sprites/official-stats.json]
 
 入力（手元だけにあり、配布しない）:
   assets/extracted/tables/char_anims.json と data/tail/chars/by_anim/NNN/fNN.png（蘇る逆転）
@@ -348,7 +345,7 @@ def main() -> None:
             print(f'{game}: 動き {len(per[game]["anims"])} / コマ {len(per[game]["frames"])}', file=sys.stderr)
     if not per:
         sys.exit('assets/extracted に取り出したデータがありません')
-    result = {'_about': '公式の人物のコマの統計（数値のみ）。uv run tools/sprites/measure_official.py で作り直せる',
+    result = {'_about': '公式の人物のコマの統計（数値のみ）。uv run python tools/sprites/measure_official.py で作り直せる',
               'games': list(per), 'all': summarize(per), 'per_game': {g: summarize({g: v}) for g, v in per.items()}}
     text = json.dumps(result, ensure_ascii=False, indent=2)
     if out_json:
