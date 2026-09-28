@@ -124,7 +124,7 @@ $('status').innerHTML =
 // コンソールから別の版の Player と比べるときに使う
 Object.assign(window, {
   __aspectCheck: { result, n, ng, missing },
-  __aspectTools: { FLOWS, flowShots, load, fonts },
+  __aspectTools: { FLOWS, flowShots, playShots, load, fonts, caseIds, max },
 });
 const save = $<HTMLButtonElement>('save');
 save.disabled = false;
