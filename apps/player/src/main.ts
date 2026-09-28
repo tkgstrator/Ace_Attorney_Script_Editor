@@ -22,6 +22,7 @@ import { createPlaceholderAssets } from './placeholder-art.ts';
 import { sampleSounds } from './sounds.ts';
 
 const SAVE_KEY = 'gyakusai:player:save';
+const MARKERS_KEY = 'gyakusai:player:examineMarkers';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const chosen = selectedCase();
@@ -110,6 +111,15 @@ if (scenario) {
     audio,
     ...fonts,
     onRestart: () => start(),
+  });
+  // 「調べる」の目印（元のゲームにはない手助け）。切り替えはこのブラウザに覚えておく
+  const markers = $<HTMLInputElement>('markers');
+  markers.checked = loadMarkers();
+  player.examineMarkers = markers.checked;
+  markers.addEventListener('change', () => {
+    player.examineMarkers = markers.checked;
+    saveMarkers(markers.checked);
+    canvas.focus({ preventScroll: true });
   });
   let unsubscribe = () => {};
 
@@ -233,4 +243,20 @@ function el(tag: string, text: string) {
   const e = document.createElement(tag);
   e.textContent = text;
   return e;
+}
+
+function loadMarkers(): boolean {
+  try {
+    return localStorage.getItem(MARKERS_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveMarkers(on: boolean) {
+  try {
+    localStorage.setItem(MARKERS_KEY, on ? 'on' : 'off');
+  } catch {
+    /* 覚えられなくてもよい */
+  }
 }
