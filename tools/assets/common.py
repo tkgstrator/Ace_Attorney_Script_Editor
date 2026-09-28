@@ -97,7 +97,7 @@ def indexed_colors(idx: np.ndarray, pal: list[int], transparent0: bool = True) -
     opaque = [int(i) for i in used if not (transparent0 and i == 0)]
     colors = {pal[i] for i in opaque if i < len(pal)}
     return {'indices': len(opaque), 'colors': len(colors), 'uses_index0': bool((idx == 0).any()),
-            'max_index': int(idx.max(initial=0))}
+            'max_index': int(idx.max(initial=0)), 'min_index': min(opaque, default=0)}
 
 
 def rgba_of(path: Path) -> np.ndarray:

@@ -69,6 +69,7 @@ def _group(rows: list[dict]) -> dict:
         'colors_4bpp': stats(r['colors'] for r in by_bpp[4]),
         'colors_8bpp': stats(r['colors'] for r in by_bpp[8]),
         'max_index_8bpp': stats(r['max_index'] for r in by_bpp[8]),
+        'min_index_8bpp': stats(r['min_index'] for r in by_bpp[8]),
         'share_4bpp': ratio(len(by_bpp[4]), n),
         'uses_index0': ratio(sum(r['uses_index0'] for r in rows), n),
         'unique_tiles_256x192': stats(r['unique_tiles'] for r in rows if (r['w'], r['h']) == (256, 192)),
