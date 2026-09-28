@@ -19,6 +19,24 @@ export function flagPress(
     .find((o) => o.op === 53 && !(o.args[0]! & 0x80) && o.target?.offset === ops[j]!.at);
   const sec = (o: CmdOps[number]) =>
     o.op === 'text' ? -1 : (o.targets?.[0]?.section ?? o.args[0]! - 128);
+  // 逆転裁判2 の形: 1 つ目の 15 の後に、条件が合えば 2 つ目の 15 を飛び越す 53（合えば 1 つ目のまま）
+  const skip = ops
+    .slice(i + 1, j)
+    .find(
+      (o) =>
+        o.op === 53 &&
+        !(o.args[0]! & 0x80) &&
+        o.target?.section == null &&
+        (o.target?.offset ?? -1) > ops[j]!.at,
+    );
+  if (!jump && skip && skip.op !== 'text')
+    return {
+      a: sec(ops[j]!),
+      b: sec(ops[i]!),
+      flag: skip.args[0]! >> 8,
+      want: (skip.args[0]! & 1) === 1,
+      jumps: [skip.at],
+    };
   if (!jump || jump.op === 'text') return null;
   // 2 つの 15 の間の、2 つ目を飛び越す 53 も（「立っていなければ文へ」）
   const jumps = ops

@@ -80,7 +80,9 @@ export function nextDayPlace(ctx: Context, section: number): number | null {
 
 /** 最初に行く場所: ARM9 の始めの関数が決める場所（invest_start.json）、無ければ §0 から落ちていく最初の event の場所 */
 export function startPlace(ctx: Context): number {
-  const known = ctx.t.investStart?.[String(ctx.part)];
+  // invest_start.json の鍵はパート（game+0x69）。逆転裁判3 は項目 >> 1 と違うので探偵パートの表の part
+  const part = ctx.t.game === 'aa1' ? ctx.part : (ctx.inv?.part ?? ctx.part);
+  const known = ctx.t.investStart?.[String(part)];
   if (known !== undefined) return known;
   for (let s = 0; s < ctx.entry.body.length; s++) {
     if (ctx.eventSections.has(s)) return ctx.eventSections.get(s)!;
@@ -115,7 +117,19 @@ export function initInvestigationFlags(ctx: Context) {
  * 法廷の日は、ARM9 のパートの始め（0x0202f7dc〜）が決めるもの（0x1f = 茜が一緒か、ほかは尋問の進み具合）もそのとおりに。
  * 0x1f はコードが決めるので戻さない
  */
-export function dayStartFlags(part: number, flags: string[]): Record<string, boolean> | null {
+export function dayStartFlags(
+  part: number,
+  flags: string[],
+  game = 'aa1',
+): Record<string, boolean | number> | null {
+  // 逆転裁判2・3: どのパートの始めでも組 0 を 0 にする（探偵 A2GJ 0x02036888 / YG3J 0x02034d4c、
+  // 法廷 YG3J 0x0202f630。場所の状態 game+0x398 も 0 にする）
+  if (game !== 'aa1') {
+    const out: Record<string, boolean | number> = {};
+    for (const f of flags) if (f.startsWith('f_0_')) out[f] = false;
+    for (const f of flags) if (/(^|_)pstate_\d+$/.test(f)) out[f] = 0;
+    return out;
+  }
   const rom: Record<number, Record<number, boolean>> = {
     19: { 2: false, 33: false, 34: false, 31: true },
     22: {},
@@ -130,8 +144,16 @@ export function dayStartFlags(part: number, flags: string[]): Record<string, boo
   return out;
 }
 
-export function investigationStartFlags(part: number, flags: string[]): Record<string, boolean> {
+export function investigationStartFlags(
+  part: number,
+  flags: string[],
+  game = 'aa1',
+): Record<string, boolean> {
   const out: Record<string, boolean> = {};
+  if (game !== 'aa1') {
+    for (const f of flags) if (f.startsWith('f_0_')) out[f] = false;
+    return out;
+  }
   if (part < 17) for (const f of flags) if (f.startsWith('f_0_')) out[f] = false;
   if (part > 1) out[`f_0_${EXAMINE_READY}`] = true;
   return out;

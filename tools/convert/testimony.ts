@@ -94,6 +94,11 @@ export function buildTestimonies(ctx: Context, common: Entry | null): Map<number
           : [T, ...(court.testimonies.find((t) => t.section === T)?.statements ?? [])];
     return { x, T, reading };
   });
+  /** フラグで行き先の変わるゆさぶり（15 が 2 つ）の、表に無いもう一方の行き先 */
+  const altPresses = (sec: number): number[] => {
+    const f = ctx.entry.body[sec] ? flagPress(body(sec)) : null;
+    return f ? [f.a, f.b] : [];
+  };
   // 先に、取り込む区画と行き先の付け替えを全部決める（ほかの尋問から C へ飛ぶことがあるため）
   for (const { x, T, reading } of plan) {
     for (const s of [
@@ -102,6 +107,7 @@ export function buildTestimonies(ctx: Context, common: Entry | null): Map<number
       ...x.statements.map((v) => v.section),
       x.after_last,
       ...x.statements.flatMap((v) => (v.press === null ? [] : [v.press])),
+      ...x.statements.flatMap((v) => altPresses(v.section)),
     ]) {
       if (s !== T) ctx.consumed.add(s);
     }
@@ -116,6 +122,7 @@ export function buildTestimonies(ctx: Context, common: Entry | null): Map<number
       ...reading,
       x.after_last,
       ...x.statements.flatMap((v) => (v.press === null ? [] : [v.press])),
+      ...x.statements.flatMap((v) => altPresses(v.section)),
     ];
     const local = localClosure(ctx.entry, starts, stop);
     local.forEach((v) => {
@@ -172,12 +179,27 @@ function buildOne(
       if (local.has(t) && !inlining.includes(t)) {
         inlining.push(t);
         try {
-          return convertOps(ctx, t, body(t), { gotoSteps: back(from), structural: new Set([41]) });
+          return convertOps(ctx, t, body(t), {
+            gotoSteps: back(from),
+            resumeTo: resumeTo(from),
+            structural: new Set([41]),
+          });
         } finally {
           inlining.pop();
         }
       }
       return ctx.jump(t, from ?? x.section);
+    };
+  /** 文 from のブロックから区画 t（証言の文・証言の始め）へ戻る resume */
+  const resumeTo =
+    (from: number | null) =>
+    (t: number): Step[] => {
+      if (t === from) return [{ resume: 'stay' }];
+      if (t === x.section || t === S[0]) return [{ resume: 'first' }];
+      if (from !== null && S.indexOf(from) >= 0 && S[S.indexOf(from) + 1] === t)
+        return [{ resume: 'next' }];
+      st.gap('つきつけの要求の外れから、離れた証言の文へ戻る（同じ文に戻る）', t);
+      return [{ resume: 'stay' }];
     };
   // 証言（読む）と、その後（40 0 の後）。T の「証言開始」の前は証言の前のシーン（sT）にする
   const { pre, readingOps, tailOps } = splitReading(reading, body);
@@ -261,7 +283,11 @@ function buildOne(
     if (before.length) st1.before = before;
     const press = v.press ?? s.press;
     const pressBlock = (p: number) =>
-      convertOps(ctx, p, body(p), { gotoSteps: back(s.section), structural: new Set([41]) });
+      convertOps(ctx, p, body(p), {
+        gotoSteps: back(s.section),
+        resumeTo: resumeTo(s.section),
+        structural: new Set([41]),
+      });
     if (alt) {
       // フラグで行き先の変わるゆさぶり（53 で 2 つ目の 15 へ飛ぶ）
       st.gap('フラグで行き先の変わるゆさぶり（15 が 2 つ）', s.section);
@@ -279,17 +305,26 @@ function buildOne(
     const sameFlag = (p: { flag: number | null }) => v.flag !== null && p.flag === v.flag.index;
     const presents = s.present.filter((p) => !sameFlag(p) || v.flag!.want);
     if (presents.length > 0) {
-      st1.present = Object.fromEntries(
-        presents.map((p) => {
+      // 同じ証拠品の行が複数あれば、表の上から（フラグの合う最初の行）。どれも合わなければ見当違い
+      const present: Record<string, Step[]> = {};
+      const keyOf = (item: number) =>
+        // 逆転裁判2・3 は尋問でも人物ファイルをつきつけられる（表の番号が人物ファイルなら人物 ID）
+        ctx.t.game !== 'aa1' && ctx.shared.profileRecords.has(item)
+          ? ctx.profile(item)
+          : ctx.evidenceId(item);
+      for (const item of [...new Set(presents.map((p) => p.item))]) {
+        let steps: Step[] = [...wrongChain, ...poseStep()];
+        for (const p of presents.filter((q) => q.item === item).reverse()) {
           const go = ctx.jump(p.goto, s.section);
-          const steps =
+          steps =
             p.flag === null || sameFlag(p)
               ? go
               : // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-                [{ if: ctx.fname(0, p.flag), then: go, else: [...wrongChain, ...poseStep()] }];
-          return [ctx.evidenceId(p.item), steps];
-        }),
-      );
+                [{ if: ctx.fname(0, p.flag), then: go, else: steps }];
+        }
+        present[keyOf(item)] = steps;
+      }
+      st1.present = present;
     }
     statements.push(st1);
   });

@@ -1,5 +1,6 @@
 // 流れを変えない命令（演出・人物・背景・音・法廷記録など）の変換。
 import type { Context } from './context.ts';
+import { frameReact } from './invest23.ts';
 import {
   BG_NONE,
   bgKey,
@@ -15,6 +16,8 @@ import {
   shoutKind,
 } from './mapping.ts';
 import { dsEffect } from './ops-ds.ts';
+import { op23 } from './ops23.ts';
+import { pointFlag, pointKs } from './section-branch.ts';
 import type { How } from './stats.ts';
 import type { CmdOp, Step } from './types.ts';
 import type { Writer } from './writer.ts';
@@ -42,6 +45,10 @@ export interface Memory {
   overlays: Map<number, number>;
   /** 62 で決めた、写真の一点を指す問題の番号 */
   point: number | null;
+  /** サイコ・ロックのつきつけを許した（82）。次の 21 がつきつけの要求になる */
+  lockPresent: boolean;
+  /** サイコ・ロックのつきつけの正解（96 / 97）と外れの区画 */
+  answers: { list: { item: number; goto: number }[]; wrong: number } | null;
 }
 export const newMemory = (): Memory => ({
   bgm: null,
@@ -49,6 +56,8 @@ export const newMemory = (): Memory => ({
   ds107: [0, 0, 0],
   overlays: new Map(),
   point: null,
+  lockPresent: false,
+  answers: null,
 });
 
 /** 背景を替える前に、そこで自分で消える重ね絵を消す */
@@ -65,6 +74,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
   const { w } = h;
   const a = o.args;
   const st = ctx.stats;
+  if (op23(o, ctx, h, mem, section)) return;
   if (IGNORED.has(o.op)) {
     st.hit(o.name, 'ignored');
     return;
@@ -108,6 +118,9 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     case 62:
       mem.point = a[0]!;
       st.hit(o.name, 'structure');
+      // 2・3: 区画の中で 62 がフラグで分かれる（53）なら、どの問題かを数のフラグで覚える（63 で分ける）
+      if (ctx.t.game !== 'aa1' && pointKs(ctx, section).length > 1)
+        h.put({ set: { [pointFlag(ctx)]: a[0]! } });
       return;
     case 48:
       w.blip(a[0]!);
@@ -214,7 +227,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     }
     case 27: {
       expireOverlays(h, mem);
-      const b = bgKey(a[0]!);
+      const b = bgKey(a[0]!, ctx.t.game);
       h.put({ location: b.key });
       if (mem.char && a[0] !== BG_NONE && isStandKey(b.key)) ctx.voteStand(mem.char.id, b.key);
       if (b.alt) h.put(native('bg_alt', [a[0]!]), 'native');
@@ -223,7 +236,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     case 77: {
       // 背景 + 手前の層（面会室のガラス）
       expireOverlays(h, mem);
-      const b = bgKey(a[0]!);
+      const b = bgKey(a[0]!, ctx.t.game);
       h.put({ location: b.key }, 'approx');
       h.put(native(o.name, a), 'native');
       return;
@@ -290,7 +303,10 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     }
     case 16: {
       const f = flagArg(a[0]!);
-      h.put({ set: { [ctx.fname(f.group, f.index)]: f.value } });
+      const name = ctx.fname(f.group, f.index);
+      h.put({ set: { [name]: f.value } });
+      // 2・3: 毎フレームの処理は台本の途中でも動くので、そのフラグで決まる行をすぐに調べる（invest23.ts）
+      for (const s of frameReact(ctx, name)) h.put(s);
       return;
     }
     case 43:

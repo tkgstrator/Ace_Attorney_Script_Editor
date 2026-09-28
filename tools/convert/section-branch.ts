@@ -2,8 +2,10 @@
 import type { Context } from './context.ts';
 import { nominationResults, orphanSections } from './flow.ts';
 import { native } from './mapping.ts';
+import type { Memory } from './ops.ts';
+import { answerFlag, answerSets, lockAnswers } from './ops23.ts';
 import { convertOps } from './section.ts';
-import type { CmdOp, Step } from './types.ts';
+import type { CmdOp, Op, Step } from './types.ts';
 
 /** ラベルへの移動。区画の途中のラベルは「区画_位置」のシーン */
 export function labelGoto(ctx: Context, o: CmdOp, gotoSteps: (t: number) => Step[]): Step[] {
@@ -79,11 +81,21 @@ export function whereOf(quad: number[][]): string {
 }
 
 /** 63 写真の一点を指す: 正解の 2 つの四角形と外れを、選択肢にする */
+/** 区画の中の 62 の問題の番号（重なりなし） */
+export function pointKs(ctx: Context, section: number): number[] {
+  const ops = ctx.entry.body[section]?.ops ?? [];
+  return [...new Set(ops.flatMap((o) => (o.op !== 'text' && o.op === 62 ? [o.args[0]!] : [])))];
+}
+
+/** どの問題（62）かのフラグ */
+export const pointFlag = (ctx: Context): string => ctx.flag(`${ctx.gpfx}point`, -1);
+
 export function pointChoice(
   ctx: Context,
   section: number,
   k: number | null,
   gotoSteps: (t: number) => Step[],
+  lock = false,
 ): Step {
   const p = ctx.t.courtPoints?.find((x) => x.id === k);
   ctx.stats.gap('写真の一点を指す（62/63）を選択肢にした', section);
@@ -98,7 +110,44 @@ export function pointChoice(
   }
   // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
   opts.push({ text: 'ほかの所を指す', then: gotoSteps(p.miss.section) });
+  // サイコ・ロックの挑戦中は「やめる」もある（quit のシーンへ）
+  // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+  if (lock) opts.push({ text: 'やめる', then: [{ quitLock: true }] });
   return { choice: opts };
+}
+
+/**
+ * 63（写真の一点を指す）のステップ。2・3 の探偵パートで減る量を予告した（84 2）区画ならサイコ・ロックの挑戦中
+ * （「やめる」を出す）。問題（62）がフラグで分かれるなら、覚えた番号（pointFlag）で分ける
+ */
+export function pointSteps(
+  ctx: Context,
+  section: number,
+  ops: Op[],
+  point: number | null,
+  gotoSteps: (t: number) => Step[],
+): Step[] {
+  const body = ctx.entry.body[section]?.ops ?? ops;
+  const lock =
+    ctx.t.game !== 'aa1' &&
+    !!ctx.inv &&
+    body.some((x) => x.op !== 'text' && x.op === 84 && x.args[0] === 2);
+  const ks = ctx.t.game === 'aa1' ? [] : pointKs(ctx, section);
+  if (ks.length < 2) return [pointChoice(ctx, section, point, gotoSteps, lock)];
+  return ks.reduceRight<Step[]>(
+    (rest, k, j) =>
+      j === ks.length - 1
+        ? [pointChoice(ctx, section, k, gotoSteps, lock)]
+        : [
+            {
+              if: `${pointFlag(ctx)} == ${k}`,
+              // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+              then: [pointChoice(ctx, section, k, gotoSteps, lock)],
+              else: rest,
+            },
+          ],
+    [],
+  );
 }
 
 /** 8 / 9 選択肢。文は下画面のボタンの絵を文字認識したもの（script_json.py --ocr） */
@@ -118,6 +167,47 @@ export function choiceStep(
 }
 
 /**
+ * サイコ・ロックの挑戦中のつきつけ（82 の後の 21）。正解は 96 / 97、外れは 96 の外れの区画。「やめる」を出す
+ */
+export function lockDemand(
+  ctx: Context,
+  section: number,
+  say: { text: string; speaker: string | null } | null,
+  mem: Memory,
+  gotoSteps: (t: number) => Step[],
+): Step {
+  const key = (item: number) =>
+    ctx.shared.profileRecords.has(item) ? ctx.profile(item) : ctx.evidenceId(item);
+  const head = {
+    demand: say ? say.text.replace(/(\[color white\])+$/, '') : '',
+    ...(say?.speaker ? { by: say.speaker } : {}),
+  };
+  // 正解を決める区画が複数あるなら、どれを通ったか（answerFlag）で分ける
+  const sets = answerSets(ctx, section);
+  if (sets.length) {
+    const flag = answerFlag(ctx);
+    const pick = (f: (a: (typeof sets)[number]['ans']) => number): Step[] =>
+      sets.reduceRight<Step[]>(
+        (rest, x, i) =>
+          i === sets.length - 1
+            ? gotoSteps(f(x.ans))
+            : // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+              [{ if: `${flag} == ${x.section}`, then: gotoSteps(f(x.ans)), else: rest }],
+        [],
+      );
+    const present: Record<string, Step[]> = {};
+    for (const item of new Set(sets.flatMap((x) => x.ans.list.map((c) => c.item))))
+      present[key(item)] = pick((a) => a.list.find((c) => c.item === item)?.goto ?? a.wrong);
+    return { ...head, present, wrong: pick((a) => a.wrong), giveUp: true };
+  }
+  const ans = lockAnswers(ctx, section, mem);
+  if (!ans) ctx.stats.gap('サイコ・ロックのつきつけの正解（96）が見つからない', section);
+  const present: Record<string, Step[]> = {};
+  for (const c of ans?.list ?? []) present[key(c.item)] = gotoSteps(c.goto);
+  return { ...head, present, wrong: ans ? gotoSteps(ans.wrong) : [], giveUp: true };
+}
+
+/**
  * 17 / 33 つきつけの要求。正解の表と外れの区画は court.json の present_requests。
  * 外れの区画は、最後に同じ要求へ戻るなら demand の wrong（もう一度求める）、別の所へ行くならその goto を付ける
  */
@@ -128,6 +218,7 @@ export function demandSteps(
   by: string | null,
   gotoSteps: (t: number) => Step[],
   life: boolean,
+  resumeTo?: (t: number) => Step[],
 ): Step[] {
   const req = ctx.court?.present_requests.find((r) => r.section === section);
   if (!req) {
@@ -145,7 +236,13 @@ export function demandSteps(
   const wrongSec = ctx.entry.body[req.wrong];
   const wrong = wrongSec
     ? convertOps(ctx, req.wrong, wrongSec.ops, {
-        gotoSteps: (t) => (t === section ? [] : gotoSteps(t)),
+        // 外れの後に尋問の文へ戻るなら（証言の中のブロックでは移動が空になる）、その文へ resume する
+        // （空のままだと、もう一度同じ要求になる。逆転裁判2 の正解の無い要求など）
+        gotoSteps: (t) => {
+          if (t === section) return [];
+          const go = gotoSteps(t);
+          return go.length === 0 && resumeTo ? resumeTo(t) : go;
+        },
       })
     : [];
   ctx.consumed.add(req.wrong);

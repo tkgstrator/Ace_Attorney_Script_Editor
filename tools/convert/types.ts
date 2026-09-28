@@ -96,7 +96,17 @@ export interface Tables {
   recordText?: Record<string, { name: string; desc: string }>;
   /** 探偵パートの最初の場所（tables/invest_start.json） */
   investStart?: Record<string, number>;
-  court: { common_wrong: { section: number }[]; common_item: number; parts: CourtPart[] };
+  court: {
+    common_wrong: { section: number }[];
+    common_item: number;
+    parts: CourtPart[];
+    /** 逆転裁判3: パート → そのパートの最初の項目（日本語） */
+    part_starts?: number[];
+    /** 逆転裁判3: 106 k → 読む項目（日本語） */
+    load_106?: Record<string, number>;
+    /** 逆転裁判3: パートの種類（3 = 法廷、4 = 探偵） */
+    part_kinds?: number[];
+  };
   /** 「3D で詳しく調べる」の表（tables/examine3d.json、第 5 話） */
   examine3d?: import('./examine3d.ts').Examine3d;
 }
