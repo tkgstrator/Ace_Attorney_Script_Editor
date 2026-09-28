@@ -1,8 +1,8 @@
 // 章の証拠品の examine（詳しく調べる）を、examine3d.json と各項目の取り込んだ区画から組み立てる（examine3d.ts の続き）。
 import { Context } from './context.ts';
-import { modeHome, objectChain, setsFlag, type Examine3d, type X3dPath } from './examine3d.ts';
+import { bgSize, SCREEN } from './examine-area.ts';
+import { type Examine3d, modeHome, objectChain, setsFlag, type X3dPath } from './examine3d.ts';
 import { convertOps } from './section.ts';
-import { bgWidth } from './investigation.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
 export interface ExamineEntry {
@@ -120,8 +120,10 @@ function resultSteps(
   // 条件のない道を最後（else）に
   branches.sort((a, c) => Number(a.cond === null) - Number(c.cond === null));
   let out: Step[] = branches.at(-1)!.cond === null ? branches.pop()!.body : [];
-  for (const br of branches.reverse())
+  for (const br of branches.reverse()) {
+    // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
     out = [{ if: br.cond!, then: br.body, ...(out.length ? { else: out } : {}) }];
+  }
   return out;
 }
 
@@ -240,7 +242,7 @@ export function buildExamine(
 /**
  * ルミノール（背景ごとの血の反応の場所）を、探偵パートの場所の調べる所にする（近似）。元のゲームでは試薬を吹きかける別の画面で、
  * 見つけるとフラグを立てて項目 070 の台詞。ここでは、試薬を持っていて、まだ見つけていないときだけ選べる、先に調べる所にする。
- * 横長の背景は、ずらした見え方の座標を右半分に置いてから画面の幅に縮める
+ * 範囲は背景の座標（横長の背景をずらした見え方の座標は、右端の見え方の位置を足す）
  */
 function buildLuminol(b: Build): Map<string, PlaceExamine[]> {
   const out = new Map<string, PlaceExamine[]>();
@@ -249,15 +251,14 @@ function buildLuminol(b: Build): Map<string, PlaceExamine[]> {
     if (!ctx.inv || ctx.pfx !== ctx.gpfx) continue; // 探偵パートの組の最初の項目（場所を作る所）だけ
     for (const pl of ctx.inv.places as { id: number; bg: number; bg_file?: string }[]) {
       const views = (b.x.luminol ?? []).filter((v) => v.bg === pl.bg);
-      const scale = 256 / bgWidth(pl.bg_file);
+      const shift = Math.max(0, bgSize(pl.bg_file).w - SCREEN.w);
       const list: PlaceExamine[] = [];
       for (const v of views) {
         for (const sp of v.spots) {
-          const x0 = (sp.x + (v.scrolled && scale < 1 ? 256 : 0)) * scale;
           const area: [number, number, number, number] = [
-            Math.floor(x0),
+            sp.x + (v.scrolled ? shift : 0),
             sp.y,
-            Math.max(1, Math.round(sp.w * scale)),
+            sp.w,
             sp.h,
           ];
           const flag = ctx.fname(0, sp.flag);
@@ -266,6 +267,7 @@ function buildLuminol(b: Build): Map<string, PlaceExamine[]> {
             name: 'ルミノールの反応',
             area,
             when: `${has} and not ${flag}`,
+            // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
             then: [
               { set: { [flag]: true } },
               ...(sp.section ? steps070(b, sp.section.section) : []),

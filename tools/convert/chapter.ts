@@ -3,10 +3,11 @@
 // 編の境目（22 next_part）では、法廷記録を次の編の最初の中身（evidence.json の start）に入れ替えて、次の編の最初のシーンへ。
 // ゲームオーバーは編ごとに違う区画なので、今の編（フラグ part）で分ける gameover シーンを作る。
 import { Shared } from './context.ts';
+import { markNoScroll } from './examine-area.ts';
 import { buildExamine } from './examine3d-build.ts';
-import { pruneUnusedScenes } from './prune.ts';
 import { dayStartFlags, investigationStartFlags } from './investigation.ts';
 import { isStandKey } from './mapping.ts';
+import { pruneUnusedScenes } from './prune.ts';
 import { convertGroup, type PartResult } from './scenario.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
@@ -72,7 +73,7 @@ export function convertChapter(
 
   // 1 回目: 章で使う証拠品・人物ファイルを集める（編の境目で法廷記録を入れ替えるため）
   const probe = new Shared();
-  profileRecords.forEach((r) => probe.profileRecords.add(r));
+  for (const r of profileRecords) probe.profileRecords.add(r);
   const probed = run(probe, () => undefined);
   const allEvidence = [...probe.evidence].sort((a, b) => a - b).map((n) => `e${n}`);
   const allProfiles = [...probe.characters].filter(([, c]) => c.profile).map(([id]) => id);
@@ -120,7 +121,7 @@ export function convertChapter(
   };
 
   const shared = new Shared();
-  profileRecords.forEach((r) => shared.profileRecords.add(r));
+  for (const r of profileRecords) shared.profileRecords.add(r);
   // 22 next_part は game+0x69 を 1 進める（ただし 0x1c の次は 0x1f、第 5 話の 3 日目の探偵パート → 最後の法廷）。
   // 106 は次の語の値のパートへ移る
   const indexOfPart = (part: number) => entries.findIndex((e) => e.entry >> 1 === part);
@@ -138,9 +139,8 @@ export function convertChapter(
     toPart,
   );
   if (multi)
-    results.forEach((r) =>
-      r.ctx.stats.gap('編の境目でライフを戻さない（元は法廷の日ごとに戻る）', -1),
-    );
+    for (const r of results)
+      r.ctx.stats.gap('編の境目でライフを戻さない（元は法廷の日ごとに戻る）', -1);
 
   // 最初の法廷記録の中身も、章の証拠品・人物ファイルに入れる
   for (const e of entries) {
@@ -164,6 +164,8 @@ export function convertChapter(
       if (add) pl.examine = [...add, ...(pl.examine ?? [])];
     }
   }
+  // 調べる間に背景を動かせない場所（第 5 話の地下駐車場の一部）
+  markNoScroll(results, multi ? partFlag : null);
   const characters: Record<string, unknown> = {};
   for (const [id, c] of [...shared.characters].sort()) {
     const votes = [...(shared.standVotes.get(id) ?? [])]
@@ -214,6 +216,7 @@ export function convertChapter(
     gameover = 'gameover';
     const last = parts.findLast((p) => p.kind === 'trial') ?? parts.at(-1)!;
     (last.scenes as Record<string, unknown>).gameover = [
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       ...overs.slice(0, -1).map(([k, g]) => ({ if: `${partFlag} == ${k}`, then: [{ goto: g! }] })),
       { goto: overs.at(-1)![1]! },
     ];
@@ -245,7 +248,7 @@ export function collectGives(x: unknown, out: Set<string>, seen = new Set<object
   if (typeof x !== 'object' || x === null || seen.has(x)) return;
   seen.add(x);
   if (Array.isArray(x)) {
-    x.forEach((v) => collectGives(v, out, seen));
+    for (const v of x) collectGives(v, out, seen);
     return;
   }
   for (const [k, v] of Object.entries(x)) {
