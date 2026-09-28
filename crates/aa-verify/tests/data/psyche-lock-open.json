@@ -250,7 +250,16 @@
         { "op": "menu" },
         { "op": "say", "speaker": null, "text": "特に気になるものはない。", "color": "white" },
         { "op": "menu" },
-        { "op": "jumpUnless", "cond": { "t": "var", "name": "unlocked" }, "to": 16 },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "||",
+            "l": { "t": "var", "name": "unlocked" },
+            "r": { "t": "not", "e": { "t": "var", "name": "unlocked" } }
+          },
+          "to": 16
+        },
         { "op": "say", "speaker": "nodoka", "text": "姉は看護師でした。", "color": "white" },
         { "op": "goto", "scene": "trial" },
         { "op": "jump", "to": 17 },

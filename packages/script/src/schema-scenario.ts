@@ -75,7 +75,9 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
           id: Id.optional().describe('話した印（seen() で使う）の ID。省略すると 場所ID_talk番号'),
           topic: z.string().describe('話題の名前'),
           when: Cond.optional().describe('この条件が真のときだけ話題に出る'),
-          locked: Cond.optional().describe('この条件が真のとき、話題にサイコ・ロックの印を出す'),
+          locked: Cond.optional().describe(
+            'この条件が真のとき、話題にサイコ・ロックの印を出す（既読の印の代わり。選べば then を実行する。先へ進ませないのは、解除するまで話題を切り替えない台本の側）',
+          ),
           // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           then: steps,
         }),

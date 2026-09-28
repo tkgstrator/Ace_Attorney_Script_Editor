@@ -15,10 +15,12 @@ import {
   type Instr,
   LOCK_CURRENT,
   LOCK_LEFT,
+  lockEndScene,
   lockFlag,
+  type Scene,
   type Value,
 } from '@gyakusai/core';
-import { type Builder, patch } from './builder.ts';
+import { Builder, patch } from './builder.ts';
 
 /** 章の中のロックの定義（psycheLock のステップ）から集めた、欄ごとの値 */
 export interface LockInfo {
@@ -193,6 +195,30 @@ export function emitDefine(b: Builder, s: Record<string, unknown>): void {
   };
   for (const [k, f] of Object.entries(fields))
     if (typeof s[k] === 'string') set(lockFlag(id, f as 'person'), s[k] as string);
+}
+
+/**
+ * クリア（end）。有効なまま残ったロックがあれば、先に印のシーン（lockEndScene）を通る。印のシーンは after より後の
+ * ロックを同じように調べてから end する（整合性チェックが、外さずにクリアできるロックを 1 つずつ報告する）
+ */
+export function emitEnd(b: Builder, reg: LockRegistry, after?: string): void {
+  const ids = [...reg.keys()];
+  for (const id of ids.slice(after === undefined ? 0 : ids.indexOf(after) + 1))
+    when(b, eq(lockFlag(id, 'active'), true), () => {
+      b.emit({ op: 'goto', scene: lockEndScene(id) });
+    });
+  b.emit({ op: 'end' });
+}
+
+/** ロックごとの印のシーン */
+export function lockEndScenes(reg: LockRegistry): Record<string, Scene> {
+  const out: Record<string, Scene> = {};
+  for (const id of reg.keys()) {
+    const b = new Builder();
+    emitEnd(b, reg, id);
+    out[lockEndScene(id)] = { kind: 'dialogue', id: lockEndScene(id), program: b.code };
+  }
+  return out;
 }
 
 /** ロックの gaugeOut のシーン（ライフが尽きたときにだけ入る） */

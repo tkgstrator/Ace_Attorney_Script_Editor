@@ -164,11 +164,25 @@ pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
     }
 }
 
+/// ロックを外さないままクリアしたときに通る印のシーンの ID の頭（core の LOCK_END_PREFIX）
+pub const LOCK_END_PREFIX: &str = "__lockend_";
+
+/// サイコ・ロックを外さないままクリアできる（印のシーンを通った。verify.ts の lockEndMessage と同じ文）
+pub fn lock_end_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
+    for (i, sc) in m.scenes.iter().enumerate() {
+        let Some(id) = sc.id.strip_prefix(LOCK_END_PREFIX) else { continue };
+        if r.visited.has(i as u32) {
+            out.push(Finding::error(format!("サイコ・ロック「{id}」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）"), None));
+        }
+    }
+}
+
 /// 探索の結果の報告をすべて並べる（TS 版と同じ順）
 pub fn findings<'a>(m: &Model, stop_of: impl Fn(u32) -> Stop<'a> + Copy, prep: &Prep, r: &Search, limit: usize, confirm: Option<usize>) -> Vec<Finding> {
     let mut out: Vec<Finding> = r.crashes.iter().map(|(msg, s)| Finding::error(msg.clone(), Some(m.scene_name(*s).to_string()))).collect();
     if !r.truncated {
         if !r.cleared { out.push(Finding::error("どう遊んでもクリア（end）にたどり着けません".into(), None)); }
+        lock_end_findings(m, r, &mut out);
         trap_findings(m, stop_of, prep, r, confirm, &mut out);
         unreached_findings(m, r, &mut out);
     } else {

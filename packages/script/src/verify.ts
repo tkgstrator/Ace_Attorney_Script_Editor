@@ -23,6 +23,7 @@ import {
   type Expr,
   type GameState,
   holds,
+  LOCK_END_PREFIX,
   recordName,
 } from '@gyakusai/core';
 import { actions, step } from './verify-actions.ts';
@@ -162,6 +163,10 @@ function rank(b: Beat): number {
           : 4;
 }
 
+/** ロックを外さないままクリアできるときの報告（Rust 版 report.rs と同じ文） */
+export const lockEndMessage = (id: string): string =>
+  `サイコ・ロック「${id}」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）`;
+
 export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions = {}): VerifyResult {
   const sc: CompiledScenario = prepare({ ...scenario, maxLife: IMMORTAL });
   const limit = opts.limit ?? DEFAULT_LIMIT;
@@ -295,6 +300,13 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
   if (!truncated) {
     if (!cleared)
       findings.push({ severity: 'error', message: 'どう遊んでもクリア（end）にたどり着けません' });
+    // サイコ・ロックを外さないままクリアできる（ロックが先へ進むのを止めていない。compile-lock.ts の emitEnd）
+    for (const id of Object.keys(sc.scenes))
+      if (id.startsWith(LOCK_END_PREFIX) && visitedScenes.has(id))
+        findings.push({
+          severity: 'error',
+          message: lockEndMessage(id.slice(LOCK_END_PREFIX.length)),
+        });
     // 詰み: 抜け出せない状態のかたまり（出ていく先がなく、終わりでもない強連結成分）ごとに、判断の場面を 1 つ報告する
     const reported = new Set<string>();
     for (const trap of traps(graph, ids.size, (v) => goals.has(v))) {

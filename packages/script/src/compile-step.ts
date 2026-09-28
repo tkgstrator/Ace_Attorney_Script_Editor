@@ -8,6 +8,7 @@ import { compileEffect } from './compile-effect.ts';
 import {
   emitBreak,
   emitDefine,
+  emitEnd,
   emitGiveUp,
   emitUnlock,
   type LockRegistry,
@@ -299,7 +300,8 @@ export function makeStepCompiler(ctx: StepContext) {
         b.emit({ op: 'investigate', place: s.investigate as string });
         break;
       case 'end':
-        b.emit({ op: 'end' });
+        // 有効なまま残ったサイコ・ロックがあれば、印のシーンを通ってから終わる（compile-lock.ts）
+        emitEnd(b, locks);
         break;
       case 'gameover':
         b.emit({ op: 'gameover' });
