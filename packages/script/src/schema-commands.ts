@@ -94,6 +94,9 @@ export function makeCommands<S extends z.ZodType>(steps: S) {
     unlock: z
       .strictObject({ unlock: z.literal(true) })
       .describe('挑んでいるロックをその場で解除する（回復し、ロックを無効にする）'),
+    quitLock: z
+      .strictObject({ quitLock: z.literal(true) })
+      .describe('挑んでいるロックの挑戦をやめて quit のシーンへ（挑んでいなければ何もしない）'),
     shout: z
       .strictObject({ shout: ShoutKind, by: Id.optional() })
       .describe('「異議あり！」などの吹き出し'),

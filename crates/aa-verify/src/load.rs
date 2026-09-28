@@ -214,10 +214,8 @@ impl Ctx {
                 for st in o["statements"].as_array().ok_or("statements がありません")? {
                     let so = obj(st)?;
                     statements.push(Statement {
-                        when: self.when(so)?,
-                        press: opt_pc(so, "press"),
-                        present: self.answers(so.get("present")),
-                        before: opt_pc(so, "before"),
+                        when: self.when(so)?, press: opt_pc(so, "press"), present: self.answers(so.get("present")),
+                        present_profile: so.get("presentProfile").map(|p| self.profile_answers(Some(p))), before: opt_pc(so, "before"),
                     });
                 }
                 Kind::Testimony(Testimony {
@@ -385,7 +383,8 @@ pub fn load(text: &str) -> Result<Model, String> {
         missing_scenes: cx.missing.names,
     };
     model.profile_points = model.scenes.iter().any(|sc| sc.place().is_some_and(|p| !p.person.is_empty())
-        || sc.program.iter().any(|op| matches!(op, Op::Demand { profiles: Some(_), .. })));
+        || sc.program.iter().any(|op| matches!(op, Op::Demand { profiles: Some(_), .. }))
+        || matches!(&sc.kind, Kind::Testimony(t) if t.statements.iter().any(|st| st.present_profile.is_some())));
     (model.inspect_all, model.inspect_effective) = crate::inspect::inspect_info(&model);
     for (j, &x) in model.inspect_effective.iter().enumerate() {
         model.evidence[x as usize].effective = true;

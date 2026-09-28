@@ -55,6 +55,7 @@ const KIND_GROUP: Record<Exclude<StepKind, 'unknown' | 'native'>, StepGroup> = {
   psycheLock: 'state',
   breakLock: 'state',
   unlock: 'state',
+  quitLock: 'state',
   goto: 'flow',
   investigate: 'flow',
   end: 'flow',

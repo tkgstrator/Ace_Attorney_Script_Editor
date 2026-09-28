@@ -1,5 +1,5 @@
 // 人物ファイルをつきつける（探偵パートの present・つきつけの要求）のテスト
-import { Engine, heldProfiles, type Beat } from '@gyakusai/core';
+import { type Beat, Engine, heldProfiles } from '@gyakusai/core';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
 import { verifyScenario } from '../verify.ts';
@@ -121,7 +121,7 @@ describe('人物ファイルをつきつける', () => {
     expect(skip(e).beat.kind).toBe('end');
   });
 
-  it('人物ファイルを認めない要求・尋問では、人物ファイルはつきつけられない', () => {
+  it('人物ファイルを認めない要求・人物 ID の無い証言では、人物ファイルはつきつけられない', () => {
     const e = new Engine(
       load(`
 id: c
@@ -152,7 +152,8 @@ scenes:
     e.present('a');
     for (let i = 0; i < 20 && !(e.beat.kind === 'statement' && e.beat.cross); i++) e.advance();
     expect(e.beat.kind === 'statement' && e.beat.cross).toBe(true);
-    expect(() => e.present('w', 'profile')).toThrow(/尋問では/);
+    // present に人物 ID を書いていない証言では、人物ファイルはつきつけられない
+    expect(() => e.present('w', 'profile')).toThrow(/この証言では人物ファイルをつきつけられません/);
   });
 
   it('つきつけの表のキーの誤りを報告する', () => {

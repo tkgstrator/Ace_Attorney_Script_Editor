@@ -79,10 +79,11 @@ export function compileTestimony(
       warn(p, `証言「${sid}」に press がありません（ゆさぶれない証言になります）`);
     }
     for (const [ev, steps] of Object.entries(raw.present ?? {})) {
-      // 尋問では証拠品だけ（人物ファイルはつきつけられない）
-      if (ctx.presentKind(ev, [...p, 'present', ev]) === 'profile')
-        error([...p, 'present', ev], `尋問では人物ファイル（${ev}）はつきつけられません`);
-      st.present[ev] = b.pc;
+      // 人物 ID を書くと、その人物ファイルをつきつけたとき（逆転裁判2・3 では尋問でも人物ファイルをつきつけられる）
+      if (ctx.presentKind(ev, [...p, 'present', ev]) === 'profile') {
+        st.presentProfile ??= {};
+        st.presentProfile[ev] = b.pc;
+      } else st.present[ev] = b.pc;
       b.emit({ op: 'shout', kind: 'objection', by: player });
       compileSteps(steps, [...p, 'present', ev], b);
       b.emit({ op: 'resume', to: 'stay' });
@@ -117,7 +118,11 @@ export function compileTestimony(
     compileSteps(t.loop, [...path, 'loop'], b);
     b.emit({ op: 'resume', to: 'first' });
   }
-  if (statements.every((st) => Object.keys(st.present).length === 0)) {
+  if (
+    statements.every(
+      (st) => Object.keys(st.present).length + Object.keys(st.presentProfile ?? {}).length === 0,
+    )
+  ) {
     warn(path, 'どの証言にも present がありません（尋問から抜け出せません）');
   }
   return scene;

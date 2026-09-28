@@ -108,6 +108,8 @@ export interface Statement {
   press?: number;
   /** 証拠品 ID → つきつけたときに実行するブロックの先頭 pc */
   present: Record<string, number>;
+  /** 人物 ID → その人物ファイルをつきつけたときのブロック（あれば、この証言では人物ファイルもつきつけられる） */
+  presentProfile?: Record<string, number>;
   /** 尋問でこの証言を出す前に実行する、止まらない命令のブロック（人物の動き・背景など） */
   before?: number;
 }

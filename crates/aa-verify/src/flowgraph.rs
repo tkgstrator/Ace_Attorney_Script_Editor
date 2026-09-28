@@ -225,16 +225,17 @@ pub fn build(m: &Model) -> Built {
                 let mut points = vec![];
                 for st in &t.statements {
                     uses(&mut gen, &mut ev_gen, node, st.when.as_ref());
-                    let answers: Vec<u32> = st.present.iter().map(|(x, _)| *x).collect();
+                    let all = st.present.iter().chain(st.present_profile.iter().flatten());
+                    let answers: Vec<u32> = all.clone().map(|(x, _)| *x).collect();
                     ev_gen[node as usize].extend(&answers);
                     points.push(answers);
-                    for pc in st.press.iter().chain(st.before.iter()).chain(st.present.iter().map(|(_, p)| p)) {
+                    for pc in st.press.iter().chain(st.before.iter()).chain(all.map(|(_, p)| p)) {
                         edge(&mut succ, node, Some(b + pc), -1);
                     }
                 }
                 for pc in [Some(t.wrong), t.after, t.reading, t.looping].into_iter().flatten() { edge(&mut succ, node, Some(b + pc), -1); }
                 anywhere(&mut succ, &mut ev_gen, node);
-                present_points.push((node, points, false));
+                present_points.push((node, points, t.statements.iter().any(|st| st.present_profile.is_some())));
             }
             Kind::Place(p) => {
                 let node = menu[si];

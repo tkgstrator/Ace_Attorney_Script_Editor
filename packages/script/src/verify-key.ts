@@ -6,8 +6,8 @@
 // - 法廷記録を使えなくしているか（詳しく調べられる証拠品があるときだけ）
 // 表示だけのもの（立ち絵・背景・BGM・文中に差し込む値）とライフは入れない。
 import type { CompiledScenario, Expr, GameState, Instr, Scene } from '@gyakusai/core';
-import { nodeOf, type Flow } from './verify-flow.ts';
-import { lookupOf, setOf, type Delta } from './verify-memo.ts';
+import { type Flow, nodeOf } from './verify-flow.ts';
+import { type Delta, lookupOf, setOf } from './verify-memo.ts';
 import { booleanFlags } from './verify-region.ts';
 
 /**
@@ -83,14 +83,13 @@ export function flagBounds(sc: CompiledScenario): Bounds {
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond, true);
-      if (ins.op === 'choice') ins.options.forEach((o) => walk(o.when, true));
+      if (ins.op === 'choice') for (const o of ins.options) walk(o.when, true);
       if (ins.op === 'add') (ins.amount >= 0 ? up : down).add(ins.flag);
     }
-    if (scene.kind === 'testimony') scene.statements.forEach((st) => walk(st.when, true));
+    if (scene.kind === 'testimony') for (const st of scene.statements) walk(st.when, true);
     if (scene.kind === 'place')
-      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) =>
-        walk(x.when, true),
-      );
+      for (const x of [...scene.person, ...scene.move, ...scene.talk, ...scene.examine])
+        walk(x.when, true);
   }
   const out: Bounds = new Map();
   for (const [flag, [lo, hi]] of range) {
@@ -109,6 +108,7 @@ export function hasProfilePoints(sc: CompiledScenario): boolean {
   return Object.values(sc.scenes).some(
     (scene) =>
       (scene.kind === 'place' && scene.person.length > 0) ||
+      (scene.kind === 'testimony' && scene.statements.some((st) => st.presentProfile)) ||
       scene.program.some((ins) => ins.op === 'demand' && ins.profiles !== undefined),
   );
 }

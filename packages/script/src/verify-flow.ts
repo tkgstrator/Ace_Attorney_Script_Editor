@@ -247,7 +247,12 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   function addTestimony(t: TestimonyScene, node: number, b: number) {
     for (const st of t.statements) {
       uses(node, st.when);
-      for (const pc of [st.press, st.before, ...Object.values(st.present)])
+      for (const pc of [
+        st.press,
+        st.before,
+        ...Object.values(st.present),
+        ...Object.values(st.presentProfile ?? {}),
+      ])
         if (pc !== undefined) edge(node, b + pc);
     }
     for (const pc of [t.wrong, t.after, t.reading, t.loop])

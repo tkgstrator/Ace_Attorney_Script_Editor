@@ -81,6 +81,10 @@ export class Engine {
   /** 人物ファイルもつきつけられる場面か（探偵パートの人物と、人物ファイルを認めるつきつけの要求） */
   get canPresentProfile(): boolean {
     const b = this.beat;
+    if (b.kind === 'statement' && b.cross) {
+      const t = this.scenario.scenes[this.state.scene];
+      return t?.kind === 'testimony' && !!t.statements[this.state.statement]?.presentProfile;
+    }
     return (b.kind === 'demand' && !!b.profiles) || (b.kind === 'investigate' && b.present);
   }
 
@@ -161,9 +165,11 @@ export class Engine {
     const name = recordName(this.scenario, id, kind);
     if (s.mode === 'testimony') {
       this.#m.requireCross('present');
-      if (profile) throw new EngineError('尋問では人物ファイルをつきつけられません');
       const t = this.#m.testimony();
-      const target = t.statements[s.statement]!.present[id];
+      const st = t.statements[s.statement]!;
+      if (profile && !st.presentProfile)
+        throw new EngineError('この証言では人物ファイルをつきつけられません');
+      const target = profile ? st.presentProfile![id] : st.present[id];
       s.vars = { evidence: name };
       this.#m.run(target ?? t.wrong);
     } else if (s.mode === 'investigate') {

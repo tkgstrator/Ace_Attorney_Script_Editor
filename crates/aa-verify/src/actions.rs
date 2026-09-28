@@ -159,7 +159,7 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
             if cross {
                 let st = e.testimony()?.statements.get(s.statement as usize);
                 if st.is_some_and(|st| st.press.is_some()) { out.push(Act::Press); }
-                present(st.map_or(&[][..], |st| &st.present), None, &mut out);
+                present(st.map_or(&[][..], |st| &st.present), st.and_then(|st| st.present_profile.as_deref()), &mut out);
             }
             out.append(&mut inspect);
         }

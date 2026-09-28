@@ -126,8 +126,11 @@ export class Machine {
     const s = this.state;
     const sc = this.scenario.scenes[scene];
     if (!sc) throw new EngineError(`存在しないシーンです: ${scene}`);
-    // 探索編の場所から出るときは、場所の背景をやめる（法廷なら立ち位置で背景が決まる）
-    if (this.scenario.scenes[s.scene]?.kind === 'place' && sc.kind !== 'place') {
+    // 探索編の場所から法廷パートのシーンへ出るときは、場所の背景をやめる（法廷なら立ち位置で背景が決まる）。
+    // 探偵パートの中の会話（サイコ・ロックの挑戦など、背景を変えない台本）は、場所の背景のまま
+    const trial =
+      this.scenario.parts.find((p) => p.scenes.includes(scene))?.kind !== 'investigation';
+    if (this.scenario.scenes[s.scene]?.kind === 'place' && sc.kind !== 'place' && trial) {
       s.stage.location = null;
       s.stage.character = null;
     }
