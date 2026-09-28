@@ -17,20 +17,20 @@
 // - 同じ場面で同じ操作をして、実行中に読んだ変数の値も同じなら、覚えておいた結果を使う（verify-memo.ts）
 // - 展開し終えた状態は捨て、キーと番号・辺だけを持つ（詰みの説明は、操作をたどり直して作る）
 import {
-  Engine,
-  holds,
-  recordName,
   type Beat,
   type CompiledScenario,
+  Engine,
   type Expr,
   type GameState,
+  holds,
+  recordName,
 } from '@gyakusai/core';
 import { actions, step } from './verify-actions.ts';
 import { analyzeFlow } from './verify-flow.ts';
 import { Graph, IntList, traps } from './verify-graph.ts';
+import { flagBounds, keyMaker, prepare } from './verify-key.ts';
 import { apply, Memo, Recorder } from './verify-memo.ts';
 import { packer } from './verify-pack.ts';
-import { flagBounds, keyMaker, prepare } from './verify-key.ts';
 
 export interface Finding {
   severity: 'error' | 'warning';
@@ -93,13 +93,19 @@ function usesLife(sc: CompiledScenario): boolean {
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond);
-      if (ins.op === 'choice') ins.options.forEach((o) => walk(o.when));
+      if (ins.op === 'choice')
+        ins.options.forEach((o) => {
+          walk(o.when);
+        });
     }
-    if (scene.kind === 'testimony') scene.statements.forEach((st) => walk(st.when));
+    if (scene.kind === 'testimony')
+      scene.statements.forEach((st) => {
+        walk(st.when);
+      });
     if (scene.kind === 'place')
-      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) =>
-        walk(x.when),
-      );
+      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) => {
+        walk(x.when);
+      });
   }
   return bad;
 }
@@ -192,7 +198,9 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
     return id;
   };
   const first = new Engine(sc);
-  first.state.visited.forEach((v) => visitedScenes.add(v));
+  first.state.visited.forEach((v) => {
+    visitedScenes.add(v);
+  });
   visitedScenes.add(first.state.scene);
   found(keyOf(first.state as GameState), -1, -1, () => first.state as GameState);
 
@@ -252,8 +260,12 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
         for (let j = state.seen.length; j < next.seen.length; j++) seenIds.add(next.seen[j]!);
         visitedScenes.add(next.scene);
       } else {
-        d!.visited.forEach((v) => visitedScenes.add(v));
-        d!.seen.forEach((v) => seenIds.add(v));
+        d!.visited.forEach((v) => {
+          visitedScenes.add(v);
+        });
+        d!.seen.forEach((v) => {
+          seenIds.add(v);
+        });
         visitedScenes.add(d!.control.scene);
       }
       const k = next ? keyOf(next) : keyOf(state, d);
@@ -294,7 +306,8 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
 
     // 一度も到達しないもの（打ち切ったときは、調べきれていないので出さない）
     for (const [id, scene] of Object.entries(sc.scenes)) {
-      if (id.startsWith('__') || id === sc.gameoverScene) continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
+      if (id.startsWith('__') || id === sc.gameoverScene || sc.lifeOutScenes?.includes(id))
+        continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
       if (!visitedScenes.has(id)) {
         findings.push({
           severity: 'warning',

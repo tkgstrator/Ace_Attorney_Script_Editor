@@ -20,6 +20,8 @@ pub enum Act {
     Talk(usize),
     /// 証拠品を詳しく調べて、表示される場所の選択肢の番号を選ぶ（選択肢がなければ None）
     Inspect(u32, Option<usize>),
+    /// サイコ・ロックのつきつけをやめる
+    GiveUp,
 }
 
 impl Act {
@@ -36,6 +38,7 @@ impl Act {
                 e.inspect(ev)?;
                 match n { Some(n) => e.choose(n), None => Ok(()) }
             }
+            Act::GiveUp => e.give_up(),
         }
     }
 
@@ -51,6 +54,7 @@ impl Act {
             Act::Talk(i) => format!("t{}", m.seen_ids[e.place().map(|p| p.talk[i].seen).unwrap_or(0) as usize]),
             Act::Inspect(ev, Some(n)) => format!("i{}:{n}", m.evidence[ev as usize].id),
             Act::Inspect(ev, None) => format!("i{}", m.evidence[ev as usize].id),
+            Act::GiveUp => "g".into(),
         }
     }
 }
@@ -145,8 +149,9 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
             out.append(&mut inspect);
         }
         BeatKind::Demand => {
-            let Op::Demand { options, profiles, .. } = e.instr()? else { unreachable!() };
+            let Op::Demand { options, profiles, give_up, .. } = e.instr()? else { unreachable!() };
             present(options, profiles.as_deref(), &mut out);
+            if give_up.is_some() { out.push(Act::GiveUp); }
             out.append(&mut inspect);
         }
         BeatKind::Statement { cross } => {

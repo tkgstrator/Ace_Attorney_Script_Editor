@@ -123,6 +123,7 @@ export function instrBeat(scenario: CompiledScenario, ins: Instr, s: GameState, 
         name: ins.speaker ? (scenario.characters[ins.speaker]?.name ?? ins.speaker) : null,
         ...inspectField(scenario, s, 'demand'),
         ...(ins.profiles ? { profiles: true } : {}),
+        ...(ins.giveUp !== undefined ? { giveUp: true } : {}),
       };
     case 'fade':
       return { kind: 'fade', dir: ins.dir, color: ins.color, frames: ins.frames };

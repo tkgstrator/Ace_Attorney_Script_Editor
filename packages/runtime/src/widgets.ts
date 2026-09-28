@@ -1,5 +1,7 @@
 // メイン画面の部品。テキストウィンドウ・名前欄・証拠品の窓・ライフ・吹き出しなど。
+
 import type { EvidenceDef } from '@gyakusai/core';
+import { lockMark } from './gauge.ts';
 import {
   COLORS,
   type Rect,
@@ -116,6 +118,7 @@ export function choiceButtons(
   selected: number,
   blinkOn: boolean,
   done: boolean[] = [],
+  locked: boolean[] = [],
 ) {
   options.forEach((opt, i) => {
     const r = UI.choice(i, options.length);
@@ -125,7 +128,8 @@ export function choiceButtons(
     p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
     p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
     t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
-    if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
+    if (locked[i]) lockMark(p, r.x + r.w - 16, r.y + 6);
+    else if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
     if (i === selected && blinkOn) p.brackets(r);
   });
 }

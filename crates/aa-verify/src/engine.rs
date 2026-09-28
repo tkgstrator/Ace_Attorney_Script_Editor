@@ -376,6 +376,14 @@ impl<'m> Engine<'m> {
         self.settle()
     }
 
+    /// サイコ・ロックのつきつけをやめる（つきつけの要求に give_up があるときだけ）
+    pub fn give_up(&mut self) -> Res {
+        let ins = if self.s.mode == Mode::Run { Some(self.instr()?) } else { None };
+        let Some(Op::Demand { give_up: Some(to), .. }) = ins else { return Err("今はやめられません".into()) };
+        self.s.pc = *to;
+        self.settle()
+    }
+
     /// 表示される選択肢の index 番目を選ぶ
     pub fn choose(&mut self, index: usize) -> Res {
         let ins = if self.s.mode == Mode::Run { Some(self.instr()?) } else { None };

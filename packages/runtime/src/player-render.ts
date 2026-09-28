@@ -1,6 +1,7 @@
 // Player（player.ts）の、上の画面（DS 版のメイン画面）の描画。
 
-import { SCREEN_H, SCREEN_W, TEXT_COLORS, TOP } from './layout.ts';
+import { lifeGauge, psycheLocks, usesGauge } from './gauge.ts';
+import { SCREEN_H, SCREEN_W, TEXT_COLORS, TOP, UI } from './layout.ts';
 import { canOpenRecord, onCross, type PlayerHost } from './player-host.ts';
 import { drawScene } from './scene.ts';
 import { drawTopButton, lifeTop } from './top-buttons.ts';
@@ -51,9 +52,16 @@ export function renderScreen(h: PlayerHost) {
   if (h.added && added) W.addedWindow(p, h.added, added);
   if (b.kind === 'statement' && !b.cross)
     p.fonts.text.draw(h.labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
+  if (stage.locks && !stage.locks.hidden && b.kind !== 'banner' && b.kind !== 'shout')
+    psycheLocks(p, stage.locks.left, h.frame);
   const gauge = stage.lifeGauge ?? (onCross(h) || b.kind === 'demand');
-  if (gauge || h.lifeShow > 0)
-    W.lifeMarks(p, h.engine.state.life, h.engine.scenario.maxLife, lifeTop(p));
+  const max = h.engine.scenario.maxLife;
+  if ((gauge || h.lifeShow > 0) && usesGauge(max))
+    lifeGauge(p, h.engine.state.life, max, stage.lifeRisk, h.frame, lifeTop(p));
+  else if (gauge || h.lifeShow > 0) W.lifeMarks(p, h.engine.state.life, max, lifeTop(p));
+  // サイコ・ロックの挑戦中のつきつけは「やめる」を出す
+  if (b.kind === 'demand' && b.giveUp)
+    p.tab(UI.pressTab, 'tl', h.labels.giveUp, { small: true, k: 6 });
   if (canOpenRecord(h)) drawTopButton(p, 'record', h.labels);
   if (b.kind === 'statement' && b.cross) {
     drawTopButton(p, 'press', h.labels, b.canPress);

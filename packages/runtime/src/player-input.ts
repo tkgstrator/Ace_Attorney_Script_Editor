@@ -79,6 +79,11 @@ export function key(h: PlayerHost, key: string): boolean {
       return true;
     }
   }
+  // サイコ・ロックの挑戦中のつきつけは、Esc か B で「やめる」
+  if (b.kind === 'demand' && b.giveUp && !h.typing && ['Escape', 'b', 'B'].includes(key)) {
+    h.engine.giveUp();
+    return true;
+  }
   if (key === 'Enter' || key === ' ') confirm(h);
   else if ((key === 'x' || key === 'X') && canOpenRecord(h)) h.record.show(h.engine);
   else if (onCross(h) && (key === 'z' || key === 'Z')) pressStatement(h);
@@ -102,6 +107,10 @@ export function click(h: PlayerHost, x: number, y: number) {
   }
   if (canOpenRecord(h) && hit(recordAt, x, y)) {
     h.record.show(h.engine, 'evidence');
+    return;
+  }
+  if (b.kind === 'demand' && b.giveUp && hit(UI.pressTab, x, y)) {
+    h.engine.giveUp();
     return;
   }
   if (onCross(h)) {

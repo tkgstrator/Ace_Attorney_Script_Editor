@@ -13,6 +13,7 @@ import {
 import type { z } from 'zod';
 import { Builder } from './builder.ts';
 import { compileInspect } from './compile-inspect.ts';
+import { collectLocks, lockFlags, lockOutScenes } from './compile-lock.ts';
 import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
 import { makeStepCompiler } from './compile-step.ts';
 import { compileTestimony } from './compile-testimony.ts';
@@ -67,7 +68,11 @@ export function compile(raw: unknown): CompileResult {
   const src: RawScenario = parsed.data;
   const characters = src.characters;
   const evidence = src.evidence;
-  const flags: Record<string, Value> = src.flags ?? {};
+  // サイコ・ロックの状態はフラグに持つ（compile-lock.ts）。名前は __lock で始まり、YAML の flags には書かない
+  const locks = collectLocks(src);
+  const flags: Record<string, Value> = { ...(src.flags ?? {}), ...lockFlags(locks) };
+  const lockKeys = src.psycheLock?.keys ?? [];
+  const lockHeal = src.psycheLock?.heal ?? 0;
   // 編（parts）ごとのシーン・場所を、章全体の一覧にまとめる。編に分けていなければ全体を 1 つの裁判編とする
   type SceneBody = NonNullable<RawScenario['scenes']>[string];
   const sceneEntries: { id: string; body: SceneBody; path: Path; trial: boolean }[] = [];
@@ -209,6 +214,8 @@ export function compile(raw: unknown): CompileResult {
     checkInlineRefs,
     cond,
     presentKind,
+    locks,
+    lockHeal,
   });
 
   // ---- 全体の検証 ----
@@ -217,6 +224,14 @@ export function compile(raw: unknown): CompileResult {
       error(['characters', id], `「${id}」は予約語なので人物 ID に使えません`);
   }
   if (player !== null) checkCharacter(player, ['player']);
+  lockKeys.forEach((id, i) => {
+    checkEvidence(id, ['psycheLock', 'keys', i]);
+  });
+  if (locks.size > 0 && lockKeys.length === 0)
+    error(
+      ['psycheLock'],
+      'サイコ・ロックがあるので、psycheLock.keys（挑むのに使う証拠品）を書いてください',
+    );
   checkScene(src.start.scene, ['start', 'scene']);
   (src.start.evidence ?? []).forEach((id, i) => {
     checkEvidence(id, ['start', 'evidence', i]);
@@ -242,6 +257,8 @@ export function compile(raw: unknown): CompileResult {
     checkPlace,
     presentKind,
     error,
+    locks,
+    lockKeys,
   };
   sceneEntries.forEach(({ id, body, path, trial }, index) => {
     inTrial = trial;
@@ -283,7 +300,8 @@ export function compile(raw: unknown): CompileResult {
       );
   }
   for (const id of Object.keys(flags)) {
-    if (!readFlags.has(id)) warn(['flags', id], `フラグ「${id}」は一度も参照されていません`);
+    if (!readFlags.has(id) && !id.startsWith('__lock'))
+      warn(['flags', id], `フラグ「${id}」は一度も参照されていません`);
   }
 
   if (diagnostics.some((d) => d.severity === 'error')) return { scenario: null, diagnostics };
@@ -300,6 +318,7 @@ export function compile(raw: unknown): CompileResult {
       startEvidence: src.start.evidence ?? [],
       startProfiles: src.start.profiles ?? null,
       gameoverScene,
+      ...(locks.size > 0 ? { lifeOutScenes: lockOutScenes(locks) } : {}),
       autoPause: src.defaults?.autoPause ?? false,
       autoShow: src.defaults?.autoShow ?? true,
       scenes,

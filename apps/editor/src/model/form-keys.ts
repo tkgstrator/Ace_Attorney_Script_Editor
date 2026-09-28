@@ -9,6 +9,11 @@ export const YAML_ONLY = new Set<CommandName>([
   'pan',
   'overlay',
   'random',
+  'heal',
+  'lifeRisk',
+  'psycheLock',
+  'breakLock',
+  'unlock',
 ]);
 
 /** 種類ごとに、入力欄に出している属性（null はフォームなし＝全体を YAML で編集） */

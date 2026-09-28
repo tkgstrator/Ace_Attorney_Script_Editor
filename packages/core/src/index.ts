@@ -2,6 +2,7 @@ export { Engine, EngineError } from './engine.ts';
 export { type ExamineSpot, examineSpots, markerPoint } from './examine-spots.ts';
 export { type ExprEnv, ExprSyntaxError, evalExpr, exprRefs, parseExpr } from './expr.ts';
 export { canInspectAt, inspectable } from './inspect.ts';
+export { LOCK_CURRENT, LOCK_LEFT, type LockField, lockFlag, lockOutScene } from './lock.ts';
 export {
   allProfiles,
   heldProfiles,

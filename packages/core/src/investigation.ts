@@ -34,7 +34,12 @@ export function investigateBeat(
         ? []
         : place.talk
             .filter((t) => test(t.when))
-            .map((t) => ({ id: t.id, topic: t.topic, seen: state.seen.includes(t.id) })),
+            .map((t) => ({
+              id: t.id,
+              topic: t.topic,
+              seen: state.seen.includes(t.id),
+              ...(t.locked && test(t.locked) ? { locked: true } : {}),
+            })),
     present: person !== null,
     ...inspectField(scenario, state, 'investigate'),
   };

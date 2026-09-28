@@ -1,7 +1,7 @@
 import type { Instr, Statement, TestimonyScene } from '@gyakusai/core';
 import { Builder } from './builder.ts';
-import type { PlaceContext } from './compile-place.ts';
 import type { Path } from './compile.ts';
+import type { PlaceContext } from './compile-place.ts';
 import type { RawScenario } from './schema.ts';
 
 /** 証言の前のブロックに書ける、止まらずに状態を変えるだけの命令 */
@@ -26,6 +26,8 @@ const SIMPLE_OPS = new Set<Instr['op']>([
   'pan',
   'overlay',
   'palette',
+  'lifeRisk',
+  'locks',
 ]);
 
 type RawTestimony = Exclude<NonNullable<RawScenario['scenes']>[string], unknown[]>;

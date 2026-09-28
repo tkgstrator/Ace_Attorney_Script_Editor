@@ -125,10 +125,11 @@ pub fn build(m: &Model) -> LGraph<'_> {
                     inspect_edges(&g, &mut out);
                 }
                 Op::Stop(StopKind::Line | StopKind::Card) => { out.extend(next.map(plain)); inspect_edges(&g, &mut out); }
-                Op::Demand { options, profiles, wrong, .. } => {
+                Op::Demand { options, profiles, wrong, give_up, .. } => {
                     let all = options.iter().chain(profiles.iter().flatten());
                     out.extend(all.map(|(x, t)| LEdge { site: Site::Present, ev: Some(*x), ..plain(b + t) }));
                     out.push(plain(b + wrong));
+                    if let Some(g) = give_up { out.push(plain(b + g)); }
                     inspect_edges(&g, &mut out);
                 }
                 Op::Goto(s) | Op::Investigate(s) => out.extend(g.entry(m, *s).map(plain)),

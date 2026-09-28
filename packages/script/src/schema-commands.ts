@@ -57,12 +57,43 @@ export function makeCommands<S extends z.ZodType>(steps: S) {
             '人物ファイルもつきつけられるか（既定: present に人物 ID があれば true、なければ false）。人物ファイルの見当違いは wrong',
           ),
         by: Id.optional().describe('問いかける人物（名前欄に出す）'),
+        giveUp: z
+          .literal(true)
+          .optional()
+          .describe(
+            'サイコ・ロックの挑戦中の「やめる」を出す（選ぶと、挑んでいるロックの quit のシーンへ）',
+          ),
       })
       .describe('証拠品のつきつけを求める'),
     goto: z.strictObject({ goto: Id }).describe('別のシーンへ移る'),
     penalty: z
-      .strictObject({ penalty: z.union([z.literal(true), z.number().positive()]) })
-      .describe('ライフを減らす。true なら defaults.penalty'),
+      .strictObject({
+        penalty: z.union([z.literal(true), z.literal('risk'), z.number().positive()]),
+      })
+      .describe('ライフを減らす。true なら defaults.penalty、risk なら lifeRisk で予告した量'),
+    heal: z
+      .strictObject({ heal: z.union([z.literal(true), z.number().positive()]) })
+      .describe('ライフを回復する（true は最大まで。最大は超えない）'),
+    lifeRisk: z
+      .strictObject({ lifeRisk: z.number().int().nonnegative() })
+      .describe('見当違いのときに減るライフの量を、ゲージの点滅で予告する（0 で消す）'),
+    psycheLock: z
+      .strictObject({
+        psycheLock: Id.describe('ロックの ID（元のゲームの枠 lock0〜lock3 など）'),
+        locks: z.number().int().positive().optional().describe('錠の数'),
+        person: Id.optional().describe('ロックのかかった人物'),
+        place: Id.optional().describe('その人物がいる場所（そこで勾玉をつきつけると挑む）'),
+        start: Id.optional().describe('挑んだときのシーン'),
+        quit: Id.optional().describe('「やめる」を選んだときのシーン'),
+        gaugeOut: Id.optional().describe('挑戦中にライフが尽きたときのシーン（ライフは 1 に戻る）'),
+      })
+      .describe('サイコ・ロックを決める・変える（書いた欄だけ変わる。書くと有効になる）'),
+    breakLock: z
+      .strictObject({ breakLock: z.union([z.literal(true), z.literal('hold')]) })
+      .describe('錠を 1 つ壊す。最後の錠なら解除する（hold なら解除しない）'),
+    unlock: z
+      .strictObject({ unlock: z.literal(true) })
+      .describe('挑んでいるロックをその場で解除する（回復し、ロックを無効にする）'),
     shout: z
       .strictObject({ shout: ShoutKind, by: Id.optional() })
       .describe('「異議あり！」などの吹き出し'),
@@ -213,6 +244,10 @@ export function makeCommands<S extends z.ZodType>(steps: S) {
         ui: z.strictObject({
           record: z.boolean().optional().describe('法廷記録を開けるか'),
           life: z.boolean().nullable().optional().describe('ライフを出すか（null で既定に戻す）'),
+          locks: z
+            .union([z.number().int().positive(), z.boolean()])
+            .optional()
+            .describe('サイコ・ロックの錠を出す（数）・出し直す（true）・隠す（false）'),
         }),
       })
       .describe('画面の部品の表示'),

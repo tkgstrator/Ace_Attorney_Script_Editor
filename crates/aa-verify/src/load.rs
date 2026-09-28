@@ -168,6 +168,7 @@ impl Ctx {
                 options: self.answers(o.get("options")),
                 profiles: o.get("profiles").map(|p| self.profile_answers(Some(p))),
                 wrong: pc_of(o, "wrong")?,
+                give_up: opt_pc(o, "giveUp"),
             },
             "giveProfile" => self.profile_op(o, true)?,
             "takeProfile" => self.profile_op(o, false)?,
@@ -194,7 +195,8 @@ impl Ctx {
             "gameover" => Op::Gameover,
             "penalty" => Op::Penalty(num_of(o, "amount")?),
             "showEvidence" | "palette" | "pan" | "overlay" | "scroll" | "textbox"
-            | "bgmPause" | "show" | "location" | "bgm" | "se" | "shake" | "flash" => Op::Nop(static_name(op)),
+            | "bgmPause" | "show" | "location" | "bgm" | "se" | "shake" | "flash"
+            | "heal" | "lifeRisk" | "locks" => Op::Nop(static_name(op)),
             x => return Err(err(format!("未知の命令です: {x}"))),
         })
     }
@@ -327,6 +329,9 @@ pub fn load(text: &str) -> Result<Model, String> {
         None => start_evidence.extend(ch_obj.keys().filter_map(|id| cx.profiles.get(id).copied())),
     }
     let gameover_scene = o.get("gameoverScene").and_then(Value::as_str).map(|s| cx.scene_ref(s));
+    let life_out: Vec<u32> = o.get("lifeOutScenes").and_then(Value::as_array).map(|a| {
+        a.iter().filter_map(Value::as_str).map(|s| cx.scene_ref(s)).collect()
+    }).unwrap_or_default();
     let mut parts = vec![];
     for p in o.get("parts").and_then(Value::as_array).cloned().unwrap_or_default() {
         let po = obj(&p)?;
@@ -374,6 +379,7 @@ pub fn load(text: &str) -> Result<Model, String> {
         inspect_skip: vec![],
         defer: Default::default(),
         gameover_scene,
+        life_out,
         max_life: o.get("maxLife").and_then(Value::as_f64).unwrap_or(5.0),
         parts,
         missing_scenes: cx.missing.names,

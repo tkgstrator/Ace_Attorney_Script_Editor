@@ -73,7 +73,8 @@ pub enum Op {
     Choice(Vec<Opt>),
     /// options は IR の並び（証拠品の番号, pc）。profiles は人物ファイルの正解（人物ファイルの番号, pc）で、
     /// None なら人物ファイルはつきつけられない
-    Demand { prompt: String, speaker: bool, options: Vec<(u32, u32)>, profiles: Option<Vec<(u32, u32)>>, wrong: u32 },
+    /// give_up はサイコ・ロックの「やめる」の行き先（あれば、つきつけずにやめられる）
+    Demand { prompt: String, speaker: bool, options: Vec<(u32, u32)>, profiles: Option<Vec<(u32, u32)>>, wrong: u32, give_up: Option<u32> },
     /// 法廷記録を使えなくする（true）・使えるようにする（false）。ui の record（ほかの ui は Nop）
     Lock(bool),
     Set(u32, FVal),
@@ -248,6 +249,8 @@ pub struct Model {
     /// 文章送りだけの場面で詳しく調べるのを試すかの下ごしらえと、調べて状態が変わるかの結果の覚え（defer.rs）
     pub defer: crate::defer::DeferInfo,
     pub gameover_scene: Option<u32>,
+    /// ライフが尽きたときにだけ入るシーン（サイコ・ロックの挑戦中。調べない）
+    pub life_out: Vec<u32>,
     pub max_life: f64,
     pub parts: Vec<Part>,
     /// 存在しないシーンへの参照の名前（シーンの番号が scenes.len() + i のもの）

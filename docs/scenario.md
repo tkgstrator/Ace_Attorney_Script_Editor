@@ -19,7 +19,7 @@
 id: clocktower            # セーブデータの識別に使う
 title: 時計塔の鐘
 player: naruse            # ゆさぶる・つきつけるときの掛け声の主
-life: 10                  # ライフの最大値（既定 10）
+life: 10                  # ライフの最大値（既定 10。10 以下は「！」の数、超えると棒のゲージで出す）
 defaults:
   penalty: 2              # penalty: true で減る量（既定 2）
   wrongPresent:           # 見当違いの証拠品をつきつけたときの既定の反応
@@ -118,6 +118,43 @@ places:
 証拠品と同じく `presentWrong`（`{evidence}` には人物ファイルでの表示名が入る）。
 証拠品 ID と人物 ID が同じものは、`present` のキーに書けない（どちらか分からないため。エラーになる）。
 
+### サイコ・ロック（逆転裁判2・3）
+
+人物の心の錠（サイコ・ロック）を、証拠品をつきつけて外す遊び。章全体に、挑むのに使う証拠品（勾玉）と
+解除したときに回復するライフを書き、ロックそのものはステップ `psycheLock` で決める。
+
+```yaml
+psycheLock: { keys: [magatama], heal: 40 }   # 章全体（トップレベル）
+life: 80                                      # ライフの最大（ゲージで出す。10 を超えると棒のゲージ）
+
+# ステップ
+- psycheLock: lock0          # ロックの ID（書いた欄だけ変わる。書くとロックが有効になる）
+  locks: 3                   # 錠の数
+  person: nodoka             # ロックのかかった人物
+  place: room                # その人物がいる場所
+  start: lock_start          # 勾玉をつきつけたときのシーン
+  quit: lock_quit            # 「やめる」を選んだときのシーン
+  gaugeOut: lock_out         # 挑戦中にライフが尽きたときのシーン（ライフは 1 に戻る。ゲームオーバーにならない）
+- lifeRisk: 10               # 見当違いのときに減る量を予告する（ゲージの点滅）
+- demand: 証拠を見せてください。
+  giveUp: true               # 「やめる」を出す（選ぶと quit のシーンへ。ロックは有効なまま）
+  present:
+    news:
+      - breakLock: true      # 錠を 1 つ壊す。最後の錠なら解除（回復し、ロックを無効にする）
+  wrong:
+    - penalty: risk          # 予告した量だけ減らす
+```
+
+- 場所 `place` で、そこにいる人物が `person` の有効なロックがあれば、`keys` の証拠品をつきつけると挑む
+  （錠は全部そろった状態から始まり、`start` のシーンへ）。無ければ、その場所のふつうの `present` の反応。
+- `breakLock: hold` は錠を壊しても解除しない（台本で複数の錠を続けて壊す場面）。`unlock: true` はその場で解除する。
+- 話題に `locked: 条件` を書くと、条件が真の間、その話題にロックの印を出す（表示だけ）。
+- 錠の表示は `ui: { locks: 3 }`（出す）・`ui: { locks: false }`（隠す）・`ui: { locks: true }`（出し直す）。
+  挑むとき・壊すとき・解除するときは自動で変わる。
+- ロックの状態はコンパイラが `__lock` で始まるフラグに直す（YAML の flags には書かない）。整合性チェックは、
+  勾玉のつきつけ・「やめる」も操作として試す。`gaugeOut` のシーンはライフが尽きたときにだけ入るので、
+  ゲームオーバーのシーンと同じく「たどり着かない」に出さない。
+
 ### 証拠品を詳しく調べる
 
 証拠品に `examine` を書くと、法廷記録でその証拠品の詳細を開いたときに「調べる」が出て、
@@ -207,7 +244,9 @@ scenes:
 | `- choice:`<br>`    - text: 選択肢`<br>`      when: 条件`<br>`      then: [...]` | 選択肢。then の後は次のステップへ進む |
 | `- demand: 問いかけ`<br>`  present: { clock: [...] }`<br>`  wrong: [...]` | 証拠品のつきつけ要求。不正解なら wrong の後にもう一度。裁判編なら、つきつけた後に「くらえ！」が自動で入る（探索編では入らない）。present に人物 ID を書くと、人物ファイルもつきつけられる（`profiles: true` なら、正解が証拠品だけでも人物ファイルを見せられる。人物ファイルの見当違いも wrong） |
 | `- goto: scene` | シーン移動 |
-| `- penalty: true` / `- penalty: 3` | ライフを減らす。0 になると gameover シーンへ |
+| `- penalty: true` / `- penalty: 3` | ライフを減らす。0 になると gameover シーンへ（サイコ・ロックの挑戦中は gaugeOut のシーンへ） |
+| `- penalty: risk` / `- lifeRisk: 10` | lifeRisk で予告した量（ゲージの点滅）だけ減らす / 減る量を予告する（0 で消す） |
+| `- heal: 40` / `- heal: true` | ライフを回復する（true は最大まで。最大は超えない） |
 | `- shout: objection`<br>`  by: himuro` | 吹き出し（objection / hold / takethat）。by の既定は player |
 | `- banner: 文` | 画面中央の大きな文字（「無罪」など） |
 | `- card: "9月27日 午前10時\n地方裁判所 第2法廷"` | 日時・場所の表示。画面を暗くし、テキストウィンドウに緑字で中央寄せ |
@@ -225,7 +264,7 @@ scenes:
 | `- fade: out`<br>`  nowait: true` | 終わるのを待たずに次へ進むフェード（元のゲームのフェード） |
 | `- bgmPause: true` / `- bgmPause: false` | BGM を一時停止する / 続きから再開する（frames でフェード） |
 | `- textbox: false` / `- textbox: true` | 文字の枠を隠す / 出したままにする（書かなければ台詞のときだけ出る） |
-| `- ui: { record: false, life: true }` | 法廷記録を開けなくする・ライフを出す（life: null で既定に戻す） |
+| `- ui: { record: false, life: true }` | 法廷記録を開けなくする・ライフを出す（life: null で既定に戻す）。`locks` はサイコ・ロックの錠の表示 |
 | `- giveProfile: w` / `- takeProfile: w` | 人物ファイルに加える / 外す。最初の顔ぶれは `start.profiles`（省略すると profile のある全員） |
 | `- resume: stay` | 尋問のゆさぶり・つきつけのブロックから、同じ証言（stay）・次（next）・最初（first）へ戻る |
 | `- show: phoenix`<br>`  talk: 15`<br>`  idle: 14` | 人物と動き（元のゲームの動きの番号）。文字送りの間は talk、止まっている間は idle |

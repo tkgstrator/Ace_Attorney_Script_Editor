@@ -88,14 +88,28 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') collect(ins.cond);
-      if (ins.op === 'choice') ins.options.forEach((o) => collect(o.when));
+      if (ins.op === 'choice')
+        ins.options.forEach((o) => {
+          collect(o.when);
+        });
     }
-    if (scene.kind === 'testimony') scene.statements.forEach((st) => collect(st.when));
+    if (scene.kind === 'testimony')
+      scene.statements.forEach((st) => {
+        collect(st.when);
+      });
     if (scene.kind === 'place') {
-      scene.person.forEach((p) => collect(p.when));
-      scene.move.forEach((m) => collect(m.when));
-      scene.talk.forEach((t) => collect(t.when));
-      scene.examine.forEach((x) => collect(x.when));
+      scene.person.forEach((p) => {
+        collect(p.when);
+      });
+      scene.move.forEach((m) => {
+        collect(m.when);
+      });
+      scene.talk.forEach((t) => {
+        collect(t.when);
+      });
+      scene.examine.forEach((x) => {
+        collect(x.when);
+      });
     }
   }
 
@@ -130,7 +144,10 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   const inspectScenes = [
     ...new Set(Object.values(sc.evidence).flatMap((ev) => (ev.inspect ? [ev.inspect] : []))),
   ];
-  const inspects = (from: number) => inspectScenes.forEach((id) => enter(from, id));
+  const inspects = (from: number) =>
+    inspectScenes.forEach((id) => {
+      enter(from, id);
+    });
   /**
    * 台詞・日時の表示・選択肢・証言の途中から、調べるシーンへの辺。調べて状態が変わりうる証拠品（verify-inspect.ts の
    * effective）のシーンだけ（ほかの証拠品は、そこでは調べる操作を試さない）
@@ -138,7 +155,10 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   const effectiveScenes = [
     ...new Set(inspectInfo(sc).effective.map((id) => sc.evidence[id]!.inspect!)),
   ];
-  const inspectsAnywhere = (from: number) => effectiveScenes.forEach((id) => enter(from, id));
+  const inspectsAnywhere = (from: number) =>
+    effectiveScenes.forEach((id) => {
+      enter(from, id);
+    });
 
   for (const [id, scene] of Object.entries(sc.scenes)) {
     const b = base.get(id)!;
@@ -167,7 +187,9 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
           break;
         }
         case 'random':
-          ins.to.forEach((t) => edge(node, b + t));
+          ins.to.forEach((t) => {
+            edge(node, b + t);
+          });
           if (ins.to.length === 0) next();
           break;
         case 'choice':
@@ -183,10 +205,11 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
           inspectsAnywhere(node);
           break;
         case 'demand':
-          [...Object.values(ins.options), ...Object.values(ins.profiles ?? {})].forEach((t) =>
-            edge(node, b + t),
-          );
+          [...Object.values(ins.options), ...Object.values(ins.profiles ?? {})].forEach((t) => {
+            edge(node, b + t);
+          });
           edge(node, b + ins.wrong);
+          if (ins.giveUp !== undefined) edge(node, b + ins.giveUp);
           inspects(node);
           break;
         case 'goto':
@@ -233,7 +256,9 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   }
 
   function addPlace(p: PlaceScene, node: number, b: number) {
-    p.person.forEach((x) => uses(node, x.when));
+    p.person.forEach((x) => {
+      uses(node, x.when);
+    });
     p.examine.forEach((x) => {
       uses(node, x.when);
       edge(node, b + x.pc, idOf(`s:${x.id}`));
@@ -294,7 +319,11 @@ function solve(
   const words = Math.max(1, Math.ceil(vars / 32));
   const live = Object.assign(new Uint32Array(n * words), { words });
   const preds: number[][] = Array.from({ length: n }, () => []);
-  succ.forEach((es, from) => es.forEach((e) => preds[e.to]!.push(from)));
+  succ.forEach((es, from) => {
+    es.forEach((e) => {
+      preds[e.to]!.push(from);
+    });
+  });
   for (let v = 0; v < n; v++)
     for (const g of gen[v]!) live[v * words + (g >>> 5)]! |= 1 << (g & 31);
   const tmp = new Uint32Array(words);

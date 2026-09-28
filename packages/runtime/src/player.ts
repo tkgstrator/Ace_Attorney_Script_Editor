@@ -301,6 +301,15 @@ export class Player {
           this.#effect({ cmd: 'shake', frames: 16, strength: 0 });
           this.#lifeShow = TIMING.lifeShowFrames;
           break;
+        case 'heal':
+          this.#audio?.se('heal');
+          this.#lifeShow = TIMING.lifeShowFrames;
+          break;
+        case 'locks':
+          // 錠の演出の音（ID は lock_show / lock_break / lock_unlock。用意されていなければ鳴らない）
+          if (ev.fx !== 'hide') this.#audio?.se(`lock_${ev.fx}`);
+          if (ev.fx === 'break') this.#effect({ cmd: 'flash', color: 'white', frames: 4 });
+          break;
         case 'evidence':
           if (ev.added) this.#added = ev.id;
           break;

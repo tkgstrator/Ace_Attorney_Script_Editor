@@ -6,6 +6,7 @@ import { enterStatement, execSimple } from './exec.ts';
 import { type ExprEnv, evalExpr } from './expr.ts';
 import { returnFromInspect } from './inspect.ts';
 import { personAt } from './investigation.ts';
+import { LOCK_CURRENT, lockOutScene } from './lock.ts';
 import { plainBgm as bgmMarks } from './rich.ts';
 import { stateEnv } from './state.ts';
 import type {
@@ -217,11 +218,33 @@ export class Machine {
           if (returnFromInspect(s, f)) this.toMenu();
           break;
         }
-        case 'penalty':
-          s.life = Math.max(0, s.life - ins.amount);
-          this.events.push({ type: 'penalty', amount: ins.amount, life: s.life });
+        case 'heal': {
+          // 最大を超えない。整合性チェックではライフを大きな値から始めるので、そのときは変えない
+          const max = this.scenario.maxLife;
+          const life = Math.max(
+            s.life,
+            Math.min(max, ins.amount === 'full' ? max : s.life + ins.amount),
+          );
+          this.events.push({ type: 'heal', amount: life - s.life, life });
+          s.life = life;
+          s.pc++;
+          break;
+        }
+        case 'penalty': {
+          const amount = ins.risk ? s.stage.lifeRisk : ins.amount;
+          s.life = Math.max(0, s.life - amount);
+          this.events.push({ type: 'penalty', amount, life: s.life });
           if (s.life > 0) {
             s.pc++;
+            break;
+          }
+          // サイコ・ロックの挑戦中なら、ゲームオーバーではなくそのロックの「ライフが尽きた」シーンへ（ライフは 1 に戻る）
+          const out = lockOutScene(s);
+          if (out) {
+            s.life = 1;
+            s.flags[LOCK_CURRENT] = '';
+            s.stage.locks = null;
+            this.enter(out);
             break;
           }
           if (this.scenario.gameoverScene) {
@@ -230,6 +253,7 @@ export class Machine {
           }
           this.#changed();
           throw new EngineError('ライフが尽きましたが、gameover シーンが定義されていません');
+        }
         default:
           if (execSimple(ins, s, this.events)) s.pc++;
           else throw new EngineError(`実行できない命令です: ${ins.op}`);
