@@ -116,6 +116,24 @@ describe('サイコ・ロック', () => {
     expect(e.state.scene).toBe(lockEndScene('lock0'));
   });
 
+  it('錠が 5 つより多いときは、5 回壊すと解除される（元のゲームは残りを 5 にしてから減らす）', () => {
+    const six = yaml
+      .replace('locks: 2', 'locks: 6')
+      .replace('- goto: lock_q2\n', '- goto: lock_q1\n')
+      .replace('lifeRisk: 10', 'lifeRisk: 0');
+    const e = new Engine(load(six));
+    skip(e);
+    e.present('magatama');
+    for (let i = 0; i < 4; i++) {
+      skip(e);
+      e.present('news');
+    }
+    expect(e.state.flags.__lock_lock0_active).toBe(true);
+    skip(e);
+    e.present('news');
+    expect(e.state.flags.__lock_lock0_active).toBe(false);
+  });
+
   it('quitLock（選択肢の「やめる」など）で挑戦をやめ、quit のシーンへ行く', () => {
     const e = new Engine(load(lock23));
     skip(e);

@@ -110,8 +110,16 @@ export function emitUnlock(b: Builder, reg: LockRegistry, heal: number): void {
   b.emit({ op: 'set', flag: LOCK_LEFT, value: 0 });
 }
 
+/** 錠を壊す前の残りの上限 */
+const MAX_LEFT = 5;
+
 /** 錠を 1 つ壊す。hold でなければ、最後の錠で解除する */
 export function emitBreak(b: Builder, reg: LockRegistry, heal: number, hold: boolean): void {
+  // 残りは 5 より多ければ 5 にしてから減らす（YG3J 0x0203593c・A2GJ 0x0205122c。逆転裁判3 の第 5 話の春美は
+  // 錠 6 つで 5 回壊すと解除）
+  when(b, { t: 'bin', op: '>', l: v(LOCK_LEFT), r: lit(MAX_LEFT) }, () => {
+    b.emit({ op: 'set', flag: LOCK_LEFT, value: MAX_LEFT });
+  });
   b.emit({ op: 'add', flag: LOCK_LEFT, amount: -1 });
   b.emit({ op: 'locks', show: 'break' });
   if (!hold)

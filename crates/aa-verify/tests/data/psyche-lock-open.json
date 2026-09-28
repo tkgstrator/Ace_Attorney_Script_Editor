@@ -55,10 +55,21 @@
           "op": "demand",
           "prompt": "証拠を見せてください。",
           "options": { "news": 2 },
-          "wrong": 14,
+          "wrong": 16,
           "speaker": "nodoka",
-          "giveUp": 17
+          "giveUp": 19
         },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": ">",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 5 }
+          },
+          "to": 4
+        },
+        { "op": "set", "flag": "__lock_left", "value": 5 },
         { "op": "add", "flag": "__lock_left", "amount": -1 },
         { "op": "locks", "show": "break" },
         {
@@ -69,7 +80,7 @@
             "l": { "t": "var", "name": "__lock_left" },
             "r": { "t": "lit", "v": 0 }
           },
-          "to": 11
+          "to": 13
         },
         { "op": "heal", "amount": 40 },
         { "op": "locks", "show": "unlock" },
@@ -81,14 +92,14 @@
             "l": { "t": "var", "name": "__lock" },
             "r": { "t": "lit", "v": "lock0" }
           },
-          "to": 9
+          "to": 11
         },
         { "op": "set", "flag": "__lock_lock0_active", "value": false },
         { "op": "set", "flag": "__lock", "value": "" },
         { "op": "set", "flag": "__lock_left", "value": 0 },
         { "op": "say", "speaker": "nodoka", "text": "そ、それは……", "color": "white" },
         { "op": "goto", "scene": "lock_q2" },
-        { "op": "jump", "to": 22 },
+        { "op": "jump", "to": 24 },
         { "op": "say", "speaker": "nodoka", "text": "関係ありませんね。", "color": "white" },
         { "op": "penalty", "amount": 0, "risk": true },
         { "op": "jump", "to": 1 },
@@ -110,7 +121,7 @@
               "r": { "t": "lit", "v": "lock_quit" }
             }
           },
-          "to": 21
+          "to": 23
         },
         { "op": "set", "flag": "__lock", "value": "" },
         { "op": "locks", "show": "unlock" },
@@ -128,10 +139,21 @@
           "op": "demand",
           "prompt": "まだ何か？",
           "options": { "photo": 2 },
-          "wrong": 15,
+          "wrong": 17,
           "speaker": "nodoka",
-          "giveUp": 17
+          "giveUp": 19
         },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": ">",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 5 }
+          },
+          "to": 4
+        },
+        { "op": "set", "flag": "__lock_left", "value": 5 },
         { "op": "add", "flag": "__lock_left", "amount": -1 },
         { "op": "locks", "show": "break" },
         {
@@ -142,7 +164,7 @@
             "l": { "t": "var", "name": "__lock_left" },
             "r": { "t": "lit", "v": 0 }
           },
-          "to": 11
+          "to": 13
         },
         { "op": "heal", "amount": 40 },
         { "op": "locks", "show": "unlock" },
@@ -154,7 +176,7 @@
             "l": { "t": "var", "name": "__lock" },
             "r": { "t": "lit", "v": "lock0" }
           },
-          "to": 9
+          "to": 11
         },
         { "op": "set", "flag": "__lock_lock0_active", "value": false },
         { "op": "set", "flag": "__lock", "value": "" },
@@ -162,7 +184,7 @@
         { "op": "say", "speaker": "nodoka", "text": "……お姉さんのことです。", "color": "white" },
         { "op": "set", "flag": "unlocked", "value": true },
         { "op": "investigate", "place": "room" },
-        { "op": "jump", "to": 22 },
+        { "op": "jump", "to": 24 },
         { "op": "penalty", "amount": 0, "risk": true },
         { "op": "jump", "to": 1 },
         {
@@ -183,7 +205,7 @@
               "r": { "t": "lit", "v": "lock_quit" }
             }
           },
-          "to": 21
+          "to": 23
         },
         { "op": "set", "flag": "__lock", "value": "" },
         { "op": "locks", "show": "unlock" },

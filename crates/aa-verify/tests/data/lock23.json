@@ -48,10 +48,21 @@
           "op": "choice",
           "options": [
             { "text": "左を指す", "to": 3 },
-            { "text": "ほかの所を指す", "to": 15 },
-            { "text": "やめる", "to": 18 }
+            { "text": "ほかの所を指す", "to": 17 },
+            { "text": "やめる", "to": 20 }
           ]
         },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": ">",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 5 }
+          },
+          "to": 5
+        },
+        { "op": "set", "flag": "__lock_left", "value": 5 },
         { "op": "add", "flag": "__lock_left", "amount": -1 },
         { "op": "locks", "show": "break" },
         {
@@ -62,7 +73,7 @@
             "l": { "t": "var", "name": "__lock_left" },
             "r": { "t": "lit", "v": 0 }
           },
-          "to": 12
+          "to": 14
         },
         { "op": "heal", "amount": 40 },
         { "op": "locks", "show": "unlock" },
@@ -74,17 +85,17 @@
             "l": { "t": "var", "name": "__lock" },
             "r": { "t": "lit", "v": "lock0" }
           },
-          "to": 10
+          "to": 12
         },
         { "op": "set", "flag": "__lock_lock0_active", "value": false },
         { "op": "set", "flag": "__lock", "value": "" },
         { "op": "set", "flag": "__lock_left", "value": 0 },
         { "op": "set", "flag": "open", "value": true },
         { "op": "investigate", "place": "room" },
-        { "op": "jump", "to": 24 },
+        { "op": "jump", "to": 26 },
         { "op": "penalty", "amount": 0, "risk": true },
         { "op": "goto", "scene": "lock_start" },
-        { "op": "jump", "to": 24 },
+        { "op": "jump", "to": 26 },
         {
           "op": "jumpUnless",
           "cond": {
@@ -103,13 +114,13 @@
               "r": { "t": "lit", "v": "lock_quit" }
             }
           },
-          "to": 22
+          "to": 24
         },
         { "op": "set", "flag": "__lock", "value": "" },
         { "op": "locks", "show": "unlock" },
         { "op": "goto", "scene": "lock_quit" },
-        { "op": "jump", "to": 23 },
-        { "op": "jump", "to": 24 },
+        { "op": "jump", "to": 25 },
+        { "op": "jump", "to": 26 },
         { "op": "goto", "scene": "lock_quit" }
       ]
     },
