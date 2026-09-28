@@ -14,14 +14,6 @@ interface Rgba {
   data: Uint8Array;
 }
 
-function read(magick: (...args: string[]) => Uint8Array, file: string): Rgba {
-  const [w, h] = new TextDecoder()
-    .decode(magick(file, '-format', '%w %h', 'info:'))
-    .split(' ')
-    .map(Number) as [number, number];
-  return { w, h, data: magick(file, '-depth', '8', 'rgba:-') };
-}
-
 /** base と talk（同じ大きさ）から、口のまわりだけ talk にした画像の RGBA を返す */
 export function patchMouth(base: Rgba, talk: Rgba): Uint8Array {
   const { w, h } = base;
@@ -67,18 +59,4 @@ export function patchMouth(base: Rgba, talk: Rgba): Uint8Array {
     }
   }
   return out;
-}
-
-/** 加工済みの base.png と talk.png から、talk.png を口だけ差し替えたものに書き換える */
-export function fixTalkFrame(
-  magick: (...args: string[]) => Uint8Array,
-  basePath: string,
-  talkPath: string,
-  write: (rgba: Uint8Array, w: number, h: number, path: string) => void,
-): void {
-  const base = read(magick, basePath),
-    talk = read(magick, talkPath);
-  if (base.w !== talk.w || base.h !== talk.h)
-    throw new Error(`大きさが違います: ${basePath} と ${talkPath}`);
-  write(patchMouth(base, talk), base.w, base.h, talkPath);
 }

@@ -73,11 +73,13 @@ JSON を実行時に読み込む箇所（`verify-font.ts` が読む `katakana-st
 ```bash
 bun tools/sprites/generate.ts            # まだ無い元画像を生成（種類ごとに並列）→ assets/generated/raw/
 bun tools/sprites/generate.ts evidence   # 種類を指定（character / background / foreground / evidence）
-bun tools/sprites/process.ts             # 画面用のドット絵に縮めて apps/player/src/art/ に取り込む
+bun tools/sprites/process.ts             # 画面用のドット絵に縮め、DS の色の決まり（15 色・15 ビット色）に減色して apps/player/src/art/ に取り込む
 ```
 
 - 画像生成は Codex の利用枠を消費する（画像のあるやり取りは通常の 3〜5 倍の速さで減る）。
 - 人物は口パク用に、口を開けた絵（`<ID>-talk.png`）も作る。
+- 減色は人物・背景・机・証拠品とも 1 枚 15 色 + 透明、15 ビット色、ディザなし。人物は 1 人の全コマで 1 枚のパレットを共有し、
+  差分コマはベースで使った色だけで描く（方法は `tools/sprites/SPEC.md` §2「取り込むときの減色」）。
 - 立ち絵の決まり（キャンバス・色数・輪郭・動き・差分コマ・スプライトシート）は `tools/sprites/SPEC.md`、
   立ち位置ごとの置き方は `tools/sprites/STAND_SPEC.md`。
 
