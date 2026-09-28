@@ -31,6 +31,7 @@ export const KIND_RULES: Record<Kind, string> = {
     'A three-quarter-length character sprite on a GENUINELY TRANSPARENT background (real alpha channel; no checkerboard, no solid color, no floor, no shadow).',
     'Portrait canvas. The head is near the top; the body continues BELOW THE WAIST AND HIPS and is cut off across the upper thighs at the bottom edge',
     '(the lower part will be hidden behind a desk in the game, so it must be fully drawn, not faded or cropped at the waist). Arms and hands inside the frame.',
+    'At most 15 colors for the whole character, a 1-dot outline in the darkest color (a dark tinted color, not pure black), 2 to 3 tone cel shading per material, light from the upper left, no semi-transparent pixels.',
     'Neutral expression, eyes open, mouth closed.',
     'If a reference screenshot is attached, match its camera angle and the size of the head and shoulders relative to the screen,',
     'but draw the character described here (not the one in the screenshot), ignore the text box, and do not stop the body where the desk hides it.',

@@ -78,6 +78,18 @@ bun tools/sprites/process.ts             # 画面用のドット絵に縮めて 
 
 - 画像生成は Codex の利用枠を消費する（画像のあるやり取りは通常の 3〜5 倍の速さで減る）。
 - 人物は口パク用に、口を開けた絵（`<ID>-talk.png`）も作る。
+- 立ち絵の決まり（キャンバス・色数・輪郭・動き・差分コマ・スプライトシート）は `tools/sprites/SPEC.md`、
+  立ち位置ごとの置き方は `tools/sprites/STAND_SPEC.md`。
+
+生成した立ち絵は、決まりを守っているかを機械で確かめる（`process.ts` の最後にも自動で走る）。
+
+```bash
+bun tools/sprites/check.ts               # 色数・透過・アンチエイリアス・差分コマの範囲の外の変化・ずれ → assets/generated/check/
+bun tools/sprites/check.ts naruse --fix  # だめな差分コマを直したものも書き出す（元は残す）
+bun tools/sprites/sheet.ts make naruse   # 差分コマをまとめて描かせるスプライトシートと指示文
+bun tools/sprites/sheet.ts cut naruse <生成されたシート.png>   # 切り分けて位置を合わせ、確かめる
+uv run python tools/sprites/measure_official.py   # 仕様の根拠（DS 版のコマの統計）を測り直す（手元のデータが要る）
+```
 - まだ画像が無いものは、プレイヤーではコードで描いた仮の絵（`apps/player/src/placeholder-art.ts`）を使う。
 
 ## DS 版から取り出したフォント（手元用・配布しない）
