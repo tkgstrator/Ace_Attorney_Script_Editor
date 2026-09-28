@@ -27,6 +27,9 @@ ARM9 から読むもの（番地はコードで確認済み）:
   - 17/33 の区画 = つきつけ要求。
 
 区画の番号はすべて「区画そのもの」（+128 を外した値）。項目の見出しの末尾のラベル（区画 << 16 | 位置）は labels に。
+
+2・3 の ROM も読める（ゲームコードで見分ける。番地とパートの数え方は court_games.py）。出力の parts は
+項目（日本語）ごとに part = 項目 >> 1 とする（変換はこの番号で引く）。3 では本当のパートの番号を game_part に入れる。
 """
 import json
 import os
@@ -37,6 +40,8 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from arm9 import Arm9  # noqa: E402
 from charset import CODE_BASE  # noqa: E402
+from court_games import court_game, owner_part, part_starts, read_present_rows, split_items_yg3j  # noqa: E402
+from game import GAMES, detect  # noqa: E402
 from script_dump import decode, entries, load_chars, read_mes, text  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +51,7 @@ N_PARTS = 35                   # 項目 000〜068（070 = 3D の台詞、072 = �
 COMMON_ITEM = 72               # 共通の台本（0x020db020 に読む。区画 < 0x80）
 COMMON_WRONG = [45, 46, 47, 48]
 TURN = (21, 69, 121)           # player_turn（同じ関数 0x0202a7f8）
+G = GAMES['AGYJ']              # 読んでいるゲーム（main で決める）
 
 
 def split(e: list[int]) -> tuple[list[list[int]], dict[int, list[int]]]:
@@ -61,11 +67,13 @@ def split(e: list[int]) -> tuple[list[list[int]], dict[int, list[int]]]:
     bounds = [o // 2 for o in offs[:real]] + [len(e)]
     secs = [e[bounds[k]:bounds[k + 1]] for k in range(real)]
     labels = {k: [offs[k] >> 16, offs[k] & 0xffff] for k in range(real, n)}
+    # 3 の分割された項目は見出しの後ろが前の項目の写し（古い値）なので、区画の外を指すものは捨てる
+    labels = {k: v for k, v in labels.items() if v[0] < real}
     return secs, labels
 
 
 def ops(sec: list[int]) -> list[tuple]:
-    return decode(sec)
+    return decode(sec, G.argc)
 
 
 def has(d: list[tuple], op: int, arg0: int | None = None) -> bool:
@@ -95,15 +103,20 @@ def title(d: list[tuple], chars: dict[int, str]) -> str:
     return next((x for x in lines if x.startswith('～')), lines[0] if lines else '')
 
 
-def read_present(a: Arm9, part: int) -> list[dict]:
-    p = a.u32(PRESENT_TABLE + 4 * part)
+def read_present(a: Arm9, part: int, table: int = PRESENT_TABLE, split: bool | None = None) -> list[dict]:
+    """split: 3 の区画の 0xf000 の行を分ける（True = 106 で読み替えた項目の行だけ、False = それ以外だけ、None = 分けない）"""
     rows = []
-    while a.u16(p) != 0xffff:
-        sec, item, dest, flag, keep = struct.unpack('<HHHBB', a.read(p, 8))
-        rows.append({'section': sec - 128, 'item': item, 'goto': dest - 128,
-                     'flag': None if flag == 0xff else flag, 'box_closed': keep == 0,
-                     'dead': item > 0xff})  # 番号は u8 と比べるので 0xff を超える行は一致しない
-        p += 8
+    for sec, item, dest, flag, keep in read_present_rows(a, table, part):
+        if split is not None:
+            if bool(sec & 0xf000) != split:
+                continue
+            sec &= 0x0fff
+        row = {'section': sec - 128, 'item': item, 'goto': dest - 128,
+               'flag': None if flag == 0xff else flag, 'box_closed': keep == 0,
+               'dead': item > 0xff}  # 番号は u8 と比べるので 0xff を超える行は一致しない
+        if split is not None and item == 0xff:
+            row['any_item'] = True  # 3: 0xff はどれをつきつけても一致する
+        rows.append(row)
     return rows
 
 
@@ -242,10 +255,10 @@ def check_en(jp: list[list[int]], en: list[list[int]], part: dict) -> list[str]:
     return bad
 
 
-def common_wrong(ents, chars) -> list[dict]:
-    secs, labels = split(ents[COMMON_ITEM])
+def common_wrong(ents, chars, item: int = COMMON_ITEM, wrong: list[int] = COMMON_WRONG) -> list[dict]:
+    secs, labels = split(ents[item])
     out = []
-    for k in COMMON_WRONG:
+    for k in wrong:
         d = ops(secs[k])
         out.append({'section': k, **penalty(d, labels),
                     'court_mode': [t[1][0] for t in d if t[0] == 41],
@@ -270,30 +283,48 @@ DOC = {
 
 
 def main() -> None:
+    global G
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     rom = open(sys.argv[1], 'rb').read()
-    out = Path(sys.argv[2] if len(sys.argv) > 2 else ROOT / 'assets/extracted/tables/court.json')
+    G = detect(rom)
+    cg = court_game(G.code)
+    out = Path(sys.argv[2] if len(sys.argv) > 2 else G.tables / 'court.json')
     a = Arm9(rom)
     ents = entries(read_mes(sys.argv[1]))
-    chars = load_chars()
+    chars = load_chars(G)
     kinds = item_kinds(ents)
+    starts = part_starts(G.code, a)
+    splits = set(split_items_yg3j(a).values()) if cg.split_rows else set()
     parts, warn = [], []
-    for part in range(N_PARTS):
-        jp, labels = split(ents[2 * part])
-        en, _ = split(ents[2 * part + 1])
-        table = read_present(a, part)
-        go = a.u16(GAMEOVER_TABLE + 2 * part)
+    for item in range(0, len(ents) - 2, 2):
+        if G.code == 'AGYJ' and item >= 2 * N_PARTS:
+            break
+        part = owner_part(starts, item)
+        jp, labels = split(ents[item])
+        en, _ = split(ents[item + 1])
+        split_rows = (item in splits) if cg.split_rows else None
+        table = read_present(a, part, cg.present_table, split_rows)
+        go = a.u16(cg.gameover_table + 2 * part) if cg.gameover_table else 0
         info = parse_part(part, jp, labels, table, chars, kinds)
         bad = check_en(jp, en, info)
         if bad:
-            warn.append(f'part {part}: 英語で違う区画 {bad}')
-        parts.append({'part': part, 'items': [2 * part, 2 * part + 1],
+            warn.append(f'part {item >> 1}: 英語で違う区画 {bad}')
+        extra = {}
+        if G.code != 'AGYJ':
+            extra['game_part'] = part
+            if part in cg.wrong_by_part:
+                extra['common_wrong'] = common_wrong(ents, chars, cg.common_item, cg.wrong_by_part[part])
+        parts.append({'part': item >> 1, 'items': [item, item + 1], **extra,
                       'gameover_section': go - 128 if go else None,
-                      'present_table_addr': hex(a.u32(PRESENT_TABLE + 4 * part)),
+                      'present_table_addr': hex(a.u32(cg.present_table + 4 * part)),
                       'present_table': table, **info})
-    doc = {'_doc': DOC, 'life_max': 5, 'common_item': COMMON_ITEM,
-           'common_wrong': common_wrong(ents, chars), 'parts': parts, 'warnings': warn}
+    doc = {'_doc': DOC, 'life_max': 5, 'common_item': cg.common_item,
+           'common_wrong': common_wrong(ents, chars, cg.common_item, cg.common_wrong), 'parts': parts, 'warnings': warn}
+    if G.code != 'AGYJ':
+        doc['game'] = G.code
+        doc['part_starts'] = starts
+        doc['life_max'] = 80
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     n_st = sum(len(c['statements']) for p in parts for c in p['cross_examinations'])
