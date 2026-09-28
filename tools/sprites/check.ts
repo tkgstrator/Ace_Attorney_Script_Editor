@@ -74,7 +74,8 @@ function diffIssues(d: DiffResult, o: Options, e: string[], w: string[]) {
     e.push(
       `変えてよい範囲の外で ${d.outside} 点の色が変わった（範囲 x${b[0]} y${b[1]} ${b[2]}×${b[3]}）`,
     );
-  }
+  } else if (d.outside)
+    w.push(`変えてよい範囲の外で ${d.outside} 点の色が変わった（許す数 ${o.maxOutside} 以内）`);
   if (d.shifted) e.push(`全体が (${d.shift.dx}, ${d.shift.dy}) ずれている`);
   if (d.newColorPx) e.push(`ベースにない色の点が ${d.newColorPx} 個`);
   if (d.changedFrac > SPEC.diff.maxChangedFrac)

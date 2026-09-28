@@ -1,5 +1,5 @@
 {
-  "_about": "公式の人物ごとの動き・コマ・色の数（統計のみ）。uv run tools/sprites/measure_chars.py で作り直せる",
+  "_about": "公式の人物ごとの動き・コマ・色の数（統計のみ）。uv run python tools/sprites/measure_chars.py で作り直せる",
   "tiers": {
     "main": 5000,
     "witness": 500,
