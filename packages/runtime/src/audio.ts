@@ -9,6 +9,10 @@ export interface AudioOut {
   resume?(fadeMs: number): void;
   /** 効果音を先に読み込んでおく（初めて鳴らすときに、読み込みの分だけ遅れないように） */
   preload?(seIds: string[]): Promise<void>;
+  /** 全体の音量（0〜1。BGM・効果音・文字の音をまとめて変える） */
+  setVolume?(volume: number): void;
+  /** 消音する・戻す（音量はそのまま覚えておく） */
+  setMuted?(muted: boolean): void;
 }
 
 /** 音声ファイル。BGM は loopStart〜loopEnd（秒）を繰り返す（省略すると全体を繰り返す） */
@@ -48,11 +52,20 @@ export function createAudio(src: AudioSources): AudioOut {
   };
   const norm = (s: AudioSource) => (typeof s === 'string' ? { url: s } : s);
 
+  // 全体の音量。BGM と効果音（文字の音も効果音として鳴らす）はここを通る
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
+  let volume = 1;
+  let muted = false;
+  const applyMaster = () => {
+    // 急に変えるとプツッと鳴るので、ごく短く滑らかに変える
+    master.gain.setTargetAtTime(muted ? 0 : volume, ctx.currentTime, 0.015);
+  };
   const bgmGain = ctx.createGain();
-  bgmGain.connect(ctx.destination);
+  bgmGain.connect(master);
   const seGain = ctx.createGain();
   seGain.gain.value = src.volume?.se ?? 0.8;
-  seGain.connect(ctx.destination);
+  seGain.connect(master);
   const bgmVolume = src.volume?.bgm ?? 0.6;
 
   interface Playing {
@@ -146,6 +159,14 @@ export function createAudio(src: AudioSources): AudioOut {
     },
     pause(fadeMs) {
       current?.pause(fadeMs);
+    },
+    setVolume(v) {
+      volume = Math.min(1, Math.max(0, v));
+      applyMaster();
+    },
+    setMuted(m) {
+      muted = m;
+      applyMaster();
     },
     resume(fadeMs) {
       current?.resume(fadeMs);
