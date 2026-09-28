@@ -7,6 +7,7 @@ import { markNoScroll } from './examine-area.ts';
 import { buildExamine } from './examine3d-build.ts';
 import { dayStartFlags, investigationStartFlags } from './investigation.ts';
 import { isStandKey } from './mapping.ts';
+import { add070Scenes } from './minigames-fp.ts';
 import { pruneUnusedScenes } from './prune.ts';
 import { convertGroup, type PartResult } from './scenario.ts';
 import type { Entry, Step, Tables } from './types.ts';
@@ -212,6 +213,8 @@ export function convertChapter(
       if (add) pl.examine = [...add, ...(pl.examine ?? [])];
     }
   }
+  // 第 5 話の指紋の遊びの途中で走らせる項目 070 の区画（別の指を選ばせる台詞など）のシーン
+  add070Scenes(t, results, opts.item070 ?? null);
   // 調べる間に背景を動かせない場所（第 5 話の地下駐車場の一部）
   markNoScroll(results, multi ? partFlag : null);
   const characters: Record<string, unknown> = {};

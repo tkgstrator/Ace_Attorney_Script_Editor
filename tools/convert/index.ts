@@ -4,7 +4,7 @@
 //   uv run tools/rom/script_json.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds --ocr   # 台本 → script/json/NNN.json（選択肢の文も）
 //   uv run tools/rom/tbl_invest_start.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds  # 探偵パートの最初の場所
 //   uv run tools/rom/record_text.py                                               # 法廷記録の名前・説明文（文字認識）
-//   uv run tools/rom/tbl_minigames.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds    # 第 5 話の指紋・映像・ツボの表と映像の絵
+//   uv run tools/rom/tbl_minigames.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds    # 第 5 話の指紋・人物の指名・映像・ツボ・金庫などの表と映像の絵
 // 変換:
 //   bun tools/convert/index.ts 0 --id ep1 --title <章の名前> [--out assets/extracted/converted/ep1.yaml] [--stats]
 //   bun tools/convert/index.ts 2,4,6,8 --id ep2 --title <章の名前>    # 複数の項目（編）を 1 つの章に

@@ -1,8 +1,10 @@
-// DS 版の第 5 話だけの遊び（指紋の検出・防犯カメラの映像・ツボの組み立て）を、絵の上の範囲を選ぶ（pick）ステップにする。
+// DS 版の第 5 話だけの遊び（指紋の検出・防犯カメラの映像・ツボの組み立て）を、絵の上の範囲を選ぶ（pick）ステップに、
+// 人物の指名（116 10 n）を人物を選ぶ（nominate）ステップにする。指紋と人物を選ぶ画面は minigames-fp.ts。
 // 表は tools/rom/tbl_minigames.py が ARM9 から取り出す（tables/minigames.json）。流れと番地はそちらの説明を参照。
 // 遊びの途中で台本の区画を走らせて遊びに戻るところは、区画の 21 player_turn の代わりに遊びのシーンへ移る（ctx.turnSteps）。
 import type { Context } from './context.ts';
 import { staticTargets } from './flow.ts';
+import { fingerprint, nominateStep, prepareFingerprint } from './minigames-fp.ts';
 import type { Step } from './types.ts';
 
 type Area = [number, number, number, number];
@@ -27,15 +29,35 @@ export interface Minigames {
       success: Sec;
       can_quit: boolean;
     }[];
+    /** 版ごとの出来事の番号（B でもどる・本物でない指紋・照合の外れ。null = 出来事なし） */
+    flow: Record<'back' | 'fake' | 'wrong', (number | null)[]>;
     persons: { slot: number; person: number; icon: number; rect: Area }[];
     flags: { tutorial: number; glove: number };
   };
+  /** 人物の指名（116 10 n）の結果の表（0x020b1558） */
+  nominations?: { n: number; answer_person: number; answer: Sec; wrong: Sec }[];
   video: {
     variants: { section: Sec; variant: number }[];
     records: { frames: [number, number]; sections: Sec[] }[];
     miss: Sec[];
     keyframes: { frame: number; key: string; areas: { record: number; area: Area }[] }[];
   };
+  /** 金庫の暗証番号（116 8 52）。buttons の index が答え（answer）の番号、delete は 1 字消すボタン */
+  safe?: {
+    buttons: { index: number; label: string; area: Area }[];
+    answer: number[];
+    delete: number;
+    correct: Sec;
+    wrong: Sec;
+  };
+  /** 選択肢で近似する遊び（116 8 の値ごと。after_ui12 = 116 12 の後だけ。section が null なら物を調べた結果の区画） */
+  choices?: {
+    ui: number;
+    about: string;
+    after_ui12?: boolean;
+    examine_object?: number;
+    options: { text: string; section: Sec | null }[];
+  }[];
   vase: {
     flag: number;
     quit: { unset: Sec; set: Sec };
@@ -47,7 +69,7 @@ export interface Minigames {
 
 type Goto = (t: number) => Step[];
 
-/** 116 9 v（指紋）・116 8 53（映像）・116 8 50（ツボ）なら pick のステップを out に足して true */
+/** 116 9 v（指紋）・116 10 n（人物の指名）・116 8 53（映像）・116 8 50（ツボ）ならステップを out に足して true */
 export function minigamePick(
   ctx: Context,
   section: number,
@@ -59,8 +81,11 @@ export function minigamePick(
   const mg = ctx.t.minigames;
   if (!mg || ctx.t.game !== 'aa1') return false;
   if (kind === 9) return fingerprint(ctx, mg, section, arg, out);
+  if (kind === 10) return nominate(ctx, mg, section, arg, gotoSteps, out);
   if (kind === 8 && arg === 53) return video(ctx, mg, section, gotoSteps, out);
   if (kind === 8 && arg === 50) return vase(ctx, mg, section, gotoSteps, out);
+  if (kind === 8 && arg === 52) return safe(ctx, mg, section, out);
+  if (kind === 8) return choice(ctx, mg, section, arg, gotoSteps, out);
   return false;
 }
 
@@ -76,6 +101,31 @@ function turnSection(ctx: Context, s: number): number {
     at = t[0]!;
   }
   return s;
+}
+
+/** 人物の指名（探偵パート・法廷）。人物を選ぶ画面で正解の人物なら正解の区画、ほかは外れの区画 */
+function nominate(
+  ctx: Context,
+  mg: Minigames,
+  section: number,
+  n: number,
+  go: Goto,
+  out: Step[],
+): boolean {
+  const row = mg.nominations?.find((r) => r.n === n);
+  if (!row || !ctx.entry.body[row.answer.section] || !ctx.entry.body[row.wrong.section])
+    return false;
+  const step = nominateStep(
+    ctx,
+    mg.fingerprint,
+    row.answer_person,
+    go(row.answer.section),
+    go(row.wrong.section),
+  );
+  if (!step) return false;
+  ctx.stats.gap(`人物の指名（116 10 ${n}）を、人物を選ぶ形にした`, section);
+  out.push(step);
+  return true;
 }
 
 /**
@@ -140,15 +190,87 @@ function vase(ctx: Context, mg: Minigames, section: number, go: Goto, out: Step[
   return true;
 }
 
-/** 指紋の遊びのシーン ID（fp版・fp版_dust・fp版_match） */
-const fpId = (ctx: Context, variant: number, s = '') => `${ctx.pfx}fp${variant}${s}`;
+/**
+ * 元のとおりには作れない遊び（3D のツボを回す・点をつなぐ・最後の場面の 3D の物）を、ARM9 が決める結果の区画の選択肢にする。
+ * 物を調べる選択肢の区画は、物の面の結果（examine3d.json）の今のパートの区画
+ */
+function choice(
+  ctx: Context,
+  mg: Minigames,
+  section: number,
+  ui: number,
+  go: Goto,
+  out: Step[],
+): boolean {
+  const ops = ctx.entry.body[section]?.ops ?? [];
+  const ui12 = ops.some((o) => o.op === 116 && o.args[0] === 12);
+  const c = mg.choices?.find((x) => x.ui === ui && !!x.after_ui12 === ui12);
+  if (!c) return false;
+  const x3d = ctx.t.examine3d;
+  const examined = (obj: number | undefined) => {
+    const r = x3d?.objects[obj ?? -1]?.spots[0]?.result;
+    const p = x3d?.results[r ?? -1]?.paths.find((q) => q.parts.includes(ctx.part));
+    return p?.section?.script === 'story' ? p.section.section : null;
+  };
+  const opts = c.options.map((o) => ({
+    text: o.text,
+    s: o.section ? o.section.section : examined(c.examine_object),
+  }));
+  if (opts.some((o) => o.s === null || !ctx.entry.body[o.s])) return false;
+  ctx.stats.gap(`${c.about}（116 8 ${ui}）を、ARM9 が決める結果の選択肢にした`, section);
+  // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+  out.push({ choice: opts.map((o) => ({ text: o.text, then: go(o.s!) })) });
+  return true;
+}
 
-/** 指紋の遊びにできる版か（版 0 だけ。版 1・2 は項目 070 の区画を使うので、まだ選択肢の近似） */
-function fpVariant(mg: Minigames, variant: number) {
-  const fp = mg.fingerprint;
-  const v = fp.variants[variant];
-  const ok = (k: number) => fp.events.find((e) => e.event === k)?.script === 'story';
-  return v && variant === 0 && [0, 1, 2, 3, 4, 6].every(ok) ? v : null;
+/**
+ * 金庫の暗証番号（探偵パート）。今の背景（ボタンの絵）の上で、1 字ずつボタンを選ぶシーン（safe字数）にする。
+ * 最初に違えた字の位置（1 から。0 = 違えていない）だけをフラグに覚える（もどるでその字を消したら 0 に戻す）。
+ * 字数に達したら 60 フレーム後に、違えていなければ合う区画、違えていれば違う区画へ
+ */
+function safe(ctx: Context, mg: Minigames, section: number, out: Step[]): boolean {
+  const x = mg.safe;
+  if (!x || !ctx.entry.body[x.correct.section] || !ctx.entry.body[x.wrong.section]) return false;
+  const n = x.answer.length;
+  const miss = ctx.flag(`${ctx.gpfx}safe_miss`, 0);
+  const id = (k: number) => `${ctx.pfx}safe${k}`;
+  const go = (t: number) => ctx.jump(t, section, 'scene');
+  ctx.stats.gap(
+    '金庫の暗証番号（116 8 52）を、ボタンの絵の上の範囲を 1 字ずつ選ぶ形にした',
+    section,
+  );
+  const judge: Step[] = [
+    { wait: 60 },
+    {
+      if: `${miss} == 0`,
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      then: go(x.correct.section),
+      else: [{ set: { [miss]: 0 } }, ...go(x.wrong.section)],
+    },
+  ];
+  for (let k = 0; k < n; k++) {
+    const next = k + 1 < n ? [{ goto: id(k + 1) }] : judge;
+    const areas = x.buttons.flatMap((b) => {
+      if (b.index === x.delete) {
+        // 1 字もなければ何もしない（ボタンを出さない）
+        if (k === 0) return [];
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        const clear = { if: `${miss} == ${k}`, then: [{ set: { [miss]: 0 } }] };
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        return [{ name: b.label, area: [...b.area] as Area, then: [clear, { goto: id(k - 1) }] }];
+      }
+      const wrong =
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        b.index === x.answer[k] ? [] : [{ if: `${miss} == 0`, then: [{ set: { [miss]: k + 1 } }] }];
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      return [{ name: b.label, area: [...b.area] as Area, then: [...wrong, ...next] }];
+    });
+    ctx.extraScenes.set(id(k), [
+      { pick: `暗証番号を入力する　${'●'.repeat(k)}${'○'.repeat(n - k)}`, areas },
+    ]);
+  }
+  out.push({ set: { [miss]: 0 } }, { goto: id(0) });
+  return true;
 }
 
 /**
@@ -158,108 +280,5 @@ function fpVariant(mg: Minigames, variant: number) {
 export function prepareMinigames(ctx: Context): void {
   const mg = ctx.t.minigames;
   if (!mg || ctx.t.game !== 'aa1') return;
-  for (const sec of ctx.entry.body) {
-    for (const o of sec.ops) {
-      if (o.op !== 116 || o.args[0] !== 9 || !fpVariant(mg, o.args[1] ?? 0)) continue;
-      const v = o.args[1] ?? 0;
-      const ev = (k: number) => mg.fingerprint.events.find((e) => e.event === k)!.section;
-      const back = (k: number, s: string) =>
-        ctx.turnSteps.set(turnSection(ctx, ev(k)), [{ goto: fpId(ctx, v, s) }]);
-      back(0, '');
-      back(1, '_dust');
-      back(2, '');
-      back(3, '');
-      back(6, '_match');
-      back(4, '_match');
-    }
-  }
-}
-
-/** 指紋の検出（探偵パート） */
-function fingerprint(
-  ctx: Context,
-  mg: Minigames,
-  section: number,
-  variant: number,
-  out: Step[],
-): boolean {
-  const fp = mg.fingerprint;
-  const v = fpVariant(mg, variant);
-  const ev = (k: number) => fp.events.find((e) => e.event === k)!;
-  const answer = v && answerCharacter(ctx, fp, v.answer_person);
-  if (!v || !answer) return false;
-  const id = (s: string) => fpId(ctx, variant, s);
-  const tutorial = ctx.fname(0, fp.flags.tutorial);
-  const glove = ctx.fname(0, fp.flags.glove);
-  const spot = ctx.flag(`${ctx.gpfx}fp${variant}_spot`, -1);
-  const real = v.spots.find((s) => s.real)!.index;
-  // 結果の区画は、何か所からも行くのでシーンにする（取り込まない）
-  const go: Goto = (t) => ctx.jump(t, section, 'scene');
-  ctx.stats.gap(
-    '指紋の検出（116 9 0）を、指紋の絵の上の範囲を選ぶ形にした（粉をかけて吹きとばす操作は「検出する」の選択肢、人物の照合は人物ファイルのつきつけにした）',
-    section,
-  );
-  // 選ぶ画面: 手袋の跡（+0x2a ≠ 1）の指は、手袋の跡と分かるまで。分かったら本物の指紋の所だけ
-  ctx.extraScenes.set(id(''), [
-    {
-      pick: '指紋を検出する所を選ぶ',
-      images: [`bg${v.bg}`],
-      areas: v.spots.map((s) => ({
-        name: s.real ? '指紋' : `指 ${s.index + 1}`,
-        area: [...s.area] as Area,
-        when: s.real ? glove : `not ${glove}`,
-        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-        then: [
-          { set: { [spot]: s.index } },
-          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-          { if: `not ${tutorial}`, then: [{ set: { [tutorial]: true } }, ...go(ev(1).section)] },
-          { goto: id('_dust') },
-        ],
-      })),
-    },
-  ]);
-  // 粉をかけて吹きとばす画面（A 検出・B もどる）
-  ctx.extraScenes.set(id('_dust'), [
-    {
-      choice: [
-        {
-          text: '検出する',
-          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-          then: [
-            {
-              if: `${spot} == ${real}`,
-              // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-              then: go(ev(6).section),
-              else: [{ set: { [glove]: true } }, ...go(ev(2).section)],
-            },
-          ],
-        },
-        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-        { text: 'もどる', then: go(ev(3).section) },
-      ],
-    },
-  ]);
-  // 照合: 人物を選ぶ画面の代わりに、人物ファイルをつきつける
-  ctx.extraScenes.set(id('_match'), [
-    {
-      demand: '指紋のヌシだと思われる人物は?',
-      profiles: true,
-      present: { [answer]: go(v.success.section) },
-      wrong: go(ev(4).section),
-    },
-  ]);
-  out.push(...go(ev(0).section));
-  return true;
-}
-
-/** 人物の番号 → 人物 ID（その人物の顔の絵を使う法廷記録の人物ファイル） */
-function answerCharacter(
-  ctx: Context,
-  fp: Minigames['fingerprint'],
-  person: number,
-): string | null {
-  const icon = fp.persons.find((p) => p.person === person)?.icon;
-  const recs = ctx.t.evidence.filter((e) => e.icon === icon).map((e) => e.id);
-  const rec = recs.find((r) => ctx.shared.profileRecords.has(r)) ?? recs[0];
-  return rec === undefined ? null : ctx.profile(rec);
+  prepareFingerprint(ctx, mg, turnSection);
 }
