@@ -1,0 +1,383 @@
+{
+  "id": "lock",
+  "title": "サイコ・ロック",
+  "player": "me",
+  "maxLife": 80,
+  "characters": { "me": { "name": "私" }, "nodoka": { "name": "のどか" } },
+  "evidence": {
+    "magatama": { "name": "勾玉", "description": "心の錠が見える" },
+    "news": { "name": "新聞記事", "description": "事故の記事" },
+    "photo": { "name": "写真", "description": "姉の写真" }
+  },
+  "flags": {
+    "defined": false,
+    "unlocked": false,
+    "__lock": "",
+    "__lock_left": 0,
+    "__lock_lock0_active": false,
+    "__lock_lock0_count": 0,
+    "__lock_lock0_person": "",
+    "__lock_lock0_place": "",
+    "__lock_lock0_start": "",
+    "__lock_lock0_quit": "",
+    "__lock_lock0_out": ""
+  },
+  "startScene": "intro",
+  "startEvidence": ["magatama", "news", "photo"],
+  "startProfiles": null,
+  "gameoverScene": "__gameover",
+  "lifeOutScenes": ["lock_out"],
+  "autoPause": false,
+  "autoShow": false,
+  "scenes": {
+    "intro": {
+      "kind": "dialogue",
+      "id": "intro",
+      "program": [
+        { "op": "say", "speaker": "me", "text": "話を聞きに行こう。", "color": "white" },
+        { "op": "investigate", "place": "room" }
+      ]
+    },
+    "lock_start": {
+      "kind": "dialogue",
+      "id": "lock_start",
+      "program": [
+        { "op": "say", "speaker": "nodoka", "text": "何も知りませんけど。", "color": "white" },
+        { "op": "goto", "scene": "lock_q1" }
+      ]
+    },
+    "lock_q1": {
+      "kind": "dialogue",
+      "id": "lock_q1",
+      "program": [
+        { "op": "lifeRisk", "amount": 10 },
+        {
+          "op": "demand",
+          "prompt": "証拠を見せてください。",
+          "options": { "news": 2 },
+          "wrong": 16,
+          "speaker": "nodoka",
+          "giveUp": 19
+        },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": ">",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 5 }
+          },
+          "to": 4
+        },
+        { "op": "set", "flag": "__lock_left", "value": 5 },
+        { "op": "add", "flag": "__lock_left", "amount": -1 },
+        { "op": "locks", "show": "break" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "<=",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 0 }
+          },
+          "to": 13
+        },
+        { "op": "heal", "amount": 40 },
+        { "op": "locks", "show": "unlock" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "==",
+            "l": { "t": "var", "name": "__lock" },
+            "r": { "t": "lit", "v": "lock0" }
+          },
+          "to": 11
+        },
+        { "op": "set", "flag": "__lock_lock0_active", "value": false },
+        { "op": "set", "flag": "__lock", "value": "" },
+        { "op": "set", "flag": "__lock_left", "value": 0 },
+        { "op": "say", "speaker": "nodoka", "text": "そ、それは……", "color": "white" },
+        { "op": "goto", "scene": "lock_q2" },
+        { "op": "jump", "to": 24 },
+        { "op": "say", "speaker": "nodoka", "text": "関係ありませんね。", "color": "white" },
+        { "op": "penalty", "amount": 0, "risk": true },
+        { "op": "jump", "to": 1 },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "&&",
+            "l": {
+              "t": "bin",
+              "op": "==",
+              "l": { "t": "var", "name": "__lock" },
+              "r": { "t": "lit", "v": "lock0" }
+            },
+            "r": {
+              "t": "bin",
+              "op": "==",
+              "l": { "t": "var", "name": "__lock_lock0_quit" },
+              "r": { "t": "lit", "v": "lock_quit" }
+            }
+          },
+          "to": 23
+        },
+        { "op": "set", "flag": "__lock", "value": "" },
+        { "op": "locks", "show": "unlock" },
+        { "op": "goto", "scene": "lock_quit" },
+        { "op": "jump", "to": 1 },
+        { "op": "goto", "scene": "lock_q2" }
+      ]
+    },
+    "lock_q2": {
+      "kind": "dialogue",
+      "id": "lock_q2",
+      "program": [
+        { "op": "lifeRisk", "amount": 20 },
+        {
+          "op": "demand",
+          "prompt": "まだ何か？",
+          "options": { "photo": 2 },
+          "wrong": 17,
+          "speaker": "nodoka",
+          "giveUp": 19
+        },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": ">",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 5 }
+          },
+          "to": 4
+        },
+        { "op": "set", "flag": "__lock_left", "value": 5 },
+        { "op": "add", "flag": "__lock_left", "amount": -1 },
+        { "op": "locks", "show": "break" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "<=",
+            "l": { "t": "var", "name": "__lock_left" },
+            "r": { "t": "lit", "v": 0 }
+          },
+          "to": 13
+        },
+        { "op": "heal", "amount": 40 },
+        { "op": "locks", "show": "unlock" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "==",
+            "l": { "t": "var", "name": "__lock" },
+            "r": { "t": "lit", "v": "lock0" }
+          },
+          "to": 11
+        },
+        { "op": "set", "flag": "__lock_lock0_active", "value": false },
+        { "op": "set", "flag": "__lock", "value": "" },
+        { "op": "set", "flag": "__lock_left", "value": 0 },
+        { "op": "say", "speaker": "nodoka", "text": "……お姉さんのことです。", "color": "white" },
+        { "op": "set", "flag": "unlocked", "value": true },
+        { "op": "investigate", "place": "room" },
+        { "op": "jump", "to": 24 },
+        { "op": "penalty", "amount": 0, "risk": true },
+        { "op": "jump", "to": 1 },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "&&",
+            "l": {
+              "t": "bin",
+              "op": "==",
+              "l": { "t": "var", "name": "__lock" },
+              "r": { "t": "lit", "v": "lock0" }
+            },
+            "r": {
+              "t": "bin",
+              "op": "==",
+              "l": { "t": "var", "name": "__lock_lock0_quit" },
+              "r": { "t": "lit", "v": "lock_quit" }
+            }
+          },
+          "to": 23
+        },
+        { "op": "set", "flag": "__lock", "value": "" },
+        { "op": "locks", "show": "unlock" },
+        { "op": "goto", "scene": "lock_quit" },
+        { "op": "jump", "to": 1 },
+        { "op": "goto", "scene": "lock_quit" }
+      ]
+    },
+    "lock_quit": {
+      "kind": "dialogue",
+      "id": "lock_quit",
+      "program": [
+        { "op": "say", "speaker": "me", "text": "今はやめておこう。", "color": "white" },
+        { "op": "investigate", "place": "room" }
+      ]
+    },
+    "lock_out": {
+      "kind": "dialogue",
+      "id": "lock_out",
+      "program": [
+        { "op": "say", "speaker": "me", "text": "もう無理だ……。", "color": "white" },
+        { "op": "investigate", "place": "room" }
+      ]
+    },
+    "trial": {
+      "kind": "dialogue",
+      "id": "trial",
+      "program": [
+        { "op": "say", "speaker": "me", "text": "これで法廷へ行ける。", "color": "white" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "==",
+            "l": { "t": "var", "name": "__lock_lock0_active" },
+            "r": { "t": "lit", "v": true }
+          },
+          "to": 3
+        },
+        { "op": "goto", "scene": "__lockend_lock0" },
+        { "op": "end" }
+      ]
+    },
+    "room": {
+      "kind": "place",
+      "id": "room",
+      "name": "部屋",
+      "background": "room",
+      "person": [{ "id": "nodoka" }],
+      "program": [
+        {
+          "op": "jumpUnless",
+          "cond": { "t": "not", "e": { "t": "var", "name": "defined" } },
+          "to": 9
+        },
+        { "op": "set", "flag": "defined", "value": true },
+        { "op": "set", "flag": "__lock_lock0_active", "value": true },
+        { "op": "set", "flag": "__lock_lock0_count", "value": 2 },
+        { "op": "set", "flag": "__lock_lock0_person", "value": "nodoka" },
+        { "op": "set", "flag": "__lock_lock0_place", "value": "room" },
+        { "op": "set", "flag": "__lock_lock0_start", "value": "lock_start" },
+        { "op": "set", "flag": "__lock_lock0_quit", "value": "lock_quit" },
+        { "op": "set", "flag": "__lock_lock0_out", "value": "lock_out" },
+        { "op": "menu" },
+        { "op": "say", "speaker": null, "text": "特に気になるものはない。", "color": "white" },
+        { "op": "menu" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "||",
+            "l": { "t": "var", "name": "unlocked" },
+            "r": { "t": "not", "e": { "t": "var", "name": "unlocked" } }
+          },
+          "to": 16
+        },
+        { "op": "say", "speaker": "nodoka", "text": "姉は看護師でした。", "color": "white" },
+        { "op": "goto", "scene": "trial" },
+        { "op": "jump", "to": 17 },
+        { "op": "say", "speaker": "nodoka", "text": "話したくありません。", "color": "white" },
+        { "op": "menu" },
+        { "op": "say", "speaker": null, "text": "特に反応はなかった。", "color": "white" },
+        { "op": "menu" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "&&",
+            "l": {
+              "t": "bin",
+              "op": "&&",
+              "l": {
+                "t": "bin",
+                "op": "==",
+                "l": { "t": "var", "name": "__lock_lock0_active" },
+                "r": { "t": "lit", "v": true }
+              },
+              "r": {
+                "t": "bin",
+                "op": "==",
+                "l": { "t": "var", "name": "__lock_lock0_place" },
+                "r": { "t": "lit", "v": "room" }
+              }
+            },
+            "r": {
+              "t": "bin",
+              "op": "==",
+              "l": { "t": "var", "name": "__lock_lock0_person" },
+              "r": { "t": "lit", "v": "nodoka" }
+            }
+          },
+          "to": 27
+        },
+        { "op": "set", "flag": "__lock", "value": "lock0" },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "==",
+            "l": { "t": "var", "name": "__lock_lock0_count" },
+            "r": { "t": "lit", "v": 2 }
+          },
+          "to": 25
+        },
+        { "op": "set", "flag": "__lock_left", "value": 2 },
+        { "op": "locks", "show": 2 },
+        {
+          "op": "jumpUnless",
+          "cond": {
+            "t": "bin",
+            "op": "==",
+            "l": { "t": "var", "name": "__lock_lock0_start" },
+            "r": { "t": "lit", "v": "lock_start" }
+          },
+          "to": 27
+        },
+        { "op": "goto", "scene": "lock_start" },
+        { "op": "jump", "to": 18 }
+      ],
+      "examine": [],
+      "examineDefault": 10,
+      "talk": [
+        {
+          "id": "sister",
+          "topic": "お姉さんのこと",
+          "locked": { "t": "not", "e": { "t": "var", "name": "unlocked" } },
+          "pc": 12
+        }
+      ],
+      "present": { "magatama": 20 },
+      "presentWrong": 18,
+      "move": [],
+      "enter": 0
+    },
+    "__gameover": { "kind": "dialogue", "id": "__gameover", "program": [{ "op": "gameover" }] },
+    "__lockend_lock0": { "kind": "dialogue", "id": "__lockend_lock0", "program": [{ "op": "end" }] }
+  },
+  "parts": [
+    {
+      "id": "inv",
+      "kind": "investigation",
+      "title": "探偵パート",
+      "scenes": [
+        "intro",
+        "lock_start",
+        "lock_q1",
+        "lock_q2",
+        "lock_quit",
+        "lock_out",
+        "trial",
+        "room"
+      ]
+    }
+  ]
+}

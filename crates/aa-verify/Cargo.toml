@@ -1,0 +1,17 @@
+[package]
+name = "aa-verify"
+description = "シナリオの整合性チェック（packages/script の verify の Rust 版）。コンパイル済みのシナリオ（IR の JSON）を読んで調べる"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "aa-verify"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
