@@ -118,6 +118,11 @@ export interface PlayerOptions {
   linesPerPage?: number;
   /** 画面に出す文言（「法廷記録」「ゆさぶる」など） */
   labels?: Partial<Labels>;
+  /**
+   * 探偵パートの「調べる」で、今調べられる所に目印を出す（元のゲームにはない手助け）。
+   * まだ調べていない所はひし形、調べた所はチェックの印。既定 true。Player.examineMarkers で途中から切り替えられる
+   */
+  examineMarkers?: boolean;
   /** エンディング・ゲームオーバー画面でクリックされたとき */
   onRestart?: () => void;
 }

@@ -1,9 +1,15 @@
-import type { Beat, Engine } from '@gyakusai/core';
+import type { Beat, Engine, InlineCommand } from '@gyakusai/core';
+import type { AudioOut } from './audio.ts';
+import { BackgroundView } from './background.ts';
+import { Blip, blipKindOf } from './blip.ts';
+import { ScreenEffects } from './effects.ts';
 import { createFonts } from './fonts.ts';
+import { InvestigationUI } from './investigation.ts';
 import {
   DOT,
   FRAME_MS,
   HEIGHT,
+  hit,
   SCREEN_H,
   SCREEN_W,
   TEXT_COLORS,
@@ -11,24 +17,17 @@ import {
   TOP,
   UI,
   WIDTH,
-  hit,
 } from './layout.ts';
 import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
-import { Painter } from './painter.ts';
-import type { AudioOut } from './audio.ts';
-import { Blip, blipKindOf } from './blip.ts';
-import { ScreenEffects } from './effects.ts';
-import { BackgroundView } from './background.ts';
 import { OverlayView } from './overlays.ts';
+import { Painter } from './painter.ts';
 import { PanView } from './pan.ts';
-import { drawScene } from './scene.ts';
-import { InvestigationUI } from './investigation.ts';
 import { CourtRecord } from './record.ts';
 import { LineResume } from './resume.ts';
-import { drawTopButton, lifeTop, topButtonRect } from './top-buttons.ts';
+import { drawScene } from './scene.ts';
 import { TextRenderer } from './text.ts';
-import { Typewriter, type Glyph } from './typewriter.ts';
-import type { InlineCommand } from '@gyakusai/core';
+import { drawTopButton, lifeTop, topButtonRect } from './top-buttons.ts';
+import { type Glyph, Typewriter } from './typewriter.ts';
 import * as W from './widgets.ts';
 
 /**
@@ -49,6 +48,8 @@ export class Player {
   readonly #resume = new LineResume();
   readonly #inv = new InvestigationUI();
   readonly #audio: AudioOut | undefined;
+  /** 「調べる」で選べる所に目印を出すか（元のゲームにはない手助け。途中で切り替えてよい） */
+  examineMarkers: boolean;
 
   #serial = -1;
   #beat: Beat = { kind: 'end' };
@@ -85,6 +86,7 @@ export class Player {
     this.#labels = { ...DEFAULT_LABELS, ...opts.labels };
     this.#onRestart = opts.onRestart;
     this.#audio = opts.audio;
+    this.examineMarkers = opts.examineMarkers ?? true;
     this.#syncBgm();
 
     const onClick = (e: MouseEvent) => {
@@ -145,6 +147,10 @@ export class Player {
     const { bgm, bgmPaused } = this.engine.state.stage;
     this.#audio?.bgm(bgm, 0);
     if (bgmPaused) this.#audio?.pause?.(0);
+  }
+
+  get #markers() {
+    return this.examineMarkers ? { engine: this.engine, reduceMotion: this.#reduceMotion } : null;
   }
 
   destroy(): void {
@@ -550,7 +556,7 @@ export class Player {
         break;
       }
       case 'investigate':
-        this.#inv.render(p, b, this.#labels, this.#frame);
+        this.#inv.render(p, b, this.#labels, this.#frame, this.#markers);
         break;
       case 'end':
         W.endScreen(p, this.#labels.end);

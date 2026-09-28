@@ -1,5 +1,6 @@
-import type { Beat, Engine } from '@gyakusai/core';
-import { SCREEN_H, SCREEN_W, TOP, UI, hit } from './layout.ts';
+import { type Beat, type Engine, type ExamineSpot, examineSpots } from '@gyakusai/core';
+import { drawExamineMarkers } from './examine-markers.ts';
+import { hit, SCREEN_H, SCREEN_W, TOP, UI } from './layout.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
 import * as W from './widgets.ts';
@@ -19,6 +20,8 @@ export class InvestigationUI {
   #sel = 0;
   #cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 - 24 };
   #since = 0;
+  /** 目印を出す所（状態が変わったときだけ計算し直す） */
+  #spots: { engine: Engine; serial: number; list: ExamineSpot[] } | null = null;
 
   #switch(view: View) {
     this.view = view;
@@ -114,7 +117,22 @@ export class InvestigationUI {
     if (i >= 0) this.#pick(engine, b, i);
   }
 
-  render(p: Painter, b: InvestigateBeat, labels: Labels, frame: number): void {
+  #spotsOf(engine: Engine): ExamineSpot[] {
+    const c = this.#spots;
+    if (c?.engine === engine && c.serial === engine.serial) return c.list;
+    const list = examineSpots(engine.scenario, engine.state);
+    this.#spots = { engine, serial: engine.serial, list };
+    return list;
+  }
+
+  /** markers: 「調べる」で選べる所の目印を出すとき（出さないなら null） */
+  render(
+    p: Painter,
+    b: InvestigateBeat,
+    labels: Labels,
+    frame: number,
+    markers: { engine: Engine; reduceMotion: boolean } | null = null,
+  ): void {
     const blinkOn = (frame >> 4) % 2 === 0;
     // 場所の名前（左上）
     const t = p.fonts.small;
@@ -139,6 +157,8 @@ export class InvestigationUI {
         color: '#ffffff',
       });
       p.tab(UI.invBack, 'tr', labels.back);
+      if (markers)
+        drawExamineMarkers(p, this.#spotsOf(markers.engine), frame, markers.reduceMotion);
       cursor(p, this.#cursor.x, this.#cursor.y, blinkOn ? '#ffffff' : '#f0a020');
       return;
     }
