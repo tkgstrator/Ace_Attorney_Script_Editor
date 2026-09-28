@@ -65,6 +65,13 @@ export const Preview = memo(function Preview({
   // 最後に正しくコンパイルできたもの（エラーの間も遊べるように）
   const lastGood = useRef<Good | null>(null);
   if (scenario && compiled) lastGood.current = { scenario, version: compiled.version };
+  /** コンパイルし直した結果（通らなければ、最後に正しくコンパイルできたもの） */
+  const goodOf = (c: Compiled | null): Good | null => {
+    const sc = c?.result.scenario;
+    if (!c || !sc) return lastGood.current;
+    lastGood.current = { scenario: sc, version: c.version };
+    return lastGood.current;
+  };
 
   /** エンジンを作り直して、how のとおりに始める（続きから・最初から・シーンの頭から） */
   const restart = (g: Good | null, how: Restart) => {
@@ -139,8 +146,8 @@ export const Preview = memo(function Preview({
   /** 今の内容でコンパイルし直して、how のとおりに遊ぶ */
   const reload = async (how: Restart) => {
     if (how.kind === 'start') setFrom(null);
-    await onCompile();
-    restartRef.current(lastGood.current, how);
+    // コンパイルの結果は、まだ描き直していないので lastGood に入っていない。返ってきたものを直接使う
+    restartRef.current(goodOf(await onCompile()), how);
     canvas.current?.focus({ preventScroll: true });
   };
 

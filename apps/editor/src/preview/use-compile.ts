@@ -72,6 +72,15 @@ export function useCompile(
     return promise;
   }, [store]);
 
+  /**
+   * 「再読み込み」「ここから再生」「チェック」用: 未確定の下書き（YAML の欄など）を反映してから、今の内容でコンパイルする。
+   * 打ち終わり待ちのタイマーは待たない（押した時点の内容を必ずコンパイルする）
+   */
+  const compileLatest = useCallback((): Promise<Compiled | null> => {
+    store.flushDrafts(false);
+    return recompile();
+  }, [store, recompile]);
+
   // 小さな章は編集のたびに自動で。大きな章でも、テキストを作り直さずに済むとき（開いた直後・保存の後・元に戻して
   // 前と同じ内容になったとき）は自動で。compiled も見るのは、コンパイル中に内容が変わった場合にやり直すため
   // biome-ignore lint/correctness/useExhaustiveDependencies: version・dirty・compiled が変わったときにも見直す
@@ -85,5 +94,5 @@ export function useCompile(
 
   // 別の章の結果は使わない
   const current = compiled?.file === file ? compiled : null;
-  return { compiled: current, compiling: compiling > 0, recompile };
+  return { compiled: current, compiling: compiling > 0, recompile, compileLatest };
 }

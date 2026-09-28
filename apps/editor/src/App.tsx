@@ -33,7 +33,7 @@ export function App() {
   const api = store.actions;
   const [showPreview, setShowPreview] = useState(true);
   const [play, setPlay] = useState<PlayRequest>({ scene: null, serial: 0 });
-  const { compiled, compiling, recompile } = useCompile(store, { file, version, size, dirty });
+  const { compiled, compiling, compileLatest } = useCompile(store, { file, version, size, dirty });
   useShortcuts(store);
 
   // パネルの幅。真ん中の編集の欄に MIN_MAIN は残す（狭いときは右、次に左を縮める）
@@ -72,9 +72,9 @@ export function App() {
   const onPlay = useCallback(
     (scene: string) => {
       setShowPreview(true);
-      void recompile().then(() => setPlay((p) => ({ scene, serial: p.serial + 1 })));
+      void compileLatest().then(() => setPlay((p) => ({ scene, serial: p.serial + 1 })));
     },
-    [recompile],
+    [compileLatest],
   );
 
   // 保存していない変更があるときは、閉じる前に確認する
@@ -175,7 +175,7 @@ export function App() {
             version={version}
             play={play}
             compiling={compiling}
-            onCompile={recompile}
+            onCompile={compileLatest}
             large={size > AUTO_COMPILE_LIMIT}
           />
         </aside>
