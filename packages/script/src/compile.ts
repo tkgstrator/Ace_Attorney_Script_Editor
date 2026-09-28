@@ -70,7 +70,7 @@ export function compile(raw: unknown): CompileResult {
   const flags: Record<string, Value> = src.flags ?? {};
   // 編（parts）ごとのシーン・場所を、章全体の一覧にまとめる。編に分けていなければ全体を 1 つの裁判編とする
   type SceneBody = NonNullable<RawScenario['scenes']>[string];
-  const sceneEntries: { id: string; body: SceneBody; path: Path }[] = [];
+  const sceneEntries: { id: string; body: SceneBody; path: Path; trial: boolean }[] = [];
   const placeEntries: { id: string; body: RawPlace; path: Path }[] = [];
   const parts: PartDef[] = [];
   const allIds = new Map<string, Path>();
@@ -86,7 +86,7 @@ export function compile(raw: unknown): CompileResult {
   if (src.scenes) {
     for (const [id, body] of Object.entries(src.scenes)) {
       claim(id, ['scenes', id]);
-      sceneEntries.push({ id, body, path: ['scenes', id] });
+      sceneEntries.push({ id, body, path: ['scenes', id], trial: true });
     }
     parts.push({ id: 'main', kind: 'trial', title: src.title, scenes: Object.keys(src.scenes) });
   }
@@ -95,7 +95,7 @@ export function compile(raw: unknown): CompileResult {
     for (const [id, body] of partScenes) {
       const path: Path = ['parts', pi, 'scenes', id];
       claim(id, path);
-      sceneEntries.push({ id, body, path });
+      sceneEntries.push({ id, body, path, trial: part.kind === 'trial' });
     }
     const partPlaces = Object.entries(part.places ?? {});
     if (partPlaces.length > 0 && part.kind !== 'investigation')
@@ -190,7 +190,10 @@ export function compile(raw: unknown): CompileResult {
   };
 
   // ---- ステップ列 → 命令列（compile-step.ts） ----
+  // 今コンパイルしているシーンが裁判編か（場所・証拠品を詳しく調べる所は裁判編ではない）
+  let inTrial = false;
   const { compileSteps, compileWrong } = makeStepCompiler({
+    inTrial: () => inTrial,
     characters,
     flags,
     player,
@@ -240,7 +243,8 @@ export function compile(raw: unknown): CompileResult {
     presentKind,
     error,
   };
-  sceneEntries.forEach(({ id, body, path }, index) => {
+  sceneEntries.forEach(({ id, body, path, trial }, index) => {
+    inTrial = trial;
     const b = new Builder();
     if (Array.isArray(body)) {
       compileSteps(body, path, b);
@@ -258,6 +262,7 @@ export function compile(raw: unknown): CompileResult {
     }
     scenes[id] = compileTestimony(placeCtx, id, body, path, warn, checkText, compileWrong);
   });
+  inTrial = false;
   for (const { id, body, path } of placeEntries)
     scenes[id] = compilePlace(placeCtx, id, body, path);
   const evidenceDefs = compileInspect(placeCtx, evidence, scenes);
