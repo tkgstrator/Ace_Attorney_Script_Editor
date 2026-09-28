@@ -1,6 +1,6 @@
 // 探索編（場所・探偵メニュー）の、状態を変えない計算。状態の変更は Engine が行う。
 import { inspectField } from './inspect.ts';
-import type { Beat, Expr, GameState, PlaceScene, CompiledScenario } from './types.ts';
+import type { Beat, CompiledScenario, Expr, GameState, PlaceScene } from './types.ts';
 
 type Test = (e: Expr | undefined) => boolean;
 
@@ -22,6 +22,7 @@ export function investigateBeat(
     name: place.name,
     person,
     examine: true,
+    examineScroll: test(place.examineScroll),
     move: place.move
       .filter((m) => test(m.when))
       .map((m) => {
@@ -39,7 +40,7 @@ export function investigateBeat(
   };
 }
 
-/** 画面上の点 (x, y) を調べたときに実行するブロックと、調べた印の ID（何もなければ印なし） */
+/** 背景の上の点 (x, y)（画面の点 + 背景のスクロールした位置）を調べたときに実行するブロックと、調べた印の ID（何もなければ印なし） */
 export function examineAt(
   place: PlaceScene,
   x: number,

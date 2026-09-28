@@ -1,36 +1,40 @@
 // 整合性チェックで試す操作（verify.ts）と、操作を 1 つ行って文章送りだけの場面をまとめて進める step。
 // Rust 版（crates/aa-verify/src/actions.rs）と同じ並び・同じ選び方にすること。
 import {
-  heldProfiles,
   type CompiledScenario,
   type Engine,
   type GameState,
+  heldProfiles,
   type PlaceScene,
 } from '@gyakusai/core';
-import { nodeOf, type Flow } from './verify-flow.ts';
-import { inspectActions, inspectStop, markInspect, type Act } from './verify-inspect.ts';
+import { type Flow, nodeOf } from './verify-flow.ts';
+import { type Act, inspectActions, inspectStop, markInspect } from './verify-inspect.ts';
 import { inspectSkippable } from './verify-inspect-sim.ts';
 
 const SCREEN = { w: 256, h: 192 };
 const pointCache = new WeakMap<PlaceScene, [number, number][]>();
 
 /**
- * 場所で試す「調べる」の点。画面を、調べる範囲の辺で区切った升目に分け、
+ * 場所で試す「調べる」の点（背景の座標）。背景を、調べる範囲の辺で区切った升目に分け、
  * 「どの範囲に入っているか」の組み合わせごとに 1 点を選ぶ（同じ組み合わせの点は、どの条件でも同じ結果になる）。
- * 重なった範囲の奥の範囲や、どの範囲にも入らない所も漏れなく試せる
+ * 重なった範囲の奥の範囲や、どの範囲にも入らない所も漏れなく試せる。
+ * 背景の大きさは分からないので、画面の大きさと、範囲の右・下の端のうち大きい方までを背景とみなす
+ * （横長の背景は、調べる間にスクロールすればどこでも調べられる）
  */
 function examinePoints(place: PlaceScene): [number, number][] {
   const cached = pointCache.get(place);
   if (cached) return cached;
   const cut = (lo: number[], max: number) =>
     [...new Set([0, ...lo])].filter((v) => v >= 0 && v < max).sort((a, b) => a - b);
+  const right = place.examine.map((e) => e.area[0] + e.area[2]);
+  const bottom = place.examine.map((e) => e.area[1] + e.area[3]);
   const xs = cut(
     place.examine.flatMap((e) => [e.area[0], e.area[0] + e.area[2]]),
-    SCREEN.w,
+    Math.max(SCREEN.w, ...right),
   );
   const ys = cut(
     place.examine.flatMap((e) => [e.area[1], e.area[1] + e.area[3]]),
-    SCREEN.h,
+    Math.max(SCREEN.h, ...bottom),
   );
   const pts: [number, number][] = [];
   const seen = new Set<string>();

@@ -3,8 +3,6 @@ import { Builder } from './builder.ts';
 import type { Path } from './compile.ts';
 import type { RawPlace, RawScenario } from './schema.ts';
 
-const SCREEN = { w: 256, h: 192 };
-
 /** 場所の変換に使う、コンパイラ本体の検証・変換の関数 */
 export interface PlaceContext {
   player: string | null;
@@ -94,17 +92,20 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
     presentWrong: -1,
     move: [],
   };
+  if (raw.examineScroll === false) scene.examineScroll = { t: 'lit', v: false };
+  else if (typeof raw.examineScroll === 'string') {
+    const c = when(raw.examineScroll, [...path, 'examineScroll']);
+    if (c) scene.examineScroll = c;
+  }
   if (raw.enter) scene.enter = block(raw.enter, [...path, 'enter']);
 
   const seen = seenIds(id, raw);
   (raw.examine ?? []).forEach((e, i) => {
     const p = [...path, 'examine', i];
     const [x, y, w, h] = e.area;
-    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > SCREEN.w || y + h > SCREEN.h) {
-      ctx.error(
-        [...p, 'area'],
-        `範囲が画面（${SCREEN.w}×${SCREEN.h}）の外にはみ出しているか、大きさが 0 です`,
-      );
+    // 範囲は背景の座標（背景の大きさはここでは分からないので、右・下の端は見ない）
+    if (w <= 0 || h <= 0 || x < 0 || y < 0) {
+      ctx.error([...p, 'area'], '範囲が背景の左・上の端より外にはみ出しているか、大きさが 0 です');
     }
     const c = when(e.when, [...p, 'when']);
     scene.examine.push({
@@ -136,8 +137,10 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
   for (const [ev, steps] of Object.entries(raw.present ?? {})) {
     const kind = ctx.presentKind(ev, [...path, 'present', ev]);
     const pc = block(steps, [...path, 'present', ev], takeThat);
-    if (kind === 'profile') (scene.presentProfile ??= {})[ev] = pc;
-    else scene.present[ev] = pc;
+    if (kind === 'profile') {
+      scene.presentProfile ??= {};
+      scene.presentProfile[ev] = pc;
+    } else scene.present[ev] = pc;
   }
   scene.presentWrong = raw.presentWrong
     ? block(raw.presentWrong, [...path, 'presentWrong'], takeThat)

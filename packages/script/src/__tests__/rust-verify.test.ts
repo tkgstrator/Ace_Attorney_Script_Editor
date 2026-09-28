@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
-import { verifyScenario, type Finding } from '../verify.ts';
+import { type Finding, verifyScenario } from '../verify.ts';
 
 const bin = fileURLToPath(new URL('../../../../target/release/aa-verify', import.meta.url));
 const sample = readFileSync(
@@ -216,6 +216,14 @@ parts:
       'start: { scene: intro, evidence: [], profiles: [] }',
     );
     same(onlyProfile);
+  });
+
+  it('横長の背景の場所（範囲は背景の座標）で、画面の幅より右の範囲も TS 版と同じく試す', () => {
+    const wide = readFileSync(
+      fileURLToPath(new URL('../fixtures/wide-examine.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(wide).findings).toEqual([]);
   });
 
   it('台詞の途中で詳しく調べたときにだけ起きる詰みも、TS 版と同じく見つける', () => {

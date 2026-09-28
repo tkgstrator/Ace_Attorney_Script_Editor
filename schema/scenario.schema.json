@@ -402,6 +402,19 @@
                   "type": "string",
                   "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                 },
+                "examineScroll": {
+                  "description": "「調べる」の間に背景をスクロールできるか（true / false か条件式。背景が画面より大きいときだけ効く。省略するとできる）",
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "条件式。例: has(repair) and not pressed_s2"
+                    }
+                  ]
+                },
                 "person": {
                   "description": "その場所にいる人物。一覧なら、when が真の最初の人物",
                   "anyOf": [
@@ -468,7 +481,7 @@
                         "items": false,
                         "minItems": 4,
                         "maxItems": 4,
-                        "description": "画面（256×192 ドット）上の範囲 [x, y, 幅, 高さ]"
+                        "description": "背景の上の範囲 [x, y, 幅, 高さ]（ドット。横長の背景なら 0〜512 など、背景の座標）"
                       },
                       "when": {
                         "type": "string",

@@ -138,9 +138,15 @@ export interface PlaceScene {
   program: Instr[];
   /** 来たときのブロック */
   enter?: number;
+  /**
+   * 「調べる」の間に背景をスクロールできるか（背景が画面より大きいときだけ効く）。無ければできる。
+   * 元のゲームでは横長の背景で、下の画面のボタン（L ボタン）を押すと左端と右端の間を動く
+   */
+  examineScroll?: Expr;
   examine: {
     id: string;
     name?: string;
+    /** 範囲 [x, y, 幅, 高さ]（背景の座標。横長の背景なら 0〜512 など） */
     area: [number, number, number, number];
     when?: Expr;
     pc: number;
@@ -322,6 +328,8 @@ export type Beat =
       name: string;
       person: string | null;
       examine: boolean;
+      /** 「調べる」の間に背景をスクロールできるか（場所の examineScroll。背景が画面より大きいときだけ効く） */
+      examineScroll: boolean;
       move: { id: string; name: string }[];
       talk: { id: string; topic: string; seen: boolean }[];
       /** 証拠品・人物ファイルをつきつけられるか（人物がいるとき） */
