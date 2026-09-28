@@ -1,6 +1,16 @@
 // メイン画面の部品。テキストウィンドウ・名前欄・証拠品の窓・ライフ・吹き出しなど。
 import type { EvidenceDef } from '@gyakusai/core';
-import { COLORS, SCREEN_H, SCREEN_W, SHOUTS, TEXTBOX_ALPHA, TOP, UI, type Rect, type ShoutKind } from './layout.ts';
+import {
+  COLORS,
+  SCREEN_H,
+  SCREEN_W,
+  SHOUTS,
+  TEXTBOX_ALPHA,
+  TOP,
+  UI,
+  type Rect,
+  type ShoutKind,
+} from './layout.ts';
 import type { Painter } from './painter.ts';
 import { ADDED_CARD, drawCard } from './record-card.ts';
 import type { Glyph } from './typewriter.ts';
@@ -12,7 +22,12 @@ export function textbox(p: Painter, name: string | null, box: Rect = TOP.box) {
   p.outline({ x: box.x + 1, y: box.y + 1, w: box.w - 2, h: box.h - 2 }, '#3a3a3a');
   if (!name) return;
   const small = p.fonts.small;
-  const tag = { x: box.x, y: box.y - TOP.nameTagH, w: small.measure(name) + 8, h: TOP.nameTagH + 1 };
+  const tag = {
+    x: box.x,
+    y: box.y - TOP.nameTagH,
+    w: small.measure(name) + 8,
+    h: TOP.nameTagH + 1,
+  };
   p.rect(tag.x, tag.y, tag.w, tag.h, COLORS.nameTagEdge);
   p.rect(tag.x + 1, tag.y + 1, tag.w - 2, tag.h - 1, COLORS.nameTag);
   small.draw(name, tag.x + 4, small.centerY(tag.y + 1, TOP.nameTagH), { color: '#ffffff' });
@@ -35,23 +50,44 @@ function glyphRow(p: Painter, row: Glyph[], color: string, x: number, y: number)
   let start = 0;
   for (let i = 1; i <= row.length; i++) {
     if (i < row.length && row[i]!.color === row[start]!.color) continue;
-    const text = row.slice(start, i).map(g => g.ch).join('');
+    const text = row
+      .slice(start, i)
+      .map((g) => g.ch)
+      .join('');
     t.draw(text, x + start * t.em, y, { color: row[start]!.color ?? color });
     start = i;
   }
 }
 
 /** 中央寄せの文（日時・場所の表示）。行の位置は、出し終えたときの行の幅で決める */
-export function centeredGlyphs(p: Painter, rows: Glyph[][], fullRows: Glyph[][], color: string, firstLineY: number) {
+export function centeredGlyphs(
+  p: Painter,
+  rows: Glyph[][],
+  fullRows: Glyph[][],
+  color: string,
+  firstLineY: number,
+) {
   const t = p.fonts.text;
   rows.forEach((row, i) => {
-    const full = (fullRows[i] ?? row).map(g => g.ch).join('');
-    glyphRow(p, row, color, Math.round((SCREEN_W - t.measure(full)) / 2), firstLineY + i * TOP.lineH);
+    const full = (fullRows[i] ?? row).map((g) => g.ch).join('');
+    glyphRow(
+      p,
+      row,
+      color,
+      Math.round((SCREEN_W - t.measure(full)) / 2),
+      firstLineY + i * TOP.lineH,
+    );
   });
 }
 
 /** テキストウィンドウに中央寄せで出す文（日時・場所の表示や、証言のタイトル） */
-export function centeredText(p: Painter, lines: string[], fullLines: string[], color: string, firstLineY: number) {
+export function centeredText(
+  p: Painter,
+  lines: string[],
+  fullLines: string[],
+  color: string,
+  firstLineY: number,
+) {
   const t = p.fonts.text;
   lines.forEach((l, i) => {
     const x = Math.round((SCREEN_W - t.measure(fullLines[i] ?? l)) / 2);
@@ -65,7 +101,7 @@ export function centeredText(p: Painter, lines: string[], fullLines: string[], c
  */
 export function nextArrow(p: Painter, frame: number) {
   const t = (frame % TOP.arrow.period) / TOP.arrow.period;
-  const x = TOP.arrow.x + Math.round((1 - Math.cos(t * Math.PI * 2)) / 2 * TOP.arrow.swing);
+  const x = TOP.arrow.x + Math.round(((1 - Math.cos(t * Math.PI * 2)) / 2) * TOP.arrow.swing);
   [1, 3, 5, 7, 9, 7, 5, 3, 1].forEach((w, i) => p.rect(x, TOP.arrow.y + i, w, 1, '#ffffff'));
 }
 
@@ -75,17 +111,26 @@ export function choiceBand(p: Painter, label: string) {
   const t = p.fonts.text;
   p.rect(r.x, r.y, r.w, r.h, COLORS.tabEdge);
   p.rect(r.x + 1, r.y + 1, r.w - 2, r.h - 1, COLORS.tabFill);
-  t.draw(label, Math.round((SCREEN_W - t.measure(label)) / 2), t.centerY(r.y + 1, r.h - 1), { color: '#ffffff' });
+  t.draw(label, Math.round((SCREEN_W - t.measure(label)) / 2), t.centerY(r.y + 1, r.h - 1), {
+    color: '#ffffff',
+  });
   p.triangle(12, r.y + r.h / 2, 7, 11, 'down', '#ffffff');
   p.triangle(244, r.y + r.h / 2, 7, 11, 'down', '#ffffff');
 }
 
 /** 選択肢のボタン */
-export function choiceButtons(p: Painter, options: string[], selected: number, blinkOn: boolean, done: boolean[] = []) {
+export function choiceButtons(
+  p: Painter,
+  options: string[],
+  selected: number,
+  blinkOn: boolean,
+  done: boolean[] = [],
+) {
   options.forEach((opt, i) => {
     const r = UI.choice(i, options.length);
     // 本文の字間ではボタンに収まらないときは、詰めたフォントで描く
-    const t = p.fonts.text.measure(opt) <= r.w - 8 ? p.fonts.text : p.fonts.condensed ?? p.fonts.desc;
+    const t =
+      p.fonts.text.measure(opt) <= r.w - 8 ? p.fonts.text : (p.fonts.condensed ?? p.fonts.desc);
     p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
     p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
     t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
@@ -96,7 +141,17 @@ export function choiceButtons(p: Painter, options: string[], selected: number, b
 
 /** 話し終えた話題などに付ける印（✓）。左上が (x, y)、9×8 ドット */
 export function checkMark(p: Painter, x: number, y: number) {
-  [[0, 4], [1, 5], [2, 6], [3, 5], [4, 4], [5, 3], [6, 2], [7, 1], [8, 0]].forEach(([dx, dy]) => {
+  [
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 5],
+    [4, 4],
+    [5, 3],
+    [6, 2],
+    [7, 1],
+    [8, 0],
+  ].forEach(([dx, dy]) => {
     p.rect(x + dx!, y + dy!, 2, 2, '#30a030');
   });
 }
@@ -119,8 +174,10 @@ export function addedWindow(p: Painter, id: string, ev: EvidenceDef) {
   p.rect(r.x + r.w - 2, r.y, 1, r.h - 1, '#efefef');
   p.rect(r.x, r.y + r.h - 2, r.w - 1, 1, '#efefef');
   drawCard(p, ADDED_CARD, {
-    tab: 'evidence', label: ev.name, description: ev.description,
-    drawIcon: ic => p.evidenceIcon(ev.icon ?? id, ev.name, ic.x, ic.y, 2),
+    tab: 'evidence',
+    label: ev.name,
+    description: ev.description,
+    drawIcon: (ic) => p.evidenceIcon(ev.icon ?? id, ev.name, ic.x, ic.y, 2),
   });
 }
 
@@ -129,11 +186,20 @@ export function detailText(p: Painter, nameR: Rect, descR: Rect, name: string, d
   const { text, desc: d } = p.fonts;
   p.rect(nameR.x, nameR.y, nameR.w, nameR.h, COLORS.nameBar);
   p.outline(nameR, '#c8c8c8');
-  text.draw(name, Math.round(nameR.x + (nameR.w - text.measure(name)) / 2), text.centerY(nameR.y, nameR.h), { color: COLORS.nameText });
+  text.draw(
+    name,
+    Math.round(nameR.x + (nameR.w - text.measure(name)) / 2),
+    text.centerY(nameR.y, nameR.h),
+    { color: COLORS.nameText },
+  );
   p.rect(descR.x, descR.y, descR.w, descR.h, COLORS.desc);
-  for (let y = descR.y + 1; y < descR.y + descR.h; y += 2) p.rect(descR.x, y, descR.w, 1, COLORS.descLine);
+  for (let y = descR.y + 1; y < descR.y + descR.h; y += 2)
+    p.rect(descR.x, y, descR.w, 1, COLORS.descLine);
   p.outline(descR, '#c8c8c8');
-  d.draw(d.wrap(desc, descR.w - 10).slice(0, 3), descR.x + 5, descR.y + 3, { color: COLORS.descText, lineHeight: 15 });
+  d.draw(d.wrap(desc, descR.w - 10).slice(0, 3), descR.x + 5, descR.y + 3, {
+    color: COLORS.descText,
+    lineHeight: 15,
+  });
 }
 
 /** ライフ（「！」の数）。右上に並べる。y は上端 */
@@ -147,7 +213,13 @@ function exclamation(p: Painter, x: number, y: number) {
   const body = (color: string, grow: number) => {
     for (let r = 0; r < 11; r++) {
       const sx = x + Math.floor((10 - r) / 4);
-      p.rect(sx - grow, y + r - (r === 0 ? grow : 0), 4 + grow * 2, 1 + (r === 0 ? grow : 0), color);
+      p.rect(
+        sx - grow,
+        y + r - (r === 0 ? grow : 0),
+        4 + grow * 2,
+        1 + (r === 0 ? grow : 0),
+        color,
+      );
     }
     p.rect(x - grow, y + 12 - grow, 4 + grow * 2, 3 + grow * 2, color);
   };
@@ -169,25 +241,40 @@ export function bigText(p: Painter, text: string, y: number, slide = 1) {
 export function bubble(p: Painter, kind: ShoutKind, grow: number) {
   const ctx = p.ctx;
   const s = SHOUTS[kind];
-  const cx = SCREEN_W / 2, cy = 80, n = 22;
+  const cx = SCREEN_W / 2,
+    cy = 80,
+    n = 22;
   ctx.beginPath();
   for (let k = 0; k <= n; k++) {
-    const a = (k / n) * Math.PI * 2, r = (k % 2 ? 0.7 : 1) * grow;
-    const px = cx + Math.cos(a) * 124 * r, py = cy + Math.sin(a) * 70 * r;
-    if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    const a = (k / n) * Math.PI * 2,
+      r = (k % 2 ? 0.7 : 1) * grow;
+    const px = cx + Math.cos(a) * 124 * r,
+      py = cy + Math.sin(a) * 70 * r;
+    if (k) ctx.lineTo(px, py);
+    else ctx.moveTo(px, py);
   }
   ctx.lineWidth = 3;
   ctx.strokeStyle = '#181818';
   ctx.stroke();
   ctx.fillStyle = '#fbf7ee';
   ctx.fill();
-  if (grow >= 1) p.fonts.text.draw(s.label, cx, cy - 14, { scale: 2, color: s.color, outline: '#181818', align: 'center' });
+  if (grow >= 1)
+    p.fonts.text.draw(s.label, cx, cy - 14, {
+      scale: 2,
+      color: s.color,
+      outline: '#181818',
+      align: 'center',
+    });
 }
 
 /** フェードの覆い。alpha は 0（見える）〜 1（覆われている） */
 export function fadeCover(p: Painter, color: 'black' | 'white', alpha: number) {
   if (alpha <= 0) return;
-  p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, color === 'white' ? '#ffffff' : '#000000', Math.min(1, alpha));
+  p.dim(
+    { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+    color === 'white' ? '#ffffff' : '#000000',
+    Math.min(1, alpha),
+  );
 }
 
 /** エンディング・ゲームオーバーの画面 */

@@ -28,7 +28,9 @@ export interface AudioSources {
  */
 export function createAudio(src: AudioSources): AudioOut {
   const ctx = new AudioContext();
-  const resume = () => { if (ctx.state === 'suspended') void ctx.resume(); };
+  const resume = () => {
+    if (ctx.state === 'suspended') void ctx.resume();
+  };
   window.addEventListener('pointerdown', resume);
   window.addEventListener('keydown', resume);
 
@@ -36,7 +38,10 @@ export function createAudio(src: AudioSources): AudioOut {
   const load = (url: string) => {
     let p = buffers.get(url);
     if (!p) {
-      p = fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).catch(() => null);
+      p = fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .catch(() => null);
       buffers.set(url, p);
     }
     return p;
@@ -85,7 +90,8 @@ export function createAudio(src: AudioSources): AudioOut {
       };
       const position = () => {
         const p = offset + (ctx.currentTime - startedAt);
-        const ls = s.loopStart ?? 0, le = s.loopEnd ?? buffer?.duration ?? p;
+        const ls = s.loopStart ?? 0,
+          le = s.loopEnd ?? buffer?.duration ?? p;
         return p < le ? p : ls + ((p - ls) % Math.max(0.001, le - ls));
       };
       const play = (fade: number) => {
@@ -93,7 +99,10 @@ export function createAudio(src: AudioSources): AudioOut {
         node = ctx.createBufferSource();
         node.buffer = buffer;
         node.loop = true;
-        if (s.loopEnd !== undefined) { node.loopStart = s.loopStart ?? 0; node.loopEnd = s.loopEnd; }
+        if (s.loopEnd !== undefined) {
+          node.loopStart = s.loopStart ?? 0;
+          node.loopEnd = s.loopEnd;
+        }
         node.connect(gain);
         gain.gain.setValueAtTime(fade > 0 ? 0 : bgmVolume, ctx.currentTime);
         if (fade > 0) ramp(bgmVolume, fade);
@@ -102,8 +111,11 @@ export function createAudio(src: AudioSources): AudioOut {
       };
       current = {
         id,
-        stop: ms => { ramp(0, ms); node?.stop(ctx.currentTime + ms / 1000 + 0.05); },
-        pause: ms => {
+        stop: (ms) => {
+          ramp(0, ms);
+          node?.stop(ctx.currentTime + ms / 1000 + 0.05);
+        },
+        pause: (ms) => {
           if (paused) return;
           paused = true;
           if (!node) return;
@@ -112,30 +124,36 @@ export function createAudio(src: AudioSources): AudioOut {
           node.stop(ctx.currentTime + ms / 1000 + 0.05);
           node = null;
         },
-        resume: ms => {
+        resume: (ms) => {
           if (!paused) return;
           paused = false;
           play(ms);
         },
       };
-      void load(s.url).then(buf => {
+      void load(s.url).then((buf) => {
         if (!buf || gen !== generation) return;
         buffer = buf;
         if (!paused) play(fadeMs);
       });
     },
     async preload(ids) {
-      await Promise.all(ids.map(id => {
-        const source = src.se?.(id);
-        return source ? load(norm(source).url) : null;
-      }));
+      await Promise.all(
+        ids.map((id) => {
+          const source = src.se?.(id);
+          return source ? load(norm(source).url) : null;
+        }),
+      );
     },
-    pause(fadeMs) { current?.pause(fadeMs); },
-    resume(fadeMs) { current?.resume(fadeMs); },
+    pause(fadeMs) {
+      current?.pause(fadeMs);
+    },
+    resume(fadeMs) {
+      current?.resume(fadeMs);
+    },
     se(id) {
       const source = src.se?.(id);
       if (!source) return;
-      void load(norm(source).url).then(buf => {
+      void load(norm(source).url).then((buf) => {
         if (!buf) return;
         const node = ctx.createBufferSource();
         node.buffer = buf;

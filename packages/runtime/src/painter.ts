@@ -54,7 +54,8 @@ export class Painter {
   /** 角を斜めに落とした形。1 行ずつ塗るので、斜めの辺もドットの階段になる。k は斜めの長さ */
   shape(r: Rect, slant: Slant, color: string, k = 12) {
     for (let row = 0; row < r.h; row++) {
-      let l = 0, rt = 0;
+      let l = 0,
+        rt = 0;
       const lower = Math.max(0, row - (r.h - 1 - k));
       const upper = Math.max(0, k - row);
       if (slant === 'bl' || slant === 'bottom') l = lower;
@@ -66,21 +67,43 @@ export class Painter {
   }
 
   /** 茶色のタブ型のボタン */
-  tab(r: Rect, slant: Slant, label: string, opts: { small?: boolean; fill?: string; enabled?: boolean; k?: number } = {}) {
+  tab(
+    r: Rect,
+    slant: Slant,
+    label: string,
+    opts: { small?: boolean; fill?: string; enabled?: boolean; k?: number } = {},
+  ) {
     const k = opts.k ?? 12;
     this.ctx.globalAlpha = opts.enabled === false ? 0.5 : 1;
     this.shape(r, slant, COLORS.tabEdge, k);
-    this.shape({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }, slant, opts.fill ?? COLORS.tabFill, k - 1);
+    this.shape(
+      { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 },
+      slant,
+      opts.fill ?? COLORS.tabFill,
+      k - 1,
+    );
     const t = opts.small ? this.fonts.small : this.fonts.text;
     const inset = k / 2;
-    const left = slant === 'bl' || slant === 'tl', right = slant === 'br' || slant === 'tr';
-    const cx = left ? r.x + inset + (r.w - inset) / 2 : right ? r.x + (r.w - inset) / 2 : r.x + r.w / 2;
+    const left = slant === 'bl' || slant === 'tl',
+      right = slant === 'br' || slant === 'tr';
+    const cx = left
+      ? r.x + inset + (r.w - inset) / 2
+      : right
+        ? r.x + (r.w - inset) / 2
+        : r.x + r.w / 2;
     t.draw(label, Math.round(cx - t.measure(label) / 2), t.centerY(r.y, r.h), { color: '#ffffff' });
     this.ctx.globalAlpha = 1;
   }
 
   /** 中心 (cx, cy)、幅 w、高さ h の三角形の矢印（下向きのときは w が高さ、h が幅） */
-  triangle(cx: number, cy: number, w: number, h: number, dir: 'left' | 'right' | 'down', color: string) {
+  triangle(
+    cx: number,
+    cy: number,
+    w: number,
+    h: number,
+    dir: 'left' | 'right' | 'down',
+    color: string,
+  ) {
     for (let i = 0; i < h; i++) {
       const len = Math.round(w * (1 - Math.abs(i - (h - 1) / 2) / (h / 2)));
       if (len <= 0) continue;
@@ -96,21 +119,35 @@ export class Painter {
   /** 選んでいる項目の四隅のカギ */
   brackets(r: Rect, color = '#f8a020') {
     const k = 8;
-    const x0 = r.x - 3, x1 = r.x + r.w + 1, y0 = r.y - 3, y1 = r.y + r.h + 1;
-    this.rect(x0, y0, k, 2, color); this.rect(x0, y0, 2, k, color);
-    this.rect(x1 - k + 2, y0, k, 2, color); this.rect(x1, y0, 2, k, color);
-    this.rect(x0, y1, k, 2, color); this.rect(x0, y1 - k + 2, 2, k, color);
-    this.rect(x1 - k + 2, y1, k, 2, color); this.rect(x1, y1 - k + 2, 2, k, color);
+    const x0 = r.x - 3,
+      x1 = r.x + r.w + 1,
+      y0 = r.y - 3,
+      y1 = r.y + r.h + 1;
+    this.rect(x0, y0, k, 2, color);
+    this.rect(x0, y0, 2, k, color);
+    this.rect(x1 - k + 2, y0, k, 2, color);
+    this.rect(x1, y0, 2, k, color);
+    this.rect(x0, y1, k, 2, color);
+    this.rect(x0, y1 - k + 2, 2, k, color);
+    this.rect(x1 - k + 2, y1, k, 2, color);
+    this.rect(x1, y1 - k + 2, 2, k, color);
   }
 
   /** 証拠品のアイコン。scale は 32 ドットを基準にした倍率（一覧は 1.25 = 40、詳細は 2 = 64）。画像がなければ名前の 1 文字目を出す */
   evidenceIcon(id: string, name: string, x: number, y: number, scale: number) {
     const size = Math.round(32 * scale);
     const img = this.assets.evidence?.(id, size);
-    if (img) { this.ctx.drawImage(img, x, y, size, size); return; }
+    if (img) {
+      this.ctx.drawImage(img, x, y, size, size);
+      return;
+    }
     const t = this.fonts.text;
     const s = Math.max(1, Math.floor(scale));
-    t.draw([...name][0] ?? '?', x + size / 2, t.centerY(y, size, s), { scale: s, color: '#303030', align: 'center' });
+    t.draw([...name][0] ?? '?', x + size / 2, t.centerY(y, size, s), {
+      scale: s,
+      color: '#303030',
+      align: 'center',
+    });
   }
 
   /**
@@ -119,13 +156,21 @@ export class Painter {
    */
   face(id: string, name: string, x: number, y: number, size: 64 | 40, icon?: string) {
     const face = this.assets.face?.(icon ?? id);
-    if (face) { this.ctx.drawImage(face, 0, 0, 64, 64, x, y, size, size); return; }
-    const img = this.assets.portrait?.(id, { talking: false, blink: false }) as HTMLCanvasElement | undefined;
+    if (face) {
+      this.ctx.drawImage(face, 0, 0, 64, 64, x, y, size, size);
+      return;
+    }
+    const img = this.assets.portrait?.(id, { talking: false, blink: false }) as
+      | HTMLCanvasElement
+      | undefined;
     if (img) {
       this.ctx.drawImage(img, Math.round(img.width / 2 - 32), 8, 64, 64, x, y, size, size);
       return;
     }
     const t = this.fonts.text;
-    t.draw([...name][0] ?? '?', x + size / 2, t.centerY(y, size), { color: '#303030', align: 'center' });
+    t.draw([...name][0] ?? '?', x + size / 2, t.centerY(y, size), {
+      color: '#303030',
+      align: 'center',
+    });
   }
 }

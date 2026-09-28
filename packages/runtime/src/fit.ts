@@ -5,7 +5,11 @@ import { HEIGHT, WIDTH } from './layout.ts';
  * 1 倍以上に拡大できるときは整数倍にして、ドットの大きさをそろえる。
  * 戻り値は監視を止める関数。
  */
-export function fitCanvas(canvas: HTMLCanvasElement, container: HTMLElement, maxHeightRatio = 0.8): () => void {
+export function fitCanvas(
+  canvas: HTMLCanvasElement,
+  container: HTMLElement,
+  maxHeightRatio = 0.8,
+): () => void {
   canvas.style.imageRendering = 'pixelated';
   const fit = () => {
     const dpr = window.devicePixelRatio || 1;
@@ -21,5 +25,8 @@ export function fitCanvas(canvas: HTMLCanvasElement, container: HTMLElement, max
   ro.observe(container);
   window.addEventListener('resize', fit);
   fit();
-  return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
+  return () => {
+    ro.disconnect();
+    window.removeEventListener('resize', fit);
+  };
 }

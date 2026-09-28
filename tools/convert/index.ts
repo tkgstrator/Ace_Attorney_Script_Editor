@@ -38,19 +38,29 @@ export function toYaml(scenario: Record<string, unknown>): string {
   const doc = new Document(scenario, { aliasDuplicateObjects: true });
   doc.commentBefore = HEADER;
   // 数の並び（native の args など）は 1 行に
-  visit(doc, { Seq(_, node) { if (node.items.every(it => isScalar(it) && typeof it.value === 'number')) node.flow = true; } });
+  visit(doc, {
+    Seq(_, node) {
+      if (node.items.every((it) => isScalar(it) && typeof it.value === 'number')) node.flow = true;
+    },
+  });
   return doc.toString({ lineWidth: 0 });
 }
 
 /** investigation.json の parts（無ければ空） */
 export function loadInvParts(): Record<string, any>[] {
   const p = join(EXTRACTED, 'tables/investigation.json');
-  const parts = existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as { parts: Record<string, any>[] }).parts : [];
+  const parts = existsSync(p)
+    ? (JSON.parse(readFileSync(p, 'utf8')) as { parts: Record<string, any>[] }).parts
+    : [];
   // 着いたときの会話で音楽を止めない版（0x02028850、第 5 話）も、変換では会話 event と同じに扱う
   for (const part of parts) {
     for (const pl of part.places ?? []) {
       for (const path of [...(pl.on_enter ?? []), ...(pl.every_frame ?? [])]) {
-        for (const d of path.do ?? []) if (d.event_keep_bgm && !d.event) { d.event = d.event_keep_bgm; delete d.event_keep_bgm; }
+        for (const d of path.do ?? [])
+          if (d.event_keep_bgm && !d.event) {
+            d.event = d.event_keep_bgm;
+            delete d.event_keep_bgm;
+          }
       }
     }
   }
@@ -60,34 +70,57 @@ export function loadInvParts(): Record<string, any>[] {
 function main() {
   const args = process.argv.slice(2);
   const stats = args.includes('--stats');
-  const rest = args.filter(a => a !== '--stats');
+  const rest = args.filter((a) => a !== '--stats');
   const id = arg(rest, '--id');
   const title = arg(rest, '--title');
   const outArg = arg(rest, '--out');
   const ns = (rest[0] ?? '').split(',').map(Number);
-  if (rest.length !== 1 || ns.some(n => !Number.isInteger(n))) {
-    console.error('使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--id ep1] [--title 章の名前] [--out ファイル] [--stats]');
+  if (rest.length !== 1 || ns.some((n) => !Number.isInteger(n))) {
+    console.error(
+      '使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--id ep1] [--title 章の名前] [--out ファイル] [--stats]',
+    );
     process.exit(2);
   }
   const tables = loadTables();
-  const entries = ns.map(n => loadEntry(n));
+  const entries = ns.map((n) => loadEntry(n));
   let common = null;
-  try { common = loadEntry(COMMON[entries[0]!.lang]); } catch { console.warn('共通の台本（072/073）が無いので、尋問の外れなどは native にします'); }
+  try {
+    common = loadEntry(COMMON[entries[0]!.lang]);
+  } catch {
+    console.warn('共通の台本（072/073）が無いので、尋問の外れなどは native にします');
+  }
   // 3D で詳しく調べるときの台詞（第 5 話）: 日本語 070、英語 071
   let item070 = null;
-  if (ns.some(n => n >= 34)) try { item070 = loadEntry(entries[0]!.lang === 'ja' ? 70 : 71); } catch { console.warn('項目 070 が無いので、3D で調べる台詞は native にします'); }
-  const cid = id ?? `e${ns.map(n => String(n).padStart(3, '0')).join('_')}`;
-  const { scenario, results } = convertChapter(tables, entries, { id: cid, title: title ?? `項目 ${ns.join(', ')}`, common, invParts: loadInvParts(), item070 });
+  if (ns.some((n) => n >= 34))
+    try {
+      item070 = loadEntry(entries[0]!.lang === 'ja' ? 70 : 71);
+    } catch {
+      console.warn('項目 070 が無いので、3D で調べる台詞は native にします');
+    }
+  const cid = id ?? `e${ns.map((n) => String(n).padStart(3, '0')).join('_')}`;
+  const { scenario, results } = convertChapter(tables, entries, {
+    id: cid,
+    title: title ?? `項目 ${ns.join(', ')}`,
+    common,
+    invParts: loadInvParts(),
+    item070,
+  });
   const out = outArg ?? join(EXTRACTED, 'converted', `${cid}.yaml`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, toYaml(scenario));
   const all = new Stats();
   for (const r of results) all.merge(r.ctx.stats);
   const t = all.totals();
-  const count = (k: string) => (scenario.parts as Record<string, Record<string, object>>[]).reduce((a, p) => a + Object.keys(p[k] ?? {}).length, 0);
-  console.log(`${out}: シーン ${count('scenes')}、場所 ${count('places')}、人物 ${Object.keys(scenario.characters as object).length}、`
-    + `証拠品 ${Object.keys(scenario.evidence as object).length}（命令: ステップ ${t.step}、文中 ${t.inline}、構造 ${t.structure}、`
-    + `近似 ${t.approx}、native ${t.native}、無視 ${t.ignored}）`);
+  const count = (k: string) =>
+    (scenario.parts as Record<string, Record<string, object>>[]).reduce(
+      (a, p) => a + Object.keys(p[k] ?? {}).length,
+      0,
+    );
+  console.log(
+    `${out}: シーン ${count('scenes')}、場所 ${count('places')}、人物 ${Object.keys(scenario.characters as object).length}、` +
+      `証拠品 ${Object.keys(scenario.evidence as object).length}（命令: ステップ ${t.step}、文中 ${t.inline}、構造 ${t.structure}、` +
+      `近似 ${t.approx}、native ${t.native}、無視 ${t.ignored}）`,
+  );
   if (stats) console.log(`\n${all.report()}`);
 }
 

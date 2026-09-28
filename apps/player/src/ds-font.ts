@@ -1,12 +1,25 @@
 // ROM から取り出した DS 版のフォント（tools/rom/ で作る。配布しないもの）があれば読み込む。
 // 無ければ undefined を返し、runtime の既定のフォント（PixelMplus12）で表示する。
-import { dsDescFontSpec, dsFontSpec, dsNameFontSpec, dsSmallFontSpec, dsTitleFontSpec, loadBitmapAtlas, type FontSpec } from '@gyakusai/runtime';
+import {
+  dsDescFontSpec,
+  dsFontSpec,
+  dsNameFontSpec,
+  dsSmallFontSpec,
+  dsTitleFontSpec,
+  loadBitmapAtlas,
+  type FontSpec,
+} from '@gyakusai/runtime';
 
-const files = import.meta.glob('../../../assets/extracted/font/{ds-font,ds-small-font,ds-small-name-font,ds-small-profile-name-font}.{png,json}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
-const find = (name: string, ext: string) => Object.entries(files).find(([k]) => k.endsWith(`/${name}.${ext}`))?.[1];
+const files = import.meta.glob(
+  '../../../assets/extracted/font/{ds-font,ds-small-font,ds-small-name-font,ds-small-profile-name-font}.{png,json}',
+  { query: '?url', import: 'default', eager: true },
+) as Record<string, string>;
+const find = (name: string, ext: string) =>
+  Object.entries(files).find(([k]) => k.endsWith(`/${name}.${ext}`))?.[1];
 
 async function atlasOf(name: string) {
-  const png = find(name, 'png'), json = find(name, 'json');
+  const png = find(name, 'png'),
+    json = find(name, 'json');
   return png && json ? loadBitmapAtlas(png, json) : undefined;
 }
 
@@ -16,11 +29,25 @@ async function atlasOf(name: string) {
  * 人物の名前 ds-small-profile-name-font）。
  * それが無い字は本文のフォントを縮めたもの（名前は本文のフォント）で補う。小さい字のフォントが無ければ、本文のフォントを詰めて並べる
  */
-export async function loadDsFont(): Promise<{ font: FontSpec; descriptionFont: FontSpec; recordNameFont?: FontSpec; recordProfileNameFont?: FontSpec; recordTitleFont: FontSpec; condensedFont: FontSpec } | undefined> {
+export async function loadDsFont(): Promise<
+  | {
+      font: FontSpec;
+      descriptionFont: FontSpec;
+      recordNameFont?: FontSpec;
+      recordProfileNameFont?: FontSpec;
+      recordTitleFont: FontSpec;
+      condensedFont: FontSpec;
+    }
+  | undefined
+> {
   const atlas = await atlasOf('ds-font');
   if (!atlas) return undefined;
   const font = dsFontSpec(atlas);
-  const [desc, name, profileName] = await Promise.all([atlasOf('ds-small-font'), atlasOf('ds-small-name-font'), atlasOf('ds-small-profile-name-font')]);
+  const [desc, name, profileName] = await Promise.all([
+    atlasOf('ds-small-font'),
+    atlasOf('ds-small-name-font'),
+    atlasOf('ds-small-profile-name-font'),
+  ]);
   return {
     font,
     descriptionFont: desc ? dsDescFontSpec(desc, dsSmallFontSpec(atlas)) : dsFontSpec(atlas, 12),

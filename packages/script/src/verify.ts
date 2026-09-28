@@ -16,7 +16,15 @@
 //   台詞・証言を聞く途中では、後に回せない・試すと状態が変わる場所があるときだけ止まって試す（verify-inspect-sim.ts）
 // - 同じ場面で同じ操作をして、実行中に読んだ変数の値も同じなら、覚えておいた結果を使う（verify-memo.ts）
 // - 展開し終えた状態は捨て、キーと番号・辺だけを持つ（詰みの説明は、操作をたどり直して作る）
-import { Engine, holds, recordName, type Beat, type CompiledScenario, type Expr, type GameState } from '@gyakusai/core';
+import {
+  Engine,
+  holds,
+  recordName,
+  type Beat,
+  type CompiledScenario,
+  type Expr,
+  type GameState,
+} from '@gyakusai/core';
 import { actions, step } from './verify-actions.ts';
 import { analyzeFlow } from './verify-flow.ts';
 import { Graph, IntList, traps } from './verify-graph.ts';
@@ -69,7 +77,8 @@ function control(s: GameState): string {
  */
 function usesLife(sc: CompiledScenario): boolean {
   let bad = false;
-  const small = (e: Expr) => e.t === 'lit' && typeof e.v === 'number' && Math.abs(e.v) < IMMORTAL / 10;
+  const small = (e: Expr) =>
+    e.t === 'lit' && typeof e.v === 'number' && Math.abs(e.v) < IMMORTAL / 10;
   const walk = (e: Expr | undefined): void => {
     if (!e) return;
     if (e.t === 'var' && e.name === 'life') bad = true;
@@ -77,16 +86,20 @@ function usesLife(sc: CompiledScenario): boolean {
     if (e.t === 'bin') {
       const isLife = (x: Expr) => x.t === 'var' && x.name === 'life';
       if ((isLife(e.l) && small(e.r)) || (isLife(e.r) && small(e.l))) return;
-      walk(e.l); walk(e.r);
+      walk(e.l);
+      walk(e.r);
     }
   };
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond);
-      if (ins.op === 'choice') ins.options.forEach(o => walk(o.when));
+      if (ins.op === 'choice') ins.options.forEach((o) => walk(o.when));
     }
-    if (scene.kind === 'testimony') scene.statements.forEach(st => walk(st.when));
-    if (scene.kind === 'place') [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach(x => walk(x.when));
+    if (scene.kind === 'testimony') scene.statements.forEach((st) => walk(st.when));
+    if (scene.kind === 'place')
+      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) =>
+        walk(x.when),
+      );
   }
   return bad;
 }
@@ -96,29 +109,45 @@ function describe(sc: CompiledScenario, e: Engine, b: Beat): string {
   const s = e.state;
   const held = new Set(s.evidence);
   const name = (id: string) => sc.evidence[id]?.name ?? id;
-  const missing = (ids: string[]) => ids.filter(id => !held.has(id)).map(name);
+  const missing = (ids: string[]) => ids.filter((id) => !held.has(id)).map(name);
   const scene = sc.scenes[s.scene];
   if (b.kind === 'demand') {
     const ins = scene?.program[s.pc];
     // 正解は証拠品・人物ファイルの順
-    const answers = ins?.op === 'demand'
-      ? [...Object.keys(ins.options).map(id => [id, 'evidence'] as const), ...Object.keys(ins.profiles ?? {}).map(id => [id, 'profile'] as const)] : [];
+    const answers =
+      ins?.op === 'demand'
+        ? [
+            ...Object.keys(ins.options).map((id) => [id, 'evidence'] as const),
+            ...Object.keys(ins.profiles ?? {}).map((id) => [id, 'profile'] as const),
+          ]
+        : [];
     const lack = answers.filter(([id, k]) => !holds(sc, s, id, k));
     const names = (list: typeof answers) => list.map(([id, k]) => recordName(sc, id, k)).join('・');
-    return `つきつけの要求「${b.prompt}」の正解（${names(answers)}）を持っていません`
-      + (lack.length === answers.length ? '' : `（持っていない: ${names(lack)}）`);
+    return (
+      `つきつけの要求「${b.prompt}」の正解（${names(answers)}）を持っていません` +
+      (lack.length === answers.length ? '' : `（持っていない: ${names(lack)}）`)
+    );
   }
   if (scene?.kind === 'testimony') {
-    const answers = [...new Set(scene.statements.flatMap(st => Object.keys(st.present)))];
+    const answers = [...new Set(scene.statements.flatMap((st) => Object.keys(st.present)))];
     return `尋問「${scene.title}」から先へ進めません（つきつけで使う ${answers.map(name).join('・')} のうち、持っていない: ${missing(answers).join('・') || 'なし'}）`;
   }
-  if (b.kind === 'investigate') return `探索編の「${b.name}」から先へ進めません（移動先・話題・調べる所の条件を満たせない可能性）`;
+  if (b.kind === 'investigate')
+    return `探索編の「${b.name}」から先へ進めません（移動先・話題・調べる所の条件を満たせない可能性）`;
   return `シーン「${s.scene}」から先へ進めません（${b.kind}）`;
 }
 
 /** 詰みの説明に使う場面の優先度（小さいほど、プレイヤーが止まっている理由を表しやすい） */
 function rank(b: Beat): number {
-  return b.kind === 'demand' ? 0 : b.kind === 'statement' ? 1 : b.kind === 'investigate' ? 2 : b.kind === 'choice' ? 3 : 4;
+  return b.kind === 'demand'
+    ? 0
+    : b.kind === 'statement'
+      ? 1
+      : b.kind === 'investigate'
+        ? 2
+        : b.kind === 'choice'
+          ? 3
+          : 4;
 }
 
 export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions = {}): VerifyResult {
@@ -137,7 +166,8 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
   const pending: (GameState | string | undefined)[] = [];
   const { pack, unpack } = packer(sc);
   const stack = new IntList();
-  const parent = new IntList(), via = new IntList();
+  const parent = new IntList(),
+    via = new IntList();
   const ranks = new IntList();
   const graph = new Graph();
   const goals = new Set<number>();
@@ -156,19 +186,24 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
       ids.set(k, id);
       pending[id] = stack.length > PACK_ABOVE ? pack(make()) : make();
       stack.push(id);
-      parent.push(from); via.push(act);
+      parent.push(from);
+      via.push(act);
     }
     return id;
   };
   const first = new Engine(sc);
-  first.state.visited.forEach(v => visitedScenes.add(v));
+  first.state.visited.forEach((v) => visitedScenes.add(v));
   visitedScenes.add(first.state.scene);
   found(keyOf(first.state as GameState), -1, -1, () => first.state as GameState);
 
   let processed = 0;
   while (stack.length > 0) {
-    if (processed >= limit) { truncated = true; break; }
-    if (opts.onProgress && processed % (opts.progressEvery ?? 100_000) === 0) opts.onProgress(processed);
+    if (processed >= limit) {
+      truncated = true;
+      break;
+    }
+    if (opts.onProgress && processed % (opts.progressEvery ?? 100_000) === 0)
+      opts.onProgress(processed);
     processed++;
     const i = stack.at(--stack.length);
     const held = pending[i]!;
@@ -197,7 +232,10 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
           step(flow, x, act.f, visitedScenes);
         } catch (err) {
           const msg = `実行中にエラーになりました: ${(err as Error).message}`;
-          if (!crashes.has(msg)) { crashes.add(msg); findings.push({ severity: 'error', message: msg, scene: state.scene }); }
+          if (!crashes.has(msg)) {
+            crashes.add(msg);
+            findings.push({ severity: 'error', message: msg, scene: state.scene });
+          }
           return;
         }
         next = x.state as GameState;
@@ -209,16 +247,20 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
       // 通ったシーン・調べた印を記録する（途中で止まらずに通り過ぎたシーンも、visited に残る）。
       // 見つけたときに記録するのは、キーが同じで展開しない状態の通り道も数えるため
       if (next) {
-        for (let j = state.visited.length; j < next.visited.length; j++) visitedScenes.add(next.visited[j]!);
+        for (let j = state.visited.length; j < next.visited.length; j++)
+          visitedScenes.add(next.visited[j]!);
         for (let j = state.seen.length; j < next.seen.length; j++) seenIds.add(next.seen[j]!);
         visitedScenes.add(next.scene);
       } else {
-        d!.visited.forEach(v => visitedScenes.add(v));
-        d!.seen.forEach(v => seenIds.add(v));
+        d!.visited.forEach((v) => visitedScenes.add(v));
+        d!.seen.forEach((v) => seenIds.add(v));
         visitedScenes.add(d!.control.scene);
       }
       const k = next ? keyOf(next) : keyOf(state, d);
-      graph.add(i, found(k, i, a, () => next ?? apply(state, d!)));
+      graph.add(
+        i,
+        found(k, i, a, () => next ?? apply(state, d!)),
+      );
     });
   }
   const states = truncated ? processed : ids.size;
@@ -233,38 +275,56 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
   };
 
   if (!truncated) {
-    if (!cleared) findings.push({ severity: 'error', message: 'どう遊んでもクリア（end）にたどり着けません' });
+    if (!cleared)
+      findings.push({ severity: 'error', message: 'どう遊んでもクリア（end）にたどり着けません' });
     // 詰み: 抜け出せない状態のかたまり（出ていく先がなく、終わりでもない強連結成分）ごとに、判断の場面を 1 つ報告する
     const reported = new Set<string>();
-    for (const trap of traps(graph, ids.size, v => goals.has(v))) {
+    for (const trap of traps(graph, ids.size, (v) => goals.has(v))) {
       const best = trap.reduce((a, b) => (ranks.at(b) < ranks.at(a) ? b : a));
       const pick = rebuild(best);
       const where = `${pick.state.scene}:${pick.beat.kind}`;
       if (reported.has(where)) continue;
       reported.add(where);
-      findings.push({ severity: 'error', message: `詰み: ${describe(sc, pick, pick.beat)}`, scene: pick.state.scene });
+      findings.push({
+        severity: 'error',
+        message: `詰み: ${describe(sc, pick, pick.beat)}`,
+        scene: pick.state.scene,
+      });
     }
 
     // 一度も到達しないもの（打ち切ったときは、調べきれていないので出さない）
     for (const [id, scene] of Object.entries(sc.scenes)) {
       if (id.startsWith('__') || id === sc.gameoverScene) continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
       if (!visitedScenes.has(id)) {
-        findings.push({ severity: 'warning', message: `${scene.kind === 'place' ? '場所' : 'シーン'}「${id}」には、どう遊んでもたどり着きません`, scene: id });
+        findings.push({
+          severity: 'warning',
+          message: `${scene.kind === 'place' ? '場所' : 'シーン'}「${id}」には、どう遊んでもたどり着きません`,
+          scene: id,
+        });
         continue;
       }
       if (scene.kind !== 'place') continue;
       const items = [...scene.examine, ...scene.talk];
-      const title = (x: (typeof items)[number]) => ('topic' in x ? x.topic : x.name ?? x.id);
+      const title = (x: (typeof items)[number]) => ('topic' in x ? x.topic : (x.name ?? x.id));
       for (const x of items) {
         if (!seenIds.has(x.id)) {
           // 同じ場所に同じ名前の話題・調べる所があるときは、どれかわかるよう ID も添える
-          const same = items.filter(y => title(y) === title(x) && ('topic' in y) === ('topic' in x)).length > 1;
+          const same =
+            items.filter((y) => title(y) === title(x) && 'topic' in y === 'topic' in x).length > 1;
           const label = `${'topic' in x ? '話題' : '調べる所'}「${title(x)}」${same ? `（${x.id}）` : ''}`;
-          findings.push({ severity: 'warning', message: `場所「${scene.name}」の${label}は、どう遊んでも選べません`, scene: id });
+          findings.push({
+            severity: 'warning',
+            message: `場所「${scene.name}」の${label}は、どう遊んでも選べません`,
+            scene: id,
+          });
         }
       }
     }
   }
-  if (truncated) findings.push({ severity: 'warning', message: `状態が ${limit} 個を超えたため、途中で調べるのをやめました（結果は不完全です）` });
+  if (truncated)
+    findings.push({
+      severity: 'warning',
+      message: `状態が ${limit} 個を超えたため、途中で調べるのをやめました（結果は不完全です）`,
+    });
   return { findings, states, truncated };
 }

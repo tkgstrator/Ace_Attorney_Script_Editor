@@ -17,9 +17,16 @@ import { booleanFlags } from './verify-region.ts';
 export function prepare(sc: CompiledScenario): CompiledScenario {
   const scenes: Record<string, Scene> = {};
   for (const [id, scene] of Object.entries(sc.scenes)) {
-    if (!scene.program.some(i => i.op === 'random')) { scenes[id] = scene; continue; }
-    const program = scene.program.map((ins): Instr => ins.op !== 'random' || ins.to.length === 0 ? ins
-      : { op: 'choice', options: ins.to.map((to, i) => ({ text: `（乱数 ${i + 1}）`, to })) });
+    if (!scene.program.some((i) => i.op === 'random')) {
+      scenes[id] = scene;
+      continue;
+    }
+    const program = scene.program.map(
+      (ins): Instr =>
+        ins.op !== 'random' || ins.to.length === 0
+          ? ins
+          : { op: 'choice', options: ins.to.map((to, i) => ({ text: `（乱数 ${i + 1}）`, to })) },
+    );
     scenes[id] = { ...scene, program } as Scene;
   }
   return { ...sc, scenes };
@@ -45,28 +52,45 @@ export function flagBounds(sc: CompiledScenario): Bounds {
   const walk = (e: Expr | undefined, bool: boolean): void => {
     if (!e) return;
     switch (e.t) {
-      case 'var': if (bool) note(e.name, 0); else exact.add(e.name); return;
-      case 'not': walk(e.e, true); return;
+      case 'var':
+        if (bool) note(e.name, 0);
+        else exact.add(e.name);
+        return;
+      case 'not':
+        walk(e.e, true);
+        return;
       case 'bin': {
         const { l, r } = e;
-        if (CMP.has(e.op) && l.t === 'var' && r.t === 'lit' && typeof r.v === 'number') { note(l.name, r.v); return; }
-        if (CMP.has(e.op) && r.t === 'var' && l.t === 'lit' && typeof l.v === 'number') { note(r.name, l.v); return; }
+        if (CMP.has(e.op) && l.t === 'var' && r.t === 'lit' && typeof r.v === 'number') {
+          note(l.name, r.v);
+          return;
+        }
+        if (CMP.has(e.op) && r.t === 'var' && l.t === 'lit' && typeof l.v === 'number') {
+          note(r.name, l.v);
+          return;
+        }
         const logic = e.op === '&&' || e.op === '||';
-        walk(l, logic); walk(r, logic);
+        walk(l, logic);
+        walk(r, logic);
         return;
       }
-      default: return;
+      default:
+        return;
     }
   };
-  const up = new Set<string>(), down = new Set<string>();
+  const up = new Set<string>(),
+    down = new Set<string>();
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond, true);
-      if (ins.op === 'choice') ins.options.forEach(o => walk(o.when, true));
+      if (ins.op === 'choice') ins.options.forEach((o) => walk(o.when, true));
       if (ins.op === 'add') (ins.amount >= 0 ? up : down).add(ins.flag);
     }
-    if (scene.kind === 'testimony') scene.statements.forEach(st => walk(st.when, true));
-    if (scene.kind === 'place') [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach(x => walk(x.when, true));
+    if (scene.kind === 'testimony') scene.statements.forEach((st) => walk(st.when, true));
+    if (scene.kind === 'place')
+      [...scene.person, ...scene.move, ...scene.talk, ...scene.examine].forEach((x) =>
+        walk(x.when, true),
+      );
   }
   const out: Bounds = new Map();
   for (const [flag, [lo, hi]] of range) {
@@ -82,8 +106,11 @@ const SEP = '\u0001';
 
 /** 人物ファイルをつきつけられる所（人物のいる場所か、人物ファイルを認めるつきつけの要求）があるか */
 export function hasProfilePoints(sc: CompiledScenario): boolean {
-  return Object.values(sc.scenes).some(scene => (scene.kind === 'place' && scene.person.length > 0)
-    || scene.program.some(ins => ins.op === 'demand' && ins.profiles !== undefined));
+  return Object.values(sc.scenes).some(
+    (scene) =>
+      (scene.kind === 'place' && scene.person.length > 0) ||
+      scene.program.some((ins) => ins.op === 'demand' && ins.profiles !== undefined),
+  );
 }
 
 /**
@@ -91,13 +118,28 @@ export function hasProfilePoints(sc: CompiledScenario): boolean {
  * 真偽しか取らない変数は 15 個ずつ 1 文字に詰め、ほかのフラグは区切り文字で囲んで後ろに並べる。
  * 証拠品は番号の文字にして並べる。証拠品を詳しく調べている途中なら、戻り先と、戻り先で生きている変数も入れる
  */
-export function keyMaker(sc: CompiledScenario, flow: Flow, bounds: Bounds): (s: GameState, d?: Delta) => string {
-  const evIndex = new Map(Object.keys(sc.evidence).map((id, i) => [id, String.fromCharCode(0x100 + i)]));
+export function keyMaker(
+  sc: CompiledScenario,
+  flow: Flow,
+  bounds: Bounds,
+): (s: GameState, d?: Delta) => string {
+  const evIndex = new Map(
+    Object.keys(sc.evidence).map((id, i) => [id, String.fromCharCode(0x100 + i)]),
+  );
   // 人物ファイル（profile のある人物だけ。載っていても profile の無い人物はつきつけられない）
   const profileIndex = hasProfilePoints(sc)
-    ? new Map(Object.entries(sc.characters).filter(([, c]) => c.profile).map(([id], i) => [id, String.fromCharCode(0x100 + i)])) : null;
-  const profileKey = (list: string[]) => list.flatMap(id => profileIndex!.get(id) ?? []).sort().join('');
-  const lockKey = Object.values(sc.evidence).some(ev => ev.inspect);
+    ? new Map(
+        Object.entries(sc.characters)
+          .filter(([, c]) => c.profile)
+          .map(([id], i) => [id, String.fromCharCode(0x100 + i)]),
+      )
+    : null;
+  const profileKey = (list: string[]) =>
+    list
+      .flatMap((id) => profileIndex!.get(id) ?? [])
+      .sort()
+      .join('');
+  const lockKey = Object.values(sc.evidence).some((ev) => ev.inspect);
   const bool = booleanFlags(sc);
   // 地点ごとに、キーに入れる変数の並びを、種類と名前に分けて覚えておく
   // （種類 0: 真偽のフラグ・1: visited・2: seen・3: 真偽とは限らないフラグ）
@@ -107,19 +149,28 @@ export function keyMaker(sc: CompiledScenario, flow: Flow, bounds: Bounds): (s: 
     if (!p) {
       const names = flow.live(node);
       p = {
-        kind: Uint8Array.from(names, n => (n.startsWith('v:') ? 1 : n.startsWith('s:') ? 2 : bool.has(n) ? 0 : 3)),
-        name: names.map(n => (/^[vs]:/.test(n) ? n.slice(2) : n)),
+        kind: Uint8Array.from(names, (n) =>
+          n.startsWith('v:') ? 1 : n.startsWith('s:') ? 2 : bool.has(n) ? 0 : 3,
+        ),
+        name: names.map((n) => (/^[vs]:/.test(n) ? n.slice(2) : n)),
       };
       plans.set(node, p);
     }
     return p;
   };
-  const evKey = (list: string[]) => list.map(id => evIndex.get(id) ?? SEP + id + SEP).sort().join('');
+  const evKey = (list: string[]) =>
+    list
+      .map((id) => evIndex.get(id) ?? SEP + id + SEP)
+      .sort()
+      .join('');
   // 地点ごとの、変数の名前 → 並びの位置（操作の結果が、その地点のキーに入る変数を書いたかを調べるため）
   const index = new Map<number, Set<string>>();
   const touched = (node: number, d: Delta): boolean => {
     let names = index.get(node);
-    if (!names) { names = new Set(flow.live(node)); index.set(node, names); }
+    if (!names) {
+      names = new Set(flow.live(node));
+      index.set(node, names);
+    }
     for (const n of d.flags.keys()) if (names.has(n)) return true;
     for (const n of d.visited) if (names.has(`v:${n}`)) return true;
     for (const n of d.seen) if (names.has(`s:${n}`)) return true;
@@ -131,19 +182,35 @@ export function keyMaker(sc: CompiledScenario, flow: Flow, bounds: Bounds): (s: 
     const look = lookupOf(s);
     // 操作の結果が、この地点のキーに入る変数を書いていなければ、元の状態で作ったものを使い回す
     if (d && !touched(node, d)) d = undefined;
-    if (!d) { const hit = look.vars.get(node); if (hit !== undefined) return hit; }
+    if (!d) {
+      const hit = look.vars.get(node);
+      if (hit !== undefined) return hit;
+    }
     const flag = (n: string) => (d && d.flags.has(n) ? d.flags.get(n) : s.flags[n]);
     const { kind, name } = plan(node);
-    let bits = '', rest = '', word = 0, count = 0;
+    let bits = '',
+      rest = '',
+      word = 0,
+      count = 0;
     for (let i = 0; i < kind.length; i++) {
       const n = name[i]!;
       const k = kind[i];
-      if (k === 3) { rest += SEP + clamp(bounds, n, flag(n)); continue; }
-      const on = k === 0 ? flag(n) === true
-        : k === 1 ? setOf(s, 'visited').has(n) || (d?.visited.includes(n) ?? false)
-        : setOf(s, 'seen').has(n) || (d?.seen.includes(n) ?? false);
+      if (k === 3) {
+        rest += SEP + clamp(bounds, n, flag(n));
+        continue;
+      }
+      const on =
+        k === 0
+          ? flag(n) === true
+          : k === 1
+            ? setOf(s, 'visited').has(n) || (d?.visited.includes(n) ?? false)
+            : setOf(s, 'seen').has(n) || (d?.seen.includes(n) ?? false);
       if (on) word |= 1 << count;
-      if (++count === 15) { bits += String.fromCharCode(0x8000 | word); word = 0; count = 0; }
+      if (++count === 15) {
+        bits += String.fromCharCode(0x8000 | word);
+        word = 0;
+        count = 0;
+      }
     }
     if (count > 0) bits += String.fromCharCode(0x8000 | word);
     const out = bits + rest;
@@ -169,10 +236,15 @@ export function keyMaker(sc: CompiledScenario, flow: Flow, bounds: Bounds): (s: 
     }
     let ev: string;
     if (d?.evidence.final) ev = evKey(d.evidence.final);
-    else if (d && d.evidence.append.length > 0) ev = evKey([...s.evidence, ...d.evidence.append.filter(x => !s.evidence.includes(x))]);
-    else ev = (lookupOf(s).ev ??= evKey(s.evidence));
+    else if (d && d.evidence.append.length > 0)
+      ev = evKey([...s.evidence, ...d.evidence.append.filter((x) => !s.evidence.includes(x))]);
+    else ev = lookupOf(s).ev ??= evKey(s.evidence);
     if (profileIndex) {
-      const list = d?.profiles.final ?? (d && d.profiles.append.length > 0 ? [...s.profiles ?? [], ...d.profiles.append] : s.profiles ?? []);
+      const list =
+        d?.profiles.final ??
+        (d && d.profiles.append.length > 0
+          ? [...(s.profiles ?? []), ...d.profiles.append]
+          : (s.profiles ?? []));
       ev += `#${profileKey(list)}`;
     }
     if (lockKey) ev += (d?.record ?? s.stage.recordLocked) ? '#L' : '#';

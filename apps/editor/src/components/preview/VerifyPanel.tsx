@@ -19,7 +19,7 @@ type State =
   | { kind: 'error'; text: string; error: string };
 
 export function VerifyPanel({ source, large }: { source: string | null; large: boolean }) {
-  const parts = useEditorState(s => s.tree);
+  const parts = useEditorState((s) => s.tree);
   const { select } = useActions();
   const worker = useRef<Worker | null>(null);
   const serial = useRef(0);
@@ -35,17 +35,29 @@ export function VerifyPanel({ source, large }: { source: string | null; large: b
   const run = (text: string) => {
     // 前のチェックが終わっていなければ止めて、やり直す
     stop();
-    const w = new Worker(new URL('../../preview/verify.worker.ts', import.meta.url), { type: 'module' });
+    const w = new Worker(new URL('../../preview/verify.worker.ts', import.meta.url), {
+      type: 'module',
+    });
     worker.current = w;
     const id = ++serial.current;
     w.onmessage = (e: MessageEvent<VerifyResponse>) => {
       if (e.data.id !== serial.current) return;
       const r = e.data;
-      if ('progress' in r) { setState({ kind: 'running', text, progress: r.progress }); return; }
-      setState(r.ok ? { kind: 'done', text, result: r.result, ms: r.ms } : { kind: 'error', text, error: r.error });
+      if ('progress' in r) {
+        setState({ kind: 'running', text, progress: r.progress });
+        return;
+      }
+      setState(
+        r.ok
+          ? { kind: 'done', text, result: r.result, ms: r.ms }
+          : { kind: 'error', text, error: r.error },
+      );
       stop();
     };
-    w.onerror = e => { setState({ kind: 'error', text, error: e.message || 'チェック中にエラーが起きました' }); stop(); };
+    w.onerror = (e) => {
+      setState({ kind: 'error', text, error: e.message || 'チェック中にエラーが起きました' });
+      stop();
+    };
     setState({ kind: 'running', text });
     w.postMessage({ id, text } satisfies VerifyRequest);
   };
@@ -59,35 +71,63 @@ export function VerifyPanel({ source, large }: { source: string | null; large: b
     // run と state は最新のものを使えばよい
   }, [auto, source]);
 
-  const stale = state.kind !== 'idle' && state.kind !== 'running' && source !== null && state.text !== source;
+  const stale =
+    state.kind !== 'idle' && state.kind !== 'running' && source !== null && state.text !== source;
   const findings = state.kind === 'done' ? state.result.findings : [];
-  const errors = findings.filter(f => f.severity === 'error').length;
+  const errors = findings.filter((f) => f.severity === 'error').length;
 
   return (
     <div className="border-b px-3 py-2">
       <div className="flex items-center gap-2 text-xs font-semibold">
         整合性チェック
         <Button
-          size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={!source || state.kind === 'running'}
-          onClick={() => source && run(source)} title="すべての遊び方を試して、詰みや到達しない場所を探します"
+          size="sm"
+          variant="outline"
+          className="h-6 px-2 text-[11px]"
+          disabled={!source || state.kind === 'running'}
+          onClick={() => source && run(source)}
+          title="すべての遊び方を試して、詰みや到達しない場所を探します"
         >
-          {state.kind === 'running' ? <Loader2 className="animate-spin" /> : <ShieldCheck />} チェック
+          {state.kind === 'running' ? <Loader2 className="animate-spin" /> : <ShieldCheck />}{' '}
+          チェック
         </Button>
-        {state.kind === 'running' && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => { stop(); setState({ kind: 'idle' }); }}>中止</Button>}
-        <label className="ml-auto flex items-center gap-1.5 font-normal text-muted-foreground" title={large ? '大きな章では時間がかかるので、チェックボタンで行ってください' : undefined}>
+        {state.kind === 'running' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => {
+              stop();
+              setState({ kind: 'idle' });
+            }}
+          >
+            中止
+          </Button>
+        )}
+        <label
+          className="ml-auto flex items-center gap-1.5 font-normal text-muted-foreground"
+          title={large ? '大きな章では時間がかかるので、チェックボタンで行ってください' : undefined}
+        >
           <Switch checked={auto && !large} disabled={large} onCheckedChange={setAuto} /> 自動
         </label>
       </div>
       <div className="mt-1 text-[11px] text-muted-foreground">
         {!source && 'コンパイルが通るとチェックできます。'}
         {source && state.kind === 'idle' && '未チェック'}
-        {state.kind === 'running' && `調べています…${state.progress ? `（${state.progress.toLocaleString()} 件）` : ''}`}
+        {state.kind === 'running' &&
+          `調べています…${state.progress ? `（${state.progress.toLocaleString()} 件）` : ''}`}
         {state.kind === 'error' && <span className="text-destructive">{state.error}</span>}
         {state.kind === 'done' && (
           <>
             調べた状態 {state.result.states.toLocaleString()} 件・{(state.ms / 1000).toFixed(2)} 秒
-            {state.result.truncated && <span className="text-amber-600">・状態が多すぎて途中で打ち切りました（結果は一部です）</span>}
-            {findings.length === 0 && <span className="text-emerald-600">・問題は見つかりませんでした</span>}
+            {state.result.truncated && (
+              <span className="text-amber-600">
+                ・状態が多すぎて途中で打ち切りました（結果は一部です）
+              </span>
+            )}
+            {findings.length === 0 && (
+              <span className="text-emerald-600">・問題は見つかりませんでした</span>
+            )}
             {findings.length > 0 && `・エラー ${errors}・警告 ${findings.length - errors}`}
           </>
         )}
@@ -101,14 +141,22 @@ export function VerifyPanel({ source, large }: { source: string | null; large: b
             return (
               <li key={i}>
                 <button
-                  type="button" disabled={!target} onClick={() => target && select(target)}
-                  className={cn('flex w-full items-start gap-1.5 rounded-md p-1 text-left text-xs hover:bg-accent disabled:cursor-default',
-                    f.severity === 'error' ? 'text-destructive' : 'text-amber-700')}
+                  type="button"
+                  disabled={!target}
+                  onClick={() => target && select(target)}
+                  className={cn(
+                    'flex w-full items-start gap-1.5 rounded-md p-1 text-left text-xs hover:bg-accent disabled:cursor-default',
+                    f.severity === 'error' ? 'text-destructive' : 'text-amber-700',
+                  )}
                 >
                   <Icon className="mt-0.5 size-3.5 shrink-0" />
                   <span className="min-w-0">
                     {f.message}
-                    {f.scene && <span className="ml-1 font-mono text-[10px] text-muted-foreground">{f.scene}</span>}
+                    {f.scene && (
+                      <span className="ml-1 font-mono text-[10px] text-muted-foreground">
+                        {f.scene}
+                      </span>
+                    )}
                   </span>
                 </button>
               </li>

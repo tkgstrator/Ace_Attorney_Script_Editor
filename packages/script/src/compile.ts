@@ -1,6 +1,18 @@
 import {
-  ExprSyntaxError, RichTextError, exprRefs, parseExpr, parseRich, plainText,
-  type CompiledScenario, type Expr, type Instr, type PartDef, type Scene, type Statement, type TextColor, type Value,
+  ExprSyntaxError,
+  RichTextError,
+  exprRefs,
+  parseExpr,
+  parseRich,
+  plainText,
+  type CompiledScenario,
+  type Expr,
+  type Instr,
+  type PartDef,
+  type Scene,
+  type Statement,
+  type TextColor,
+  type Value,
 } from '@gyakusai/core';
 import type { z } from 'zod';
 import { Builder, patch } from './builder.ts';
@@ -9,7 +21,14 @@ import { compilePlace, presentKindOf, seenIds, type PlaceContext } from './compi
 import { compileTestimony } from './compile-testimony.ts';
 import { compileEffect } from './compile-effect.ts';
 import { describeIssue } from './issues.ts';
-import { RESERVED_KEYS, commandSchemas, scenarioSchema, type CommandName, type RawPlace, type RawScenario } from './schema.ts';
+import {
+  RESERVED_KEYS,
+  commandSchemas,
+  scenarioSchema,
+  type CommandName,
+  type RawPlace,
+  type RawScenario,
+} from './schema.ts';
 
 export type Path = (string | number)[];
 
@@ -31,7 +50,6 @@ const DEFAULT_LIFE = 10;
 const DEFAULT_PENALTY = 2;
 const BUILTIN_GAMEOVER = '__gameover';
 const INTERPOLATION = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
-
 
 /** YAML を読み込んだ後の JS 値を検証し、core が実行できる形に変換する */
 export function compile(raw: unknown): CompileResult {
@@ -66,11 +84,18 @@ export function compile(raw: unknown): CompileResult {
   const allIds = new Map<string, Path>();
   const claim = (id: string, path: Path) => {
     const prev = allIds.get(id);
-    if (prev) error(path, `ID「${id}」が重複しています（${prev.join('.')} と同じ）。シーン・場所の ID は章の中で重ならないようにしてください`);
+    if (prev)
+      error(
+        path,
+        `ID「${id}」が重複しています（${prev.join('.')} と同じ）。シーン・場所の ID は章の中で重ならないようにしてください`,
+      );
     else allIds.set(id, path);
   };
   if (src.scenes) {
-    for (const [id, body] of Object.entries(src.scenes)) { claim(id, ['scenes', id]); sceneEntries.push({ id, body, path: ['scenes', id] }); }
+    for (const [id, body] of Object.entries(src.scenes)) {
+      claim(id, ['scenes', id]);
+      sceneEntries.push({ id, body, path: ['scenes', id] });
+    }
     parts.push({ id: 'main', kind: 'trial', title: src.title, scenes: Object.keys(src.scenes) });
   }
   (src.parts ?? []).forEach((part, pi) => {
@@ -81,18 +106,25 @@ export function compile(raw: unknown): CompileResult {
       sceneEntries.push({ id, body, path });
     }
     const partPlaces = Object.entries(part.places ?? {});
-    if (partPlaces.length > 0 && part.kind !== 'investigation') error(['parts', pi, 'places'], '場所（places）は探索編（kind: investigation）にだけ書けます');
+    if (partPlaces.length > 0 && part.kind !== 'investigation')
+      error(['parts', pi, 'places'], '場所（places）は探索編（kind: investigation）にだけ書けます');
     for (const [id, body] of partPlaces) {
       const path: Path = ['parts', pi, 'places', id];
       claim(id, path);
       placeEntries.push({ id, body, path });
     }
-    parts.push({ id: part.id, kind: part.kind, title: part.title, scenes: [...partScenes, ...partPlaces].map(([id]) => id) });
+    parts.push({
+      id: part.id,
+      kind: part.kind,
+      title: part.title,
+      scenes: [...partScenes, ...partPlaces].map(([id]) => id),
+    });
   });
-  if (sceneEntries.length === 0 && placeEntries.length === 0) error([], 'シーンがありません（scenes か parts を書いてください）');
-  const sceneIds = sceneEntries.map(e => e.id);
-  const placeIds = placeEntries.map(e => e.id);
-  const allSeen = new Set(placeEntries.flatMap(e => seenIds(e.id, e.body)));
+  if (sceneEntries.length === 0 && placeEntries.length === 0)
+    error([], 'シーンがありません（scenes か parts を書いてください）');
+  const sceneIds = sceneEntries.map((e) => e.id);
+  const placeIds = placeEntries.map((e) => e.id);
+  const allSeen = new Set(placeEntries.flatMap((e) => seenIds(e.id, e.body)));
   const scenePath = (id: string): Path => allIds.get(id) ?? ['scenes', id];
   const player = src.player ?? null;
   const penaltyDefault = src.defaults?.penalty ?? DEFAULT_PENALTY;
@@ -109,7 +141,8 @@ export function compile(raw: unknown): CompileResult {
   };
   const presentKind = presentKindOf(characters, evidence, error);
   const checkScene = (id: string, path: Path) => {
-    if (placeIds.includes(id)) error(path, `「${id}」は場所です。場所へ行くには investigate を使ってください`);
+    if (placeIds.includes(id))
+      error(path, `「${id}」は場所です。場所へ行くには investigate を使ってください`);
     else if (!sceneIds.includes(id)) error(path, `未定義のシーンです: ${id}`);
     referencedScenes.add(id);
   };
@@ -122,13 +155,21 @@ export function compile(raw: unknown): CompileResult {
   const checkInlineRefs = (text: string, path: Path) => {
     if (!text.includes('[show')) return;
     try {
-      for (const m of parseRich(text).marks) if (m.command.cmd === 'show' && m.command.id) checkCharacter(m.command.id, path);
-    } catch { /* 書き方の誤りは checkText が報告する */ }
+      for (const m of parseRich(text).marks)
+        if (m.command.cmd === 'show' && m.command.id) checkCharacter(m.command.id, path);
+    } catch {
+      /* 書き方の誤りは checkText が報告する */
+    }
   };
   const checkText = (text: string, path?: Path) => {
     for (const m of text.matchAll(INTERPOLATION)) readFlags.add(m[1]!);
     if (!path) return;
-    try { parseRich(text); } catch (e) { if (e instanceof RichTextError) error(path, e.message); else throw e; }
+    try {
+      parseRich(text);
+    } catch (e) {
+      if (e instanceof RichTextError) error(path, e.message);
+      else throw e;
+    }
   };
   const cond = (srcExpr: string, path: Path): Expr | undefined => {
     let e: Expr;
@@ -148,14 +189,20 @@ export function compile(raw: unknown): CompileResult {
       readFlags.add(v);
     }
     for (const ev of refs.evidence) checkEvidence(ev, path);
-    for (const sc of refs.scenes) if (!sceneIds.includes(sc) && !placeIds.includes(sc)) error(path, `未定義のシーン・場所です: ${sc}`);
-    for (const id of refs.seen) if (!allSeen.has(id)) error(path, `未定義の「調べる」「話す」の ID です: ${id}`);
+    for (const sc of refs.scenes)
+      if (!sceneIds.includes(sc) && !placeIds.includes(sc))
+        error(path, `未定義のシーン・場所です: ${sc}`);
+    for (const id of refs.seen)
+      if (!allSeen.has(id)) error(path, `未定義の「調べる」「話す」の ID です: ${id}`);
     return e;
   };
 
   // ---- ステップ列 → 命令列 ----
   const compileSteps = (steps: unknown, path: Path, b: Builder): void => {
-    if (!Array.isArray(steps)) { error(path, 'ステップの配列を書いてください'); return; }
+    if (!Array.isArray(steps)) {
+      error(path, 'ステップの配列を書いてください');
+      return;
+    }
     steps.forEach((step, i) => compileStep(step, [...path, i], b));
   };
 
@@ -170,34 +217,60 @@ export function compile(raw: unknown): CompileResult {
       const only = keys[0];
       if (keys.length === 1 && only !== undefined && only in characters) {
         const text = (step as Record<string, unknown>)[only];
-        if (typeof text !== 'string') { error([...path, only], '台詞は文字列で書いてください'); return; }
+        if (typeof text !== 'string') {
+          error([...path, only], '台詞は文字列で書いてください');
+          return;
+        }
         emitSay(only, text, undefined, b, [...path, only]);
         return;
       }
-      error(path, keys.length === 1
-        ? `「${keys[0]}」はコマンドでも人物 ID でもありません`
-        : `どのコマンドか判別できません（キー: ${keys.join(', ')}）`);
+      error(
+        path,
+        keys.length === 1
+          ? `「${keys[0]}」はコマンドでも人物 ID でもありません`
+          : `どのコマンドか判別できません（キー: ${keys.join(', ')}）`,
+      );
       return;
     }
-    if (cmds.length > 1) { error(path, `1つのステップに複数のコマンドがあります: ${cmds.join(', ')}`); return; }
+    if (cmds.length > 1) {
+      error(path, `1つのステップに複数のコマンドがあります: ${cmds.join(', ')}`);
+      return;
+    }
     const cmd = cmds[0]!;
     const res = commandSchemas[cmd].safeParse(step);
-    if (!res.success) { zodIssues(path, res.error); return; }
+    if (!res.success) {
+      zodIssues(path, res.error);
+      return;
+    }
     const s = res.data as Record<string, unknown>;
 
     switch (cmd) {
       case 'say': {
         const who = s.say as string | null;
         if (who !== null) checkCharacter(who, [...path, 'say']);
-        emitSay(who, s.text as string, s.color as TextColor | undefined, b, [...path, 'text'], s.auto === true);
+        emitSay(
+          who,
+          s.text as string,
+          s.color as TextColor | undefined,
+          b,
+          [...path, 'text'],
+          s.auto === true,
+        );
         break;
       }
-      case 'narrate': emitSay(null, s.narrate as string, undefined, b, [...path, 'narrate']); break;
+      case 'narrate':
+        emitSay(null, s.narrate as string, undefined, b, [...path, 'narrate']);
+        break;
       case 'set':
         for (const [flag, value] of Object.entries(s.set as Record<string, Value>)) {
           const p = [...path, 'set', flag];
-          if (!(flag in flags)) error(p, `未定義のフラグです: ${flag}（flags に初期値を書いてください）`);
-          else if (typeof flags[flag] !== typeof value) error(p, `フラグ ${flag} は ${typeof flags[flag]} 型です（${typeof value} は入れられません）`);
+          if (!(flag in flags))
+            error(p, `未定義のフラグです: ${flag}（flags に初期値を書いてください）`);
+          else if (typeof flags[flag] !== typeof value)
+            error(
+              p,
+              `フラグ ${flag} は ${typeof flags[flag]} 型です（${typeof value} は入れられません）`,
+            );
           b.emit({ op: 'set', flag, value });
         }
         break;
@@ -205,17 +278,20 @@ export function compile(raw: unknown): CompileResult {
         for (const [flag, amount] of Object.entries(s.add as Record<string, number>)) {
           const p = [...path, 'add', flag];
           if (!(flag in flags)) error(p, `未定義のフラグです: ${flag}`);
-          else if (typeof flags[flag] !== 'number') error(p, `フラグ ${flag} は数値ではないので add できません`);
+          else if (typeof flags[flag] !== 'number')
+            error(p, `フラグ ${flag} は数値ではないので add できません`);
           b.emit({ op: 'add', flag, amount });
         }
         break;
-      case 'giveProfile': case 'takeProfile':
+      case 'giveProfile':
+      case 'takeProfile':
         for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
           checkCharacter(id, [...path, cmd]);
           b.emit({ op: cmd, character: id });
         }
         break;
-      case 'give': case 'take':
+      case 'give':
+      case 'take':
         for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
           checkEvidence(id, [...path, cmd]);
           b.emit({ op: cmd, evidence: id });
@@ -255,15 +331,24 @@ export function compile(raw: unknown): CompileResult {
         checkText(s.demand as string, [...path, 'demand']);
         if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
         const ins: Extract<Instr, { op: 'demand' }> = {
-          op: 'demand', prompt: s.demand as string, options: {}, wrong: -1, ...(s.by ? { speaker: s.by as string } : {}),
+          op: 'demand',
+          prompt: s.demand as string,
+          options: {},
+          wrong: -1,
+          ...(s.by ? { speaker: s.by as string } : {}),
           ...(s.profiles === true ? { profiles: {} } : {}),
         };
         const at = b.emit(ins);
         const exits: number[] = [];
         for (const [ev, body] of Object.entries(s.present as Record<string, unknown[]>)) {
           const kind = presentKind(ev, [...path, 'present', ev]);
-          if (kind === 'profile' && s.profiles === false) error([...path, 'profiles'], `人物ファイル（${ev}）が正解なので、profiles: false にはできません`);
-          if (kind === 'profile') (ins.profiles ??= {})[ev] = b.pc; else ins.options[ev] = b.pc;
+          if (kind === 'profile' && s.profiles === false)
+            error(
+              [...path, 'profiles'],
+              `人物ファイル（${ev}）が正解なので、profiles: false にはできません`,
+            );
+          if (kind === 'profile') (ins.profiles ??= {})[ev] = b.pc;
+          else ins.options[ev] = b.pc;
           b.emit({ op: 'shout', kind: 'takethat', by: player });
           compileSteps(body, [...path, 'present', ev], b);
           exits.push(b.emit({ op: 'jump', to: -1 }));
@@ -275,20 +360,43 @@ export function compile(raw: unknown): CompileResult {
         for (const j of exits) patch(b, j, b.pc);
         break;
       }
-      case 'goto': checkScene(s.goto as string, [...path, 'goto']); b.emit({ op: 'goto', scene: s.goto as string }); break;
-      case 'penalty': b.emit({ op: 'penalty', amount: s.penalty === true ? penaltyDefault : s.penalty as number }); break;
+      case 'goto':
+        checkScene(s.goto as string, [...path, 'goto']);
+        b.emit({ op: 'goto', scene: s.goto as string });
+        break;
+      case 'penalty':
+        b.emit({
+          op: 'penalty',
+          amount: s.penalty === true ? penaltyDefault : (s.penalty as number),
+        });
+        break;
       case 'shout': {
         const by = (s.by as string | undefined) ?? player;
         if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
         b.emit({ op: 'shout', kind: s.shout as Extract<Instr, { op: 'shout' }>['kind'], by });
         break;
       }
-      case 'banner': checkText(s.banner as string); b.emit({ op: 'banner', text: s.banner as string }); break;
-      case 'card': checkText(s.card as string); b.emit({ op: 'card', text: s.card as string }); break;
-      case 'location': b.emit({ op: 'location', location: s.location as string | null }); break;
-      case 'investigate': checkPlace(s.investigate as string, [...path, 'investigate']); b.emit({ op: 'investigate', place: s.investigate as string }); break;
-      case 'end': b.emit({ op: 'end' }); break;
-      case 'gameover': b.emit({ op: 'gameover' }); break;
+      case 'banner':
+        checkText(s.banner as string);
+        b.emit({ op: 'banner', text: s.banner as string });
+        break;
+      case 'card':
+        checkText(s.card as string);
+        b.emit({ op: 'card', text: s.card as string });
+        break;
+      case 'location':
+        b.emit({ op: 'location', location: s.location as string | null });
+        break;
+      case 'investigate':
+        checkPlace(s.investigate as string, [...path, 'investigate']);
+        b.emit({ op: 'investigate', place: s.investigate as string });
+        break;
+      case 'end':
+        b.emit({ op: 'end' });
+        break;
+      case 'gameover':
+        b.emit({ op: 'gameover' });
+        break;
       case 'random': {
         const at = b.emit({ op: 'random', to: [] });
         const exits: number[] = [];
@@ -300,27 +408,43 @@ export function compile(raw: unknown): CompileResult {
         for (const j of exits) patch(b, j, b.pc);
         break;
       }
-      default: compileEffect(cmd, s, b, { checkCharacter, checkEvidence, path });
+      default:
+        compileEffect(cmd, s, b, { checkCharacter, checkEvidence, path });
     }
   };
 
-  const emitSay = (speaker: string | null, text: string, color: TextColor | undefined, b: Builder, path: Path, auto = false) => {
+  const emitSay = (
+    speaker: string | null,
+    text: string,
+    color: TextColor | undefined,
+    b: Builder,
+    path: Path,
+    auto = false,
+  ) => {
     checkText(text, path);
     checkInlineRefs(text, path);
     // （ ）で囲んだ台詞は心の声として青字にする
     const thought = /^[（(]/.test(plainText(text));
-    b.emit({ op: 'say', speaker, text, color: color ?? (thought ? 'blue' : 'white'), ...(auto ? { auto: true } : {}) });
+    b.emit({
+      op: 'say',
+      speaker,
+      text,
+      color: color ?? (thought ? 'blue' : 'white'),
+      ...(auto ? { auto: true } : {}),
+    });
   };
 
   const compileWrong = (steps: unknown, path: Path, b: Builder) => {
     if (steps !== undefined) compileSteps(steps, path, b);
-    else if (src.defaults?.wrongPresent) compileSteps(src.defaults.wrongPresent, ['defaults', 'wrongPresent'], b);
+    else if (src.defaults?.wrongPresent)
+      compileSteps(src.defaults.wrongPresent, ['defaults', 'wrongPresent'], b);
     else b.emit({ op: 'penalty', amount: penaltyDefault });
   };
 
   // ---- 全体の検証 ----
   for (const id of Object.keys(characters)) {
-    if (RESERVED_KEYS.has(id)) error(['characters', id], `「${id}」は予約語なので人物 ID に使えません`);
+    if (RESERVED_KEYS.has(id))
+      error(['characters', id], `「${id}」は予約語なので人物 ID に使えません`);
   }
   if (player !== null) checkCharacter(player, ['player']);
   checkScene(src.start.scene, ['start', 'scene']);
@@ -330,12 +454,22 @@ export function compile(raw: unknown): CompileResult {
     void v;
   }
   let gameoverScene = BUILTIN_GAMEOVER;
-  if (src.gameover !== undefined) { checkScene(src.gameover, ['gameover']); gameoverScene = src.gameover; }
+  if (src.gameover !== undefined) {
+    checkScene(src.gameover, ['gameover']);
+    gameoverScene = src.gameover;
+  }
 
   // ---- シーン ----
   const scenes: Record<string, Scene> = {};
   const placeCtx: PlaceContext = {
-    player, compileSteps, cond, checkCharacter, checkEvidence, checkPlace, presentKind, error,
+    player,
+    compileSteps,
+    cond,
+    checkCharacter,
+    checkEvidence,
+    checkPlace,
+    presentKind,
+    error,
   };
   sceneEntries.forEach(({ id, body, path }, index) => {
     const b = new Builder();
@@ -345,29 +479,40 @@ export function compile(raw: unknown): CompileResult {
       if (!last || !['goto', 'end', 'gameover', 'investigate'].includes(last.op)) {
         // 明示的な移動がなければ、YAML 上で次に書かれたシーンへ進む
         const next = sceneIds[index + 1];
-        if (next !== undefined) { b.emit({ op: 'goto', scene: next }); referencedScenes.add(next); }
-        else b.emit({ op: 'end' });
+        if (next !== undefined) {
+          b.emit({ op: 'goto', scene: next });
+          referencedScenes.add(next);
+        } else b.emit({ op: 'end' });
       }
       scenes[id] = { kind: 'dialogue', id, program: b.code };
       return;
     }
     scenes[id] = compileTestimony(placeCtx, id, body, path, warn, checkText, compileWrong);
   });
-  for (const { id, body, path } of placeEntries) scenes[id] = compilePlace(placeCtx, id, body, path);
+  for (const { id, body, path } of placeEntries)
+    scenes[id] = compilePlace(placeCtx, id, body, path);
   const evidenceDefs = compileInspect(placeCtx, evidence, scenes);
   if (gameoverScene === BUILTIN_GAMEOVER) {
-    scenes[BUILTIN_GAMEOVER] = { kind: 'dialogue', id: BUILTIN_GAMEOVER, program: [{ op: 'gameover' }] };
+    scenes[BUILTIN_GAMEOVER] = {
+      kind: 'dialogue',
+      id: BUILTIN_GAMEOVER,
+      program: [{ op: 'gameover' }],
+    };
   }
 
   // ---- 到達性・未使用の警告 ----
   for (const id of [...sceneIds, ...placeIds]) {
-    if (!referencedScenes.has(id)) warn(scenePath(id), `${placeIds.includes(id) ? '場所' : 'シーン'}「${id}」にはどこからも移動しません`);
+    if (!referencedScenes.has(id))
+      warn(
+        scenePath(id),
+        `${placeIds.includes(id) ? '場所' : 'シーン'}「${id}」にはどこからも移動しません`,
+      );
   }
   for (const id of Object.keys(flags)) {
     if (!readFlags.has(id)) warn(['flags', id], `フラグ「${id}」は一度も参照されていません`);
   }
 
-  if (diagnostics.some(d => d.severity === 'error')) return { scenario: null, diagnostics };
+  if (diagnostics.some((d) => d.severity === 'error')) return { scenario: null, diagnostics };
   return {
     scenario: {
       id: src.id,
@@ -389,4 +534,3 @@ export function compile(raw: unknown): CompileResult {
     diagnostics,
   };
 }
-

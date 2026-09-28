@@ -3,17 +3,36 @@
 // 色は下画面の出力（6 ビット）に合わせた値で書き出してある。
 import type { Assets, UiPart } from '@gyakusai/runtime';
 
-const urls = import.meta.glob('../../../assets/extracted/ui/{obj/*.png,court_bg_sepia.png}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+const urls = import.meta.glob('../../../assets/extracted/ui/{obj/*.png,court_bg_sepia.png}', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 /** 部品 → obj/ のファイル名の頭（index.json の番号） */
 const FILES: Record<Exclude<UiPart, 'recordBackground'>, string> = {
-  frameBar: '000_', frameCorner: '001_', titleEnd: '003_', back: '007_', record: '009_', toProfile: '011_',
-  present: '018_', presentCross: '019_', press: '020_', toEvidence: '023_',
-  titleProfile: '055_', titleEvidence: '056_', titleFile: '065_',
+  frameBar: '000_',
+  frameCorner: '001_',
+  titleEnd: '003_',
+  back: '007_',
+  record: '009_',
+  toProfile: '011_',
+  present: '018_',
+  presentCross: '019_',
+  press: '020_',
+  toEvidence: '023_',
+  titleProfile: '055_',
+  titleEvidence: '056_',
+  titleFile: '065_',
 };
 
 function load(url: string): Promise<HTMLImageElement> {
-  return new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = url; });
+  return new Promise((ok, ng) => {
+    const i = new Image();
+    i.onload = () => ok(i);
+    i.onerror = ng;
+    i.src = url;
+  });
 }
 
 /**
@@ -39,14 +58,17 @@ async function courtBackground(url: string): Promise<HTMLCanvasElement> {
 }
 
 export async function withOfficialUi(base: Assets): Promise<Assets> {
-  const find = (head: string) => Object.entries(urls).find(([k]) => k.includes(`/obj/${head}`))?.[1];
+  const find = (head: string) =>
+    Object.entries(urls).find(([k]) => k.includes(`/obj/${head}`))?.[1];
   const parts = new Map<UiPart, CanvasImageSource>();
-  await Promise.all(Object.entries(FILES).map(async ([part, head]) => {
-    const url = find(head);
-    if (url) parts.set(part as UiPart, await load(url));
-  }));
+  await Promise.all(
+    Object.entries(FILES).map(async ([part, head]) => {
+      const url = find(head);
+      if (url) parts.set(part as UiPart, await load(url));
+    }),
+  );
   const bgUrl = Object.entries(urls).find(([k]) => k.endsWith('/court_bg_sepia.png'))?.[1];
   if (bgUrl) parts.set('recordBackground', await courtBackground(bgUrl));
   if (parts.size === 0) return base;
-  return { ...base, ui: part => parts.get(part) ?? base.ui?.(part) };
+  return { ...base, ui: (part) => parts.get(part) ?? base.ui?.(part) };
 }

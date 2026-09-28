@@ -83,7 +83,9 @@ export class TextRenderer {
   }
 
   /** 1 文字ぶんの送り幅（ドット） */
-  get em(): number { return this.font.cell ?? this.font.size; }
+  get em(): number {
+    return this.font.cell ?? this.font.size;
+  }
 
   /** 文字列の幅（ドット）。等幅のときは、最後の文字の後ろの空きを含めない */
   #dots(text: string): number {
@@ -116,11 +118,18 @@ export class TextRenderer {
   inkBounds(line: string): [number, number] | null {
     const hit = this.#inkCache.get(line);
     if (hit !== undefined) return hit;
-    const cols = this.#dots(line) + 1, rows = this.font.rows;
+    const cols = this.#dots(line) + 1,
+      rows = this.font.rows;
     const atlas = this.font.bitmap?.atlas;
     const mask = atlas ? this.#atlasMask(atlas, line, cols) : this.#sampledMask(line, cols);
-    let l = cols, r = -1;
-    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (mask[y * cols + x]) { l = Math.min(l, x); r = Math.max(r, x); }
+    let l = cols,
+      r = -1;
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++)
+        if (mask[y * cols + x]) {
+          l = Math.min(l, x);
+          r = Math.max(r, x);
+        }
     const dx = this.font.dx ?? 0;
     const out: [number, number] | null = r < 0 ? null : [l + dx, r + dx];
     if (this.#inkCache.size >= CACHE_LIMIT) this.#inkCache.clear();
@@ -148,7 +157,15 @@ export class TextRenderer {
   }
 
   draw(text: string | string[], x: number, y: number, style: TextStyle = {}): void {
-    const { scale = 1, color = '#ffffff', shadow, shadowOffset = [1, 1], outline, outlineWidth = 1, align = 'left' } = style;
+    const {
+      scale = 1,
+      color = '#ffffff',
+      shadow,
+      shadowOffset = [1, 1],
+      outline,
+      outlineWidth = 1,
+      align = 'left',
+    } = style;
     const lh = style.lineHeight ?? (this.font.size + 4) * scale;
     const ctx = this.ctx;
     ctx.imageSmoothingEnabled = false;
@@ -156,8 +173,11 @@ export class TextRenderer {
     lines.forEach((line, i) => {
       if (!line) return;
       const img = this.#glyphs(line, color);
-      const w = img.width * scale, h = img.height * scale;
-      const lx = snap(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x) + (this.font.dx ?? 0) * scale;
+      const w = img.width * scale,
+        h = img.height * scale;
+      const lx =
+        snap(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x) +
+        (this.font.dx ?? 0) * scale;
       const ly = snap(y + i * lh) + (this.font.dy ?? 0) * scale;
       if (outline) {
         const o = this.#glyphs(line, outline);
@@ -167,7 +187,14 @@ export class TextRenderer {
           }
         }
       }
-      if (shadow) ctx.drawImage(this.#glyphs(line, shadow), lx + shadowOffset[0] * scale, ly + shadowOffset[1] * scale, w, h);
+      if (shadow)
+        ctx.drawImage(
+          this.#glyphs(line, shadow),
+          lx + shadowOffset[0] * scale,
+          ly + shadowOffset[1] * scale,
+          w,
+          h,
+        );
       ctx.drawImage(img, lx, ly, w, h);
     });
   }
@@ -185,7 +212,10 @@ export class TextRenderer {
     const [r, gr, b] = parseColor(color);
     for (let i = 0; i < mask.length; i++) {
       if (!mask[i]) continue;
-      out.data[i * 4] = r; out.data[i * 4 + 1] = gr; out.data[i * 4 + 2] = b; out.data[i * 4 + 3] = 255;
+      out.data[i * 4] = r;
+      out.data[i * 4 + 1] = gr;
+      out.data[i * 4 + 2] = b;
+      out.data[i * 4 + 3] = 255;
     }
     const c = document.createElement('canvas');
     c.width = cols;
@@ -204,8 +234,12 @@ export class TextRenderer {
     [...toFullWidth(line)].forEach((ch, i) => {
       // 全角の字形がなく半角の字形がある（法廷記録の名前の字の「(」や数字など）ときは、半角の字形を使う
       const idx = atlas.index.get(ch) ?? atlas.index.get(toHalfWidth(ch));
-      if (idx === undefined) { this.#copyFallback(ch, mask, cols, i * step); return; }
-      const ox = (idx % atlas.columns) * atlas.size, oy = Math.floor(idx / atlas.columns) * atlas.size;
+      if (idx === undefined) {
+        this.#copyFallback(ch, mask, cols, i * step);
+        return;
+      }
+      const ox = (idx % atlas.columns) * atlas.size,
+        oy = Math.floor(idx / atlas.columns) * atlas.size;
       for (let y = 0; y < Math.min(rows, atlas.size); y++) {
         for (let x = 0; x < atlas.size; x++) {
           if (atlas.pixels[((oy + y) * atlas.width + ox + x) * 4]! < 128) continue;
@@ -222,10 +256,14 @@ export class TextRenderer {
   /** このフォントにない 1 文字を、代わりのフォントで描いて mask の x の位置に重ねる */
   #copyFallback(ch: string, mask: Uint8Array, cols: number, x0: number) {
     const fb = this.font.fallback;
-    if (!fb) { warnMissing(ch); return; }
+    if (!fb) {
+      warnMissing(ch);
+      return;
+    }
     this.#fallbackRenderer ??= new TextRenderer(this.ctx, fb);
     const fcols = this.#fallbackRenderer.#dots(ch) + 1;
-    const fmask = fb.bitmap?.atlas ? this.#fallbackRenderer.#atlasMask(fb.bitmap.atlas, ch, fcols)
+    const fmask = fb.bitmap?.atlas
+      ? this.#fallbackRenderer.#atlasMask(fb.bitmap.atlas, ch, fcols)
       : this.#fallbackRenderer.#sampledMask(ch, fcols);
     const dy = this.font.ink.top - fb.ink.top;
     for (let y = 0; y < fb.rows; y++) {
@@ -262,7 +300,8 @@ export class TextRenderer {
     const half = SAMPLE >> 1;
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        if (src[((y * SAMPLE + half) * cols * SAMPLE + x * SAMPLE + half) * 4 + 3]! >= 128) mask[y * cols + x] = 1;
+        if (src[((y * SAMPLE + half) * cols * SAMPLE + x * SAMPLE + half) * 4 + 3]! >= 128)
+          mask[y * cols + x] = 1;
       }
     }
     return mask;
@@ -273,7 +312,9 @@ const warned = new Set<string>();
 function warnMissing(ch: string) {
   if (warned.has(ch)) return;
   warned.add(ch);
-  console.warn(`フォントにない文字です: ${ch}（U+${ch.codePointAt(0)!.toString(16).toUpperCase()}）`);
+  console.warn(
+    `フォントにない文字です: ${ch}（U+${ch.codePointAt(0)!.toString(16).toUpperCase()}）`,
+  );
 }
 
 function toHalfWidth(ch: string): string {
@@ -282,7 +323,9 @@ function toHalfWidth(ch: string): string {
 }
 
 function toFullWidth(text: string): string {
-  return text.replace(/[\x20-\x7e]/g, ch => ch === ' ' ? '\u3000' : String.fromCharCode(ch.charCodeAt(0) + 0xfee0));
+  return text.replace(/[\x20-\x7e]/g, (ch) =>
+    ch === ' ' ? '\u3000' : String.fromCharCode(ch.charCodeAt(0) + 0xfee0),
+  );
 }
 
 function parseColor(hex: string): [number, number, number] {

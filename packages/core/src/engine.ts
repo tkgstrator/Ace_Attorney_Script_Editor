@@ -1,4 +1,12 @@
-import { firstVisible, instrBeat, nextVisible, resumeStep, testimonyBeat, visibleOptions, visibleStatements } from './beat.ts';
+import {
+  firstVisible,
+  instrBeat,
+  nextVisible,
+  resumeStep,
+  testimonyBeat,
+  visibleOptions,
+  visibleStatements,
+} from './beat.ts';
 import { cloneData } from './clone.ts';
 import { EngineError } from './errors.ts';
 import { applyInlineCommand, enterStatement, execSimple } from './exec.ts';
@@ -9,7 +17,18 @@ import { examineAt, investigateBeat, personAt } from './investigation.ts';
 import { inspectFrame, returnFromInspect } from './inspect.ts';
 import { holds, kindOf, recordName, type RecordKind } from './present.ts';
 import type {
-  Beat, CompiledScenario, EngineEvent, Expr, GameState, Instr, PlaceScene, ResumeTarget, Scene, Snapshot, TestimonyScene, Value,
+  Beat,
+  CompiledScenario,
+  EngineEvent,
+  Expr,
+  GameState,
+  Instr,
+  PlaceScene,
+  ResumeTarget,
+  Scene,
+  Snapshot,
+  TestimonyScene,
+  Value,
 } from './types.ts';
 
 const STEP_LIMIT = 100_000;
@@ -33,7 +52,8 @@ export class Engine {
   constructor(scenario: CompiledScenario, snapshot?: Snapshot) {
     this.scenario = scenario;
     if (snapshot) {
-      if (snapshot.scenario !== scenario.id) throw new EngineError(`別のシナリオのセーブデータです: ${snapshot.scenario}`);
+      if (snapshot.scenario !== scenario.id)
+        throw new EngineError(`別のシナリオのセーブデータです: ${snapshot.scenario}`);
       this.#state = migrateState(cloneData(snapshot.state), scenario);
     } else {
       this.#state = initialState(scenario);
@@ -42,11 +62,14 @@ export class Engine {
     this.#settle();
   }
 
-  get state(): Readonly<GameState> { return this.#state; }
+  get state(): Readonly<GameState> {
+    return this.#state;
+  }
 
   get beat(): Beat {
     const s = this.#state;
-    if (s.mode === 'investigate') return investigateBeat(this.scenario, this.#place(), s, e => this.#test(e));
+    if (s.mode === 'investigate')
+      return investigateBeat(this.scenario, this.#place(), s, (e) => this.#test(e));
     const test = (e: Expr | undefined) => this.#test(e);
     if (s.mode === 'testimony') return testimonyBeat(this.scenario, this.#testimony(), s, test);
     return instrBeat(this.scenario, this.#instr(), s, test);
@@ -55,7 +78,11 @@ export class Engine {
   /** 証拠品をつきつけられる場面か */
   get canPresent(): boolean {
     const b = this.beat;
-    return b.kind === 'demand' || (b.kind === 'statement' && b.cross) || (b.kind === 'investigate' && b.present);
+    return (
+      b.kind === 'demand' ||
+      (b.kind === 'statement' && b.cross) ||
+      (b.kind === 'investigate' && b.present)
+    );
   }
 
   /** 人物ファイルもつきつけられる場面か（探偵パートの人物と、人物ファイルを認めるつきつけの要求） */
@@ -74,21 +101,33 @@ export class Engine {
       switch (s.phase) {
         case 'intro':
           if (t.reading !== undefined) this.#run(t.reading);
-          else this.#toStatement('reading', firstVisible(t, e => this.#test(e)));
+          else
+            this.#toStatement(
+              'reading',
+              firstVisible(t, (e) => this.#test(e)),
+            );
           break;
-        case 'crossIntro': this.#toStatement('cross', firstVisible(t, e => this.#test(e))); break;
+        case 'crossIntro':
+          this.#toStatement(
+            'cross',
+            firstVisible(t, (e) => this.#test(e)),
+          );
+          break;
         case 'reading': {
-          const next = nextVisible(t, s.statement, e => this.#test(e));
+          const next = nextVisible(t, s.statement, (e) => this.#test(e));
           if (next !== null) this.#toStatement('reading', next);
           else if (t.after !== undefined) this.#run(t.after);
           else s.phase = 'crossIntro';
           break;
         }
-        case 'cross': this.#resume('next'); break;
+        case 'cross':
+          this.#resume('next');
+          break;
       }
     } else {
       const ins = this.#instr();
-      if (ins.op === 'choice' || ins.op === 'demand') throw new EngineError(`${ins.op} では advance できません`);
+      if (ins.op === 'choice' || ins.op === 'demand')
+        throw new EngineError(`${ins.op} では advance できません`);
       if (ins.op === 'end' || ins.op === 'gameover') return;
       s.pc++;
     }
@@ -99,9 +138,12 @@ export class Engine {
   back(): void {
     const s = this.#state;
     this.#requireCross('back');
-    const visible = visibleStatements(this.#testimony(), e => this.#test(e));
+    const visible = visibleStatements(this.#testimony(), (e) => this.#test(e));
     const i = visible.indexOf(s.statement);
-    if (i > 0) { s.statement = visible[i - 1]!; this.#changed(); }
+    if (i > 0) {
+      s.statement = visible[i - 1]!;
+      this.#changed();
+    }
   }
 
   press(): void {
@@ -116,7 +158,11 @@ export class Engine {
   present(id: string, kind: RecordKind = kindOf(this.scenario, id)): void {
     const s = this.#state;
     if (!holds(this.scenario, s, id, kind)) {
-      throw new EngineError(kind === 'evidence' ? `持っていない証拠品です: ${id}` : `人物ファイルに載っていない人物です: ${id}`);
+      throw new EngineError(
+        kind === 'evidence'
+          ? `持っていない証拠品です: ${id}`
+          : `人物ファイルに載っていない人物です: ${id}`,
+      );
     }
     const profile = kind === 'profile';
     const name = recordName(this.scenario, id, kind);
@@ -129,13 +175,15 @@ export class Engine {
       this.#run(target ?? t.wrong);
     } else if (s.mode === 'investigate') {
       const place = this.#place();
-      if (personAt(place, e => this.#test(e)) === null) throw new EngineError('この場所には証拠品をつきつける相手がいません');
+      if (personAt(place, (e) => this.#test(e)) === null)
+        throw new EngineError('この場所には証拠品をつきつける相手がいません');
       s.vars = { evidence: name };
       this.#run((profile ? place.presentProfile?.[id] : place.present[id]) ?? place.presentWrong);
     } else {
       const ins = this.#instr();
       if (ins.op !== 'demand') throw new EngineError('今は証拠品をつきつけられません');
-      if (profile && !ins.profiles) throw new EngineError('このつきつけの要求では人物ファイルをつきつけられません');
+      if (profile && !ins.profiles)
+        throw new EngineError('このつきつけの要求では人物ファイルをつきつけられません');
       s.vars = { evidence: name };
       s.pc = (profile ? ins.profiles![id] : ins.options[id]) ?? ins.wrong;
     }
@@ -145,7 +193,7 @@ export class Engine {
   choose(index: number): void {
     const ins = this.#state.mode === 'run' ? this.#instr() : null;
     if (ins?.op !== 'choice') throw new EngineError('選択肢は表示されていません');
-    const opt = visibleOptions(ins, e => this.#test(e))[index];
+    const opt = visibleOptions(ins, (e) => this.#test(e))[index];
     if (!opt) throw new EngineError(`選択肢の番号が範囲外です: ${index}`);
     this.#state.pc = opt.to;
     this.#settle();
@@ -155,7 +203,7 @@ export class Engine {
 
   /** 画面上の点（256×192 ドットの座標）を調べる */
   examine(x: number, y: number): void {
-    const hit = examineAt(this.#requirePlace('examine'), x, y, e => this.#test(e));
+    const hit = examineAt(this.#requirePlace('examine'), x, y, (e) => this.#test(e));
     if (hit.seen) this.#markSeen(hit.seen);
     this.#run(hit.pc);
     this.#settle();
@@ -164,7 +212,8 @@ export class Engine {
   /** 別の場所へ移動する */
   move(place: string): void {
     const b = this.beat;
-    if (b.kind !== 'investigate' || !b.move.some(m => m.id === place)) throw new EngineError(`ここからは移動できません: ${place}`);
+    if (b.kind !== 'investigate' || !b.move.some((m) => m.id === place))
+      throw new EngineError(`ここからは移動できません: ${place}`);
     this.#goPlace(place);
     this.#settle();
   }
@@ -173,8 +222,9 @@ export class Engine {
   talk(topic: string): void {
     const place = this.#requirePlace('talk');
     const b = this.beat;
-    const t = place.talk.find(x => x.id === topic);
-    if (!t || b.kind !== 'investigate' || !b.talk.some(x => x.id === topic)) throw new EngineError(`今は選べない話題です: ${topic}`);
+    const t = place.talk.find((x) => x.id === topic);
+    if (!t || b.kind !== 'investigate' || !b.talk.some((x) => x.id === topic))
+      throw new EngineError(`今は選べない話題です: ${topic}`);
     this.#markSeen(t.id);
     this.#run(t.pc);
     this.#settle();
@@ -248,7 +298,8 @@ export class Engine {
   }
 
   #requirePlace(action: string): PlaceScene {
-    if (this.#state.mode !== 'investigate') throw new EngineError(`探偵メニューでないと ${action} できません`);
+    if (this.#state.mode !== 'investigate')
+      throw new EngineError(`探偵メニューでないと ${action} できません`);
     return this.#place();
   }
 
@@ -271,7 +322,7 @@ export class Engine {
     s.mode = 'investigate';
     s.vars = {};
     s.stage.location = place.background;
-    s.stage.character = personAt(place, e => this.#test(e));
+    s.stage.character = personAt(place, (e) => this.#test(e));
     if (!s.visited.includes(place.id)) s.visited.push(place.id);
   }
 
@@ -289,7 +340,8 @@ export class Engine {
 
   #requireCross(action: string) {
     const s = this.#state;
-    if (s.mode !== 'testimony' || s.phase !== 'cross') throw new EngineError(`尋問中でないと ${action} できません`);
+    if (s.mode !== 'testimony' || s.phase !== 'cross')
+      throw new EngineError(`尋問中でないと ${action} できません`);
   }
 
   #env: ExprEnv = stateEnv(() => this.#state);
@@ -311,9 +363,11 @@ export class Engine {
   #resume(to: ResumeTarget) {
     const s = this.#state;
     s.vars = {};
-    const r = resumeStep(this.#testimony(), s, to, e => this.#test(e));
-    if (r === 'crossIntro') { s.mode = 'testimony'; s.phase = 'crossIntro'; }
-    else if ('run' in r) this.#run(r.run);
+    const r = resumeStep(this.#testimony(), s, to, (e) => this.#test(e));
+    if (r === 'crossIntro') {
+      s.mode = 'testimony';
+      s.phase = 'crossIntro';
+    } else if ('run' in r) this.#run(r.run);
     else this.#toStatement('cross', r.statement);
   }
 
@@ -322,7 +376,10 @@ export class Engine {
     const sc = this.scenario.scenes[scene];
     if (!sc) throw new EngineError(`存在しないシーンです: ${scene}`);
     // 探索編の場所から出るときは、場所の背景をやめる（法廷なら立ち位置で背景が決まる）
-    if (this.scenario.scenes[s.scene]?.kind === 'place' && sc.kind !== 'place') { s.stage.location = null; s.stage.character = null; }
+    if (this.scenario.scenes[s.scene]?.kind === 'place' && sc.kind !== 'place') {
+      s.stage.location = null;
+      s.stage.character = null;
+    }
     s.scene = scene;
     s.pc = 0;
     s.vars = {};
@@ -330,9 +387,15 @@ export class Engine {
     s.stage.evidence = null;
     // 場所は、来たときのブロックで visited(場所) を「初めてか」の判定に使えるよう、探偵メニューに着いたときに記録する
     if (sc.kind !== 'place' && !s.visited.includes(scene)) s.visited.push(scene);
-    if (sc.kind === 'testimony') { s.mode = 'testimony'; s.phase = 'intro'; s.statement = 0; }
-    else if (sc.kind === 'place') { s.stage.location = sc.background; s.stage.character = null; s.mode = 'run'; }
-    else s.mode = 'run';
+    if (sc.kind === 'testimony') {
+      s.mode = 'testimony';
+      s.phase = 'intro';
+      s.statement = 0;
+    } else if (sc.kind === 'place') {
+      s.stage.location = sc.background;
+      s.stage.character = null;
+      s.mode = 'run';
+    } else s.mode = 'run';
   }
 
   /** 停止する命令（台詞・選択肢など）に着くまで命令を実行する */
@@ -344,7 +407,12 @@ export class Engine {
       switch (ins.op) {
         case 'say':
           // 心の声（青字）では立ち絵を切り替えない
-          if (this.scenario.autoShow && ins.speaker && ins.color !== 'blue' && s.stage.character !== ins.speaker) {
+          if (
+            this.scenario.autoShow &&
+            ins.speaker &&
+            ins.color !== 'blue' &&
+            s.stage.character !== ins.speaker
+          ) {
             s.stage.character = ins.speaker;
             s.stage.pose = null;
           }
@@ -352,22 +420,47 @@ export class Engine {
           for (const m of bgmMarks(ins.text)) s.stage.bgm = m;
           this.#changed();
           return;
-        case 'shout': case 'banner': case 'card': case 'choice': case 'demand': case 'end': case 'gameover': case 'wait':
+        case 'shout':
+        case 'banner':
+        case 'card':
+        case 'choice':
+        case 'demand':
+        case 'end':
+        case 'gameover':
+        case 'wait':
           this.#changed();
           return;
         case 'fade':
-          if (!ins.wait) { execSimple(ins, s, this.#events); s.pc++; break; } // 止まらないフェード
+          if (!ins.wait) {
+            execSimple(ins, s, this.#events);
+            s.pc++;
+            break;
+          } // 止まらないフェード
           s.stage.fade = ins.dir === 'out' ? ins.color : null;
           this.#events.push({ type: 'fade', dir: ins.dir, color: ins.color, frames: ins.frames });
           this.#changed();
           return;
-        case 'jump': s.pc = ins.to; break;
-        case 'random': s.pc = ins.to[Math.floor(Math.random() * ins.to.length)] ?? s.pc + 1; break;
-        case 'jumpUnless': s.pc = this.#test(ins.cond) ? s.pc + 1 : ins.to; break;
-        case 'goto': this.#enter(ins.scene); break;
-        case 'resume': this.#resume(ins.to); break;
-        case 'investigate': this.#goPlace(ins.place); break;
-        case 'menu': this.#toMenu(); break;
+        case 'jump':
+          s.pc = ins.to;
+          break;
+        case 'random':
+          s.pc = ins.to[Math.floor(Math.random() * ins.to.length)] ?? s.pc + 1;
+          break;
+        case 'jumpUnless':
+          s.pc = this.#test(ins.cond) ? s.pc + 1 : ins.to;
+          break;
+        case 'goto':
+          this.#enter(ins.scene);
+          break;
+        case 'resume':
+          this.#resume(ins.to);
+          break;
+        case 'investigate':
+          this.#goPlace(ins.place);
+          break;
+        case 'menu':
+          this.#toMenu();
+          break;
         case 'inspectEnd': {
           const f = s.inspectFrom;
           if (!f) throw new EngineError('詳しく調べるブロックの外で inspectEnd に来ました');
@@ -377,8 +470,14 @@ export class Engine {
         case 'penalty':
           s.life = Math.max(0, s.life - ins.amount);
           this.#events.push({ type: 'penalty', amount: ins.amount, life: s.life });
-          if (s.life > 0) { s.pc++; break; }
-          if (this.scenario.gameoverScene) { this.#enter(this.scenario.gameoverScene); break; }
+          if (s.life > 0) {
+            s.pc++;
+            break;
+          }
+          if (this.scenario.gameoverScene) {
+            this.#enter(this.scenario.gameoverScene);
+            break;
+          }
           this.#changed();
           throw new EngineError('ライフが尽きましたが、gameover シーンが定義されていません');
         default:
@@ -386,7 +485,8 @@ export class Engine {
           else throw new EngineError(`実行できない命令です: ${ins.op}`);
       }
     }
-    if (s.mode === 'run') throw new EngineError(`${STEP_LIMIT} 命令を実行しても止まりません（無限ループの可能性）`);
+    if (s.mode === 'run')
+      throw new EngineError(`${STEP_LIMIT} 命令を実行しても止まりません（無限ループの可能性）`);
     this.#changed();
   }
 

@@ -10,12 +10,27 @@ interface AnimDef {
 }
 
 const X = '../../../assets/extracted';
-const animTable = import.meta.glob('../../../assets/extracted/tables/char_anims.json', { import: 'default' });
-const animPngs = import.meta.glob('../../../assets/extracted/data/tail/chars/by_anim/*/f*.png', { query: '?url', import: 'default' });
-const bgRender = import.meta.glob('../../../assets/extracted/tables/bg_render.json', { import: 'default' });
-const bgPngs = import.meta.glob('../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png', { query: '?url', import: 'default' });
+const animTable = import.meta.glob('../../../assets/extracted/tables/char_anims.json', {
+  import: 'default',
+});
+const animPngs = import.meta.glob('../../../assets/extracted/data/tail/chars/by_anim/*/f*.png', {
+  query: '?url',
+  import: 'default',
+});
+const bgRender = import.meta.glob('../../../assets/extracted/tables/bg_render.json', {
+  import: 'default',
+});
+const bgPngs = import.meta.glob('../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png', {
+  query: '?url',
+  import: 'default',
+});
 
-interface BgDef { id: number; png: string; png_fixed?: string; start: [number, number] }
+interface BgDef {
+  id: number;
+  png: string;
+  png_fixed?: string;
+  start: [number, number];
+}
 
 const SCREEN = { w: 256, h: 192, cx: 128, cy: 96 };
 
@@ -28,7 +43,10 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-interface Loaded { def: AnimDef; frames: Map<number, HTMLCanvasElement> }
+interface Loaded {
+  def: AnimDef;
+  frames: Map<number, HTMLCanvasElement>;
+}
 
 /** 動きの番号と背景の番号で引ける Assets を、base に重ねて作る */
 export async function withOfficialAnims(base: Assets): Promise<Assets> {
@@ -50,7 +68,9 @@ export async function withOfficialAnims(base: Assets): Promise<Assets> {
     if (!path) return undefined;
     if (!backgrounds.has(key)) {
       backgrounds.set(key, null);
-      void bgPngs[path]?.().then(url => loadImage(url as string)).then(img => backgrounds.set(key, img));
+      void bgPngs[path]?.()
+        .then((url) => loadImage(url as string))
+        .then((img) => backgrounds.set(key, img));
     }
     return backgrounds.get(key) ?? undefined;
   };
@@ -63,16 +83,18 @@ export async function withOfficialAnims(base: Assets): Promise<Assets> {
     anims.set(id, null);
     const dir = `${X}/data/tail/chars/by_anim/${id.padStart(3, '0')}/`;
     const frames = new Map<number, HTMLCanvasElement>();
-    void Promise.all([...new Set(def.frames.map(f => f.frame))].map(async n => {
-      const loader = animPngs[`${dir}f${String(n).padStart(2, '0')}.png`];
-      if (!loader) return;
-      const img = await loadImage((await loader()) as string);
-      const c = document.createElement('canvas');
-      c.width = SCREEN.w;
-      c.height = SCREEN.h;
-      c.getContext('2d')!.drawImage(img, SCREEN.cx - def.origin[0], SCREEN.cy - def.origin[1]);
-      frames.set(n, c);
-    })).then(() => anims.set(id, { def, frames }));
+    void Promise.all(
+      [...new Set(def.frames.map((f) => f.frame))].map(async (n) => {
+        const loader = animPngs[`${dir}f${String(n).padStart(2, '0')}.png`];
+        if (!loader) return;
+        const img = await loadImage((await loader()) as string);
+        const c = document.createElement('canvas');
+        c.width = SCREEN.w;
+        c.height = SCREEN.h;
+        c.getContext('2d')!.drawImage(img, SCREEN.cx - def.origin[0], SCREEN.cy - def.origin[1]);
+        frames.set(n, c);
+      }),
+    ).then(() => anims.set(id, { def, frames }));
   };
 
   // 人物ごとに、今の動きと始めた時刻（動きが変わったら最初のコマから）
@@ -82,7 +104,10 @@ export async function withOfficialAnims(base: Assets): Promise<Assets> {
     const a = anims.get(anim);
     if (!a) return undefined;
     let p = playing.get(character);
-    if (!p || p.anim !== anim) { p = { anim, start: performance.now() }; playing.set(character, p); }
+    if (!p || p.anim !== anim) {
+      p = { anim, start: performance.now() };
+      playing.set(character, p);
+    }
     const total = a.def.frames.reduce((s, f) => s + f.dur, 0);
     let t = Math.floor((performance.now() - p.start) / (1000 / 60));
     if (a.def.end === 'loop' && total > 0) t %= total;
@@ -95,8 +120,9 @@ export async function withOfficialAnims(base: Assets): Promise<Assets> {
 
   return {
     ...base,
-    background: key => background(key) ?? base.background?.(key),
-    backgroundStart: key => bgStart.get(key) ?? base.backgroundStart?.(key),
-    portrait: (id, frame) => (frame.anim !== undefined ? frameOf(id, String(frame.anim)) : base.portrait?.(id, frame)),
+    background: (key) => background(key) ?? base.background?.(key),
+    backgroundStart: (key) => bgStart.get(key) ?? base.backgroundStart?.(key),
+    portrait: (id, frame) =>
+      frame.anim !== undefined ? frameOf(id, String(frame.anim)) : base.portrait?.(id, frame),
   };
 }

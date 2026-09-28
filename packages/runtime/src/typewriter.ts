@@ -46,7 +46,11 @@ export class Typewriter {
   constructor(text: string, opts: TypewriterOptions) {
     this.#opts = opts;
     let rich;
-    try { rich = parseRich(text); } catch { rich = { plain: text, marks: [] }; }
+    try {
+      rich = parseRich(text);
+    } catch {
+      rich = { plain: text, marks: [] };
+    }
     const byIndex = new Map<number, InlineCommand[]>();
     for (const m of rich.marks) byIndex.set(m.at, [...(byIndex.get(m.at) ?? []), m.command]);
     const chars = [...rich.plain];
@@ -54,7 +58,8 @@ export class Typewriter {
     const colorAt: (string | null)[] = [];
     let color: string | null = null;
     for (let i = 0; i <= chars.length; i++) {
-      for (const c of byIndex.get(i) ?? []) if (c.cmd === 'color') color = c.color === 'white' ? null : opts.colors[c.color] ?? null;
+      for (const c of byIndex.get(i) ?? [])
+        if (c.cmd === 'color') color = c.color === 'white' ? null : (opts.colors[c.color] ?? null);
       colorAt.push(color);
     }
     // 折り返した行を、元の文字の位置と対応づけながらページに分ける
@@ -81,22 +86,40 @@ export class Typewriter {
     // 最後の文字の後のコマンド
     const tail = byIndex.get(chars.length);
     const last = this.pages.at(-1);
-    if (tail && last) last.events.set(last.length, [...(last.events.get(last.length) ?? []), ...tail]);
-    if (this.pages.length === 0) this.pages.push({ lines: [], events: tail ? new Map([[0, tail]]) : new Map(), length: 0 });
+    if (tail && last)
+      last.events.set(last.length, [...(last.events.get(last.length) ?? []), ...tail]);
+    if (this.pages.length === 0)
+      this.pages.push({ lines: [], events: tail ? new Map([[0, tail]]) : new Map(), length: 0 });
   }
 
-  get #cur(): Page { return this.pages[this.page]!; }
-  get typing(): boolean { return this.shown < this.#cur.length || this.#fired < this.#cur.length && this.#cur.events.has(this.#cur.length) || this.#wait > 0; }
-  get lastPage(): boolean { return this.page >= this.pages.length - 1; }
+  get #cur(): Page {
+    return this.pages[this.page]!;
+  }
+  get typing(): boolean {
+    return (
+      this.shown < this.#cur.length ||
+      (this.#fired < this.#cur.length && this.#cur.events.has(this.#cur.length)) ||
+      this.#wait > 0
+    );
+  }
+  get lastPage(): boolean {
+    return this.page >= this.pages.length - 1;
+  }
 
   /** 今のページで出ている文字（行ごと） */
   get visible(): Glyph[][] {
     let left = this.shown;
-    return this.#cur.lines.map(row => { const r = row.slice(0, Math.max(0, left)); left -= row.length; return r; });
+    return this.#cur.lines.map((row) => {
+      const r = row.slice(0, Math.max(0, left));
+      left -= row.length;
+      return r;
+    });
   }
 
   /** ページの全部の文字（中央寄せの位置合わせなどに使う） */
-  get full(): Glyph[][] { return this.#cur.lines; }
+  get full(): Glyph[][] {
+    return this.#cur.lines;
+  }
 
   /** 経過時間だけ文字を進める */
   tick(ms: number): void {
@@ -109,7 +132,10 @@ export class Typewriter {
         if (this.#wait > 0) return;
       }
       if (this.#fire(this.shown)) continue; // [wait] で待ちが入ったら、上で待つ
-      if (this.shown >= this.#cur.length) { this.#acc = 0; return; }
+      if (this.shown >= this.#cur.length) {
+        this.#acc = 0;
+        return;
+      }
       const cost = this.#speed + this.#pause(this.shown - 1);
       if (this.#acc < cost) return;
       this.#acc -= cost;
@@ -144,8 +170,10 @@ export class Typewriter {
     this.#fired = index;
     let waited = false;
     for (const c of this.#cur.events.get(index) ?? []) {
-      if (c.cmd === 'wait') { this.#wait += c.frames; waited = true; }
-      else if (c.cmd === 'speed') this.#speed = c.frames;
+      if (c.cmd === 'wait') {
+        this.#wait += c.frames;
+        waited = true;
+      } else if (c.cmd === 'speed') this.#speed = c.frames;
       else if (c.cmd !== 'color') this.#opts.onCommand(c);
     }
     return waited;

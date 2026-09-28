@@ -34,10 +34,25 @@ let nextId = 1;
 
 function readState(text: string, id: number): DocState {
   const doc = parse(text);
-  if (doc.errors.length > 0) return { doc, base: text, baseId: id, data: null, error: doc.errors[0]!.message.split('\n')[0]! };
+  if (doc.errors.length > 0)
+    return {
+      doc,
+      base: text,
+      baseId: id,
+      data: null,
+      error: doc.errors[0]!.message.split('\n')[0]!,
+    };
   const js = doc.toJS() as unknown;
-  if (js === null || js === undefined) return { doc, base: text, baseId: id, data: {}, error: null };
-  if (typeof js !== 'object' || Array.isArray(js)) return { doc, base: text, baseId: id, data: null, error: '一番上がマップ（key: value）になっていません' };
+  if (js === null || js === undefined)
+    return { doc, base: text, baseId: id, data: {}, error: null };
+  if (typeof js !== 'object' || Array.isArray(js))
+    return {
+      doc,
+      base: text,
+      baseId: id,
+      data: null,
+      error: '一番上がマップ（key: value）になっていません',
+    };
   return { doc, base: text, baseId: id, data: js as Data, error: null };
 }
 
@@ -52,9 +67,15 @@ export class DocSession {
     this.state = readState(text, this.id);
   }
 
-  get data(): Data | null { return this.state.data; }
-  get error(): string | null { return this.state.error; }
-  get doc(): Document { return this.state.doc; }
+  get data(): Data | null {
+    return this.state.data;
+  }
+  get error(): string | null {
+    return this.state.error;
+  }
+  get doc(): Document {
+    return this.state.doc;
+  }
 
   /** 今の内容のテキスト。書き換えていなければ読んだテキストそのもの */
   text(): string {
@@ -79,7 +100,8 @@ export class DocSession {
   /** 操作を当てる。失敗したら何も変えずに例外を投げる */
   edit(ops: Op[]): Entry | null {
     const s = this.state;
-    if (s.doc.errors.length > 0 || !s.data) throw new Error('YAML の構文エラーがあるため、編集できません');
+    if (s.doc.errors.length > 0 || !s.data)
+      throw new Error('YAML の構文エラーがあるため、編集できません');
     const ed = new DocEditor(s.doc);
     try {
       for (const op of ops) ed.apply(op);
@@ -88,7 +110,12 @@ export class DocSession {
       throw e;
     }
     if (ed.changes.length === 0) return null;
-    const entry: Entry = { before: this.id, after: nextId++, changes: ed.changes, scopes: ed.scopes };
+    const entry: Entry = {
+      before: this.id,
+      after: nextId++,
+      changes: ed.changes,
+      scopes: ed.scopes,
+    };
     s.data = patchData(s.data, s.doc, ed.scopes);
     this.id = entry.after;
     return entry;
@@ -100,7 +127,13 @@ export class DocSession {
     const before = this.state;
     const id = nextId++;
     const after = readState(text, id);
-    const entry: Entry = { before: this.id, after: id, changes: [], scopes: [], swap: { before, after } };
+    const entry: Entry = {
+      before: this.id,
+      after: id,
+      changes: [],
+      scopes: [],
+      swap: { before, after },
+    };
     this.state = after;
     this.id = id;
     return entry;
@@ -130,17 +163,24 @@ export function mergeEntries(a: Entry, b: Entry): Entry | null {
   if (a.after !== b.before) return null;
   if (a.swap || b.swap) {
     if (!a.swap || !b.swap) return null;
-    return { before: a.before, after: b.after, changes: [], scopes: [], swap: { before: a.swap.before, after: b.swap.after } };
+    return {
+      before: a.before,
+      after: b.after,
+      changes: [],
+      scopes: [],
+      swap: { before: a.swap.before, after: b.swap.after },
+    };
   }
   const changes = [...a.changes];
   for (const c of b.changes) {
     const last = changes.at(-1);
     // 同じスカラーへの続けての書き換えは 1 つにする
-    if (last?.k === 'scalar' && c.k === 'scalar' && last.node === c.node) changes[changes.length - 1] = { ...last, after: c.after };
+    if (last?.k === 'scalar' && c.k === 'scalar' && last.node === c.node)
+      changes[changes.length - 1] = { ...last, after: c.after };
     else changes.push(c);
   }
-  const seen = new Set(a.scopes.map(p => JSON.stringify(p)));
-  const scopes = [...a.scopes, ...b.scopes.filter(p => !seen.has(JSON.stringify(p)))];
+  const seen = new Set(a.scopes.map((p) => JSON.stringify(p)));
+  const scopes = [...a.scopes, ...b.scopes.filter((p) => !seen.has(JSON.stringify(p)))];
   return { before: a.before, after: b.after, changes, scopes };
 }
 
@@ -149,7 +189,8 @@ export function serialize(doc: Document, base: string): string {
   const out = doc.toString(STRINGIFY);
   const restored = restoreLines(base, out);
   // 空白を戻したことで意味が変わってしまったら（引用符の中の空白など）、戻さない
-  if (restored !== out && JSON.stringify(parse(restored).toJS()) !== JSON.stringify(doc.toJS())) return out;
+  if (restored !== out && JSON.stringify(parse(restored).toJS()) !== JSON.stringify(doc.toJS()))
+    return out;
   return restored;
 }
 
@@ -172,7 +213,7 @@ function nodeToJS(doc: Document, node: unknown): unknown {
     const k = isScalar(node.key) ? node.key.value : node.key;
     return { [String(k)]: nodeToJS(doc, node.value) };
   }
-  return isNode(node) ? node.toJS(doc) : node ?? null;
+  return isNode(node) ? node.toJS(doc) : (node ?? null);
 }
 
 const isPrefix = (a: Path, b: Path) => a.length <= b.length && a.every((k, i) => b[i] === k);
@@ -181,11 +222,14 @@ const isPrefix = (a: Path, b: Path) => a.length <= b.length && a.every((k, i) =>
 export function patchData(data: Data, doc: Document, scopes: Path[]): Data {
   const roots: Path[] = [];
   for (const s of [...scopes].sort((a, b) => a.length - b.length)) {
-    if (!roots.some(r => isPrefix(r, s))) roots.push(s);
+    if (!roots.some((r) => isPrefix(r, s))) roots.push(s);
   }
   let out: unknown = data;
   for (const path of roots) {
-    if (path.length === 0) { out = doc.toJS() ?? {}; continue; }
+    if (path.length === 0) {
+      out = doc.toJS() ?? {};
+      continue;
+    }
     const r = lookup(doc, path);
     out = assocIn(out, path, 0, r.found ? nodeToJS(doc, r.node) : MISSING, doc);
   }

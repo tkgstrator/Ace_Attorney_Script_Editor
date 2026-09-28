@@ -12,7 +12,9 @@ const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) 
 export function loadEntry(n: number, dir = join(EXTRACTED, 'script/json')): Entry {
   const path = join(dir, `${String(n).padStart(3, '0')}.json`);
   if (!existsSync(path)) {
-    throw new Error(`${path} がありません。先に uv run tools/rom/script_json.py <rom.nds> ${n} --ocr を実行してください`);
+    throw new Error(
+      `${path} がありません。先に uv run tools/rom/script_json.py <rom.nds> ${n} --ocr を実行してください`,
+    );
   }
   return readJson<Entry>(path);
 }
@@ -20,32 +22,61 @@ export function loadEntry(n: number, dir = join(EXTRACTED, 'script/json')): Entr
 export function loadTables(dir = join(EXTRACTED, 'tables')): Tables {
   const names = readJson<{ names: Tables['names'] }>(join(dir, 'names.json')).names;
   const chars = readJson<{ chars: Tables['chars'] }>(join(dir, 'chars.json')).chars;
-  const ev = readJson<{ items: Tables['evidence']; start: Tables['evidenceStart'] }>(join(dir, 'evidence.json'));
+  const ev = readJson<{ items: Tables['evidence']; start: Tables['evidenceStart'] }>(
+    join(dir, 'evidence.json'),
+  );
   const court = readJson<Tables['court']>(join(dir, 'court.json'));
   const sounds = new Map<number, string>();
   const rendered = join(EXTRACTED, 'sound/rendered/index.json');
   if (existsSync(rendered)) {
-    for (const it of readJson<{ items: { sdatIndex: number; name: string }[] }>(rendered).items) sounds.set(it.sdatIndex, it.name);
+    for (const it of readJson<{ items: { sdatIndex: number; name: string }[] }>(rendered).items)
+      sounds.set(it.sdatIndex, it.name);
   } else {
-    const s = readJson<{ bgm: Record<string, { name: string }>; se?: Record<string, { name: string }> }>(join(dir, 'sound.json'));
+    const s = readJson<{
+      bgm: Record<string, { name: string }>;
+      se?: Record<string, { name: string }>;
+    }>(join(dir, 'sound.json'));
     for (const [k, v] of Object.entries({ ...s.bgm, ...s.se })) sounds.set(Number(k), v.name);
   }
   const rtPath = join(dir, 'record_text.json');
-  const recordText = existsSync(rtPath) ? readJson<{ items: Record<string, { name: string; desc: string }> }>(rtPath).items : undefined;
+  const recordText = existsSync(rtPath)
+    ? readJson<{ items: Record<string, { name: string; desc: string }> }>(rtPath).items
+    : undefined;
   const startPath = join(dir, 'invest_start.json');
-  const investStart = existsSync(startPath) ? readJson<{ start: Record<string, number> }>(startPath).start : undefined;
+  const investStart = existsSync(startPath)
+    ? readJson<{ start: Record<string, number> }>(startPath).start
+    : undefined;
   const invPath = join(dir, 'investigation.json');
-  const courtPoints = existsSync(invPath) ? readJson<{ court_point?: Tables['courtPoints'] }>(invPath).court_point : undefined;
+  const courtPoints = existsSync(invPath)
+    ? readJson<{ court_point?: Tables['courtPoints'] }>(invPath).court_point
+    : undefined;
   const soundJson = join(dir, 'sound.json');
-  const blipKinds = existsSync(soundJson) ? readJson<{ blip?: { name_kind?: number[] } }>(soundJson).blip?.name_kind ?? [] : [];
+  const blipKinds = existsSync(soundJson)
+    ? (readJson<{ blip?: { name_kind?: number[] } }>(soundJson).blip?.name_kind ?? [])
+    : [];
   const x3dPath = join(dir, 'examine3d.json');
   const examine3d = existsSync(x3dPath) ? readJson<Tables['examine3d']>(x3dPath) : undefined;
-  return { names, chars, evidence: ev.items, evidenceStart: ev.start, court, sounds, investStart, blipKinds, courtPoints, recordText, examine3d };
+  return {
+    names,
+    chars,
+    evidence: ev.items,
+    evidenceStart: ev.start,
+    court,
+    sounds,
+    investStart,
+    blipKinds,
+    courtPoints,
+    recordText,
+    examine3d,
+  };
 }
 
 /** 英語の名札から人物の ID を作る（例: Phoenix → phoenix）。使えなければ空 */
 export function slug(en: string): string {
-  const s = en.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const s = en
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
   return /^[a-z]/.test(s) ? s : '';
 }
 

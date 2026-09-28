@@ -17,7 +17,10 @@ export type ShoutKind = 'objection' | 'hold' | 'takethat';
 export type FlashColor = 'white' | 'red';
 export type BlipKind = 'male' | 'female' | 'typewriter' | 'none';
 /** 人物の動き（元のゲームの動きの番号など）。文字送りの間は talk、止まっている間は idle */
-export interface Pose { talk: number | string; idle: number | string }
+export interface Pose {
+  talk: number | string;
+  idle: number | string;
+}
 export type FadeColor = 'black' | 'white';
 
 /** 尋問の途中に差し込んだブロックを抜けて、証言に戻るときの戻り先 */
@@ -36,7 +39,14 @@ export type Instr =
   | { op: 'palette'; palette: 'normal' | 'grayscale' }
   | { op: 'choice'; options: { text: string; when?: Expr; to: number }[] }
   /** options: 証拠品 ID → 正解の pc。profiles: 人物 ID → 正解の pc（あれば人物ファイルもつきつけられる） */
-  | { op: 'demand'; prompt: string; options: Record<string, number>; profiles?: Record<string, number>; wrong: number; speaker?: string }
+  | {
+      op: 'demand';
+      prompt: string;
+      options: Record<string, number>;
+      profiles?: Record<string, number>;
+      wrong: number;
+      speaker?: string;
+    }
   | { op: 'set'; flag: string; value: Value }
   | { op: 'add'; flag: string; amount: number }
   | { op: 'give'; evidence: string }
@@ -128,7 +138,13 @@ export interface PlaceScene {
   program: Instr[];
   /** 来たときのブロック */
   enter?: number;
-  examine: { id: string; name?: string; area: [number, number, number, number]; when?: Expr; pc: number }[];
+  examine: {
+    id: string;
+    name?: string;
+    area: [number, number, number, number];
+    when?: Expr;
+    pc: number;
+  }[];
   examineDefault: number;
   talk: { id: string; topic: string; when?: Expr; pc: number }[];
   present: Record<string, number>;
@@ -222,8 +238,11 @@ export interface GameState {
   profiles: string[] | null;
   /** evidence: 画面左上の小窓に見せている証拠品 / bgm: 流している BGM / fade: 画面を覆っている色（フェードアウト中） */
   stage: {
-    character: string | null; location: string | null; evidence: string | null;
-    bgm: string | null; fade: FadeColor | null;
+    character: string | null;
+    location: string | null;
+    evidence: string | null;
+    bgm: string | null;
+    fade: FadeColor | null;
     /** show で指定した人物の動き（なければ表示側の既定の立ち絵） */
     pose: Pose | null;
     /** 法廷の視点の流し（背景を変えるまで、流し終えた絵のまま）。from は流す前の人物 */
@@ -257,7 +276,15 @@ export interface Snapshot {
 
 export type Beat =
   /** inspect: 法廷記録から詳しく調べられる証拠品（あるときだけ。choice・card・statement も同じ） */
-  | { kind: 'line'; speaker: string | null; name: string | null; text: string; color: TextColor; auto?: boolean; inspect?: string[] }
+  | {
+      kind: 'line';
+      speaker: string | null;
+      name: string | null;
+      text: string;
+      color: TextColor;
+      auto?: boolean;
+      inspect?: string[];
+    }
   | { kind: 'shout'; shout: ShoutKind; by: string | null }
   /** sub: 証言・尋問の開始のとき、テキストウィンドウに出す証言のタイトル */
   | { kind: 'banner'; text: string; sub?: string; testimony?: 'reading' | 'cross' }
@@ -310,4 +337,10 @@ export type EngineEvent =
   | { type: 'fade'; dir: 'out' | 'in'; color: FadeColor; frames: number }
   | { type: 'bgmPause'; pause: boolean; frames: number }
   /** 人物をだんだん出す（in）・消す（out）。out のときの character / pose は消える人物 */
-  | { type: 'charFade'; dir: 'in' | 'out'; frames: number; character: string | null; pose: Pose | null };
+  | {
+      type: 'charFade';
+      dir: 'in' | 'out';
+      frames: number;
+      character: string | null;
+      pose: Pose | null;
+    };

@@ -7,14 +7,22 @@ import type { Painter } from './painter.ts';
 
 export type TopButton = 'record' | 'press' | 'present';
 
-const PART: Record<TopButton, UiPart> = { record: 'record', press: 'press', present: 'presentCross' };
+const PART: Record<TopButton, UiPart> = {
+  record: 'record',
+  press: 'press',
+  present: 'presentCross',
+};
 /** 絵を置く位置（右上、テキストウィンドウの上に並べる 2 つ）。絵の下の 2 行は透明なので当たりから外す */
 const IMAGE_AT: Record<TopButton, Rect> = {
   record: { x: 176, y: 0, w: 80, h: 30 },
   press: { x: 96, y: 112, w: 80, h: 30 },
   present: { x: 176, y: 112, w: 80, h: 30 },
 };
-const TAB_AT: Record<TopButton, Rect> = { record: UI.recordTab, press: UI.pressTab, present: UI.presentTab };
+const TAB_AT: Record<TopButton, Rect> = {
+  record: UI.recordTab,
+  press: UI.pressTab,
+  present: UI.presentTab,
+};
 
 const hasImage = (p: Painter, b: TopButton) => !!p.assets.ui?.(PART[b]);
 

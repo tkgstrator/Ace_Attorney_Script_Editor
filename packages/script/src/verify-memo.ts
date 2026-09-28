@@ -24,8 +24,18 @@ export interface Delta {
 
 type ListName = 'evidence' | 'profiles' | 'visited' | 'seen';
 const LISTS = ['evidence', 'profiles', 'visited', 'seen'] as const;
-const PREFIX: Record<ListName, string> = { evidence: 'h:', profiles: 'p:', visited: 'v:', seen: 's:' };
-const WHOLE: Record<ListName, string> = { evidence: '*h', profiles: '*p', visited: '*v', seen: '*s' };
+const PREFIX: Record<ListName, string> = {
+  evidence: 'h:',
+  profiles: 'p:',
+  visited: 'v:',
+  seen: 's:',
+};
+const WHOLE: Record<ListName, string> = {
+  evidence: '*h',
+  profiles: '*p',
+  visited: '*v',
+  seen: '*s',
+};
 /** 法廷記録の鍵（stage.recordLocked）を読んだときの名前 */
 const RECORD = 'r:';
 
@@ -46,15 +56,31 @@ export class Recorder {
   /** 状態に見張りを付ける（エンジンの中の状態そのものを差し替える） */
   attach(s: GameState): void {
     const note = (t: Record<string, Value>, k: string | symbol) => {
-      if (typeof k === 'string' && !this.written.has(k) && !this.reads.has(k)) this.reads.set(k, enc(t[k]));
+      if (typeof k === 'string' && !this.written.has(k) && !this.reads.has(k))
+        this.reads.set(k, enc(t[k]));
     };
     this.flags = s.flags;
     s.flags = new Proxy(s.flags, {
-      get: (t, k) => { note(t, k); return Reflect.get(t, k); },
-      has: (t, k) => { note(t, k); return Reflect.has(t, k); },
-      set: (t, k, v) => { if (typeof k === 'string') this.written.set(k, v as Value); return Reflect.set(t, k, v); },
-      ownKeys: t => { this.unknown = true; return Reflect.ownKeys(t); },
-      deleteProperty: (t, k) => { this.unknown = true; return Reflect.deleteProperty(t, k); },
+      get: (t, k) => {
+        note(t, k);
+        return Reflect.get(t, k);
+      },
+      has: (t, k) => {
+        note(t, k);
+        return Reflect.has(t, k);
+      },
+      set: (t, k, v) => {
+        if (typeof k === 'string') this.written.set(k, v as Value);
+        return Reflect.set(t, k, v);
+      },
+      ownKeys: (t) => {
+        this.unknown = true;
+        return Reflect.ownKeys(t);
+      },
+      deleteProperty: (t, k) => {
+        this.unknown = true;
+        return Reflect.deleteProperty(t, k);
+      },
     });
     for (const name of LISTS) {
       const target = s[name] ?? [];
@@ -66,10 +92,14 @@ export class Recorder {
     this.stage = s.stage;
     s.stage = new Proxy(s.stage, {
       get: (t, k, r) => {
-        if (k === 'recordLocked' && this.record === undefined && !this.reads.has(RECORD)) this.reads.set(RECORD, String(t.recordLocked));
+        if (k === 'recordLocked' && this.record === undefined && !this.reads.has(RECORD))
+          this.reads.set(RECORD, String(t.recordLocked));
         return Reflect.get(t, k, r);
       },
-      set: (t, k, v) => { if (k === 'recordLocked') this.record = v as boolean; return Reflect.set(t, k, v); },
+      set: (t, k, v) => {
+        if (k === 'recordLocked') this.record = v as boolean;
+        return Reflect.set(t, k, v);
+      },
     });
   }
 
@@ -78,22 +108,36 @@ export class Recorder {
     const whole = () => {
       if (this.reads.has(WHOLE[name])) return;
       const added = this.appended[name];
-      this.reads.set(WHOLE[name], arr.filter(x => !added.includes(x)).sort().join('\u0001'));
+      this.reads.set(
+        WHOLE[name],
+        arr
+          .filter((x) => !added.includes(x))
+          .sort()
+          .join('\u0001'),
+      );
     };
     return new Proxy(arr, {
       get: (t, k, r) => {
         if (k === 'includes') {
           return (id: string) => {
             const key = PREFIX[name] + id;
-            if (!this.appended[name].includes(id) && !this.reads.has(key)) this.reads.set(key, t.includes(id) ? '1' : '0');
+            if (!this.appended[name].includes(id) && !this.reads.has(key))
+              this.reads.set(key, t.includes(id) ? '1' : '0');
             return t.includes(id);
           };
         }
-        if (k === 'push') return (...items: string[]) => { this.appended[name].push(...items); return t.push(...items); };
+        if (k === 'push')
+          return (...items: string[]) => {
+            this.appended[name].push(...items);
+            return t.push(...items);
+          };
         whole();
         return Reflect.get(t, k, r);
       },
-      set: (t, k, v) => { this.unknown = true; return Reflect.set(t, k, v); },
+      set: (t, k, v) => {
+        this.unknown = true;
+        return Reflect.set(t, k, v);
+      },
     });
   }
 
@@ -101,7 +145,14 @@ export class Recorder {
   finish(s: GameState): Delta {
     s.flags = this.flags;
     const out: Delta = {
-      control: { scene: s.scene, pc: s.pc, mode: s.mode, phase: s.phase, statement: s.statement, inspectFrom: s.inspectFrom ?? null },
+      control: {
+        scene: s.scene,
+        pc: s.pc,
+        mode: s.mode,
+        phase: s.phase,
+        statement: s.statement,
+        inspectFrom: s.inspectFrom ?? null,
+      },
       flags: new Map(this.written),
       evidence: { append: [...this.appended.evidence] },
       profiles: { append: [...this.appended.profiles] },
@@ -109,13 +160,20 @@ export class Recorder {
       visited: [...this.appended.visited],
       seen: [...this.appended.seen],
     };
-    if (this.stage) { s.stage = this.stage; this.stage = undefined; }
+    if (this.stage) {
+      s.stage = this.stage;
+      this.stage = undefined;
+    }
     for (const name of LISTS) {
       const { target, proxy } = this.lists[name];
-      if (s[name] === proxy) { s[name] = target; continue; }
+      if (s[name] === proxy) {
+        s[name] = target;
+        continue;
+      }
       // 並びごと入れ替えた（証拠品の take・人物ファイルの出し入れ）。まるごと読んでいるので、最後の並びは読んだ値で決まる
       s[name] = [...s[name]!];
-      if ((name !== 'evidence' && name !== 'profiles') || !this.reads.has(WHOLE[name])) this.unknown = true;
+      if ((name !== 'evidence' && name !== 'profiles') || !this.reads.has(WHOLE[name]))
+        this.unknown = true;
       else out[name] = { final: [...s[name]!], append: [] };
     }
     return out;
@@ -138,12 +196,22 @@ export interface Lookup {
 }
 const lookups = new WeakMap<GameState, Lookup>();
 const LIST_OF: Record<string, ListName> = {
-  'h:': 'evidence', 'p:': 'profiles', 'v:': 'visited', 's:': 'seen', '*h': 'evidence', '*p': 'profiles', '*v': 'visited', '*s': 'seen',
+  'h:': 'evidence',
+  'p:': 'profiles',
+  'v:': 'visited',
+  's:': 'seen',
+  '*h': 'evidence',
+  '*p': 'profiles',
+  '*v': 'visited',
+  '*s': 'seen',
 };
 
 export function lookupOf(s: GameState): Lookup {
   let l = lookups.get(s);
-  if (!l) { l = { sets: {}, whole: {}, vars: new Map(), flags: new Map() }; lookups.set(s, l); }
+  if (!l) {
+    l = { sets: {}, whole: {}, vars: new Map(), flags: new Map() };
+    lookups.set(s, l);
+  }
   return l;
 }
 
@@ -159,10 +227,14 @@ function valueOf(s: GameState, name: string): string {
   if (!list) {
     const l = lookupOf(s);
     let v = l.flags.get(name);
-    if (v === undefined) { v = enc(s.flags[name]); l.flags.set(name, v); }
+    if (v === undefined) {
+      v = enc(s.flags[name]);
+      l.flags.set(name, v);
+    }
     return v;
   }
-  if (name[0] === '*') return (lookupOf(s).whole[list] ??= [...s[list] ?? []].sort().join('\u0001'));
+  if (name[0] === '*')
+    return (lookupOf(s).whole[list] ??= [...(s[list] ?? [])].sort().join('\u0001'));
   return setOf(s, list).has(name.slice(2)) ? '1' : '0';
 }
 
@@ -176,8 +248,11 @@ export class Memo {
     const sets = this.table.get(where);
     if (sets) {
       for (const { names, results } of sets) {
-        const d = results.get(names.map(n => valueOf(s, n)).join('\u0002'));
-        if (d) { this.hits++; return d; }
+        const d = results.get(names.map((n) => valueOf(s, n)).join('\u0002'));
+        if (d) {
+          this.hits++;
+          return d;
+        }
       }
     }
     this.misses++;
@@ -188,10 +263,16 @@ export class Memo {
     const names = [...reads.keys()].sort();
     const id = names.join('\u0002');
     let sets = this.table.get(where);
-    if (!sets) { sets = []; this.table.set(where, sets); }
-    let entry = sets.find(x => x.names.join('\u0002') === id);
-    if (!entry) { entry = { names, results: new Map() }; sets.push(entry); }
-    entry.results.set(names.map(n => reads.get(n)!).join('\u0002'), d);
+    if (!sets) {
+      sets = [];
+      this.table.set(where, sets);
+    }
+    let entry = sets.find((x) => x.names.join('\u0002') === id);
+    if (!entry) {
+      entry = { names, results: new Map() };
+      sets.push(entry);
+    }
+    entry.results.set(names.map((n) => reads.get(n)!).join('\u0002'), d);
   }
 }
 
@@ -200,7 +281,9 @@ export function view(s: GameState, d: Delta): GameState {
   const flags = Object.create(s.flags) as Record<string, Value>;
   for (const [k, v] of d.flags) flags[k] = v;
   return {
-    ...s, ...d.control, flags,
+    ...s,
+    ...d.control,
+    flags,
     evidence: d.evidence.final ?? appendNew(s.evidence, d.evidence.append),
     profiles: d.profiles.final ?? appendNew(s.profiles ?? [], d.profiles.append),
     stage: d.record === undefined ? s.stage : { ...s.stage, recordLocked: d.record },
@@ -216,9 +299,14 @@ export function view(s: GameState, d: Delta): GameState {
 export function apply(s: GameState, d: Delta): GameState {
   const v = view(s, d);
   const out: GameState = {
-    ...clone({ ...s, flags: {} }), ...d.control, inspectFrom: clone(d.control.inspectFrom),
+    ...clone({ ...s, flags: {} }),
+    ...d.control,
+    inspectFrom: clone(d.control.inspectFrom),
     flags: { ...s.flags, ...Object.fromEntries(d.flags) },
-    evidence: [...v.evidence], profiles: [...v.profiles!], visited: [...v.visited], seen: [...v.seen],
+    evidence: [...v.evidence],
+    profiles: [...v.profiles!],
+    visited: [...v.visited],
+    seen: [...v.seen],
   };
   if (d.record !== undefined) out.stage.recordLocked = d.record;
   return out;
@@ -234,5 +322,5 @@ function clone<T>(x: T): T {
 }
 
 function appendNew(list: string[], items: string[]): string[] {
-  return items.length === 0 ? list : [...list, ...items.filter(x => !list.includes(x))];
+  return items.length === 0 ? list : [...list, ...items.filter((x) => !list.includes(x))];
 }

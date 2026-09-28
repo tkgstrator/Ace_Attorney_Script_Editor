@@ -6,7 +6,9 @@ export class OverlayView {
   /** 重ね絵の ID → 出したフレーム */
   #since = new Map<string, number>();
 
-  tick(): void { this.#frame++; }
+  tick(): void {
+    this.#frame++;
+  }
 
   /** 出している重ね絵を描く（背景と一緒にスクロールした分 ox, oy だけずらす） */
   draw(ctx: CanvasRenderingContext2D, assets: Assets, ids: string[], ox: number, oy: number): void {

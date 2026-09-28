@@ -10,7 +10,7 @@ const RECORD_BEATS = new Set<Beat['kind']>(['line', 'statement', 'choice', 'card
 
 /** 今詳しく調べられる証拠品（持っていて、examine があるもの） */
 export function inspectable(scenario: CompiledScenario, s: GameState): string[] {
-  return s.evidence.filter(id => scenario.evidence[id]?.inspect !== undefined);
+  return s.evidence.filter((id) => scenario.evidence[id]?.inspect !== undefined);
 }
 
 /**
@@ -25,7 +25,11 @@ export function canInspectAt(kind: Beat['kind'], s: GameState): boolean {
 }
 
 /** Beat に足す inspect（無ければ何も足さない） */
-export function inspectField(scenario: CompiledScenario, s: GameState, kind: Beat['kind']): { inspect?: string[] } {
+export function inspectField(
+  scenario: CompiledScenario,
+  s: GameState,
+  kind: Beat['kind'],
+): { inspect?: string[] } {
   if (!canInspectAt(kind, s)) return {};
   const list = inspectable(scenario, s);
   return list.length ? { inspect: list } : {};
@@ -35,7 +39,15 @@ export function inspectField(scenario: CompiledScenario, s: GameState, kind: Bea
 export function inspectFrame(s: GameState): InspectFrame {
   if (s.mode === 'investigate') return { scene: s.scene, pc: s.pc, mode: 'investigate' };
   const shown = { stage: cloneData(s.stage), vars: { ...s.vars } };
-  if (s.mode === 'testimony') return { scene: s.scene, pc: s.pc, mode: 'testimony', phase: s.phase, statement: s.statement, ...shown };
+  if (s.mode === 'testimony')
+    return {
+      scene: s.scene,
+      pc: s.pc,
+      mode: 'testimony',
+      phase: s.phase,
+      statement: s.statement,
+      ...shown,
+    };
   return { scene: s.scene, pc: s.pc, mode: 'run', ...shown };
 }
 
@@ -45,10 +57,23 @@ export function inspectFrame(s: GameState): InspectFrame {
  * 法廷記録を使えるか（ui: record）も、調べている間に変えたものを残す
  */
 export function returnFromInspect(s: GameState, f: InspectFrame): boolean {
-  Object.assign(s, { scene: f.scene, pc: f.pc, mode: f.mode === 'testimony' ? 'testimony' : 'run', inspectFrom: null, vars: { ...f.vars } });
-  if (f.mode === 'testimony') { s.phase = f.phase ?? 'cross'; s.statement = f.statement ?? 0; }
+  Object.assign(s, {
+    scene: f.scene,
+    pc: f.pc,
+    mode: f.mode === 'testimony' ? 'testimony' : 'run',
+    inspectFrom: null,
+    vars: { ...f.vars },
+  });
+  if (f.mode === 'testimony') {
+    s.phase = f.phase ?? 'cross';
+    s.statement = f.statement ?? 0;
+  }
   // 舞台は同じオブジェクトのまま書き換える（整合性チェックが読み書きを見張っているため）
-  const keep = { bgm: s.stage.bgm, bgmPaused: s.stage.bgmPaused, recordLocked: s.stage.recordLocked };
+  const keep = {
+    bgm: s.stage.bgm,
+    bgmPaused: s.stage.bgmPaused,
+    recordLocked: s.stage.recordLocked,
+  };
   if (f.stage) Object.assign(s.stage, cloneData(f.stage), keep);
   else s.stage.evidence = null;
   return f.mode === 'investigate';

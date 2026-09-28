@@ -15,7 +15,9 @@ export class IntList {
     this.data[i] = v;
     if (this.length <= i) this.length = i + 1;
   }
-  at(i: number): number { return this.data[i]!; }
+  at(i: number): number {
+    return this.data[i]!;
+  }
   private reserve(n: number) {
     if (n <= this.data.length) return;
     let size = this.data.length;
@@ -43,8 +45,12 @@ export class Graph {
     this.targets.push(to);
     this.last.set(i, this.targets.length);
   }
-  from(i: number): number { return i < this.first.length ? this.first.at(i) : 0; }
-  to(i: number): number { return i < this.last.length ? this.last.at(i) : 0; }
+  from(i: number): number {
+    return i < this.first.length ? this.first.at(i) : 0;
+  }
+  to(i: number): number {
+    return i < this.last.length ? this.last.at(i) : 0;
+  }
 }
 
 /**
@@ -52,19 +58,25 @@ export class Graph {
  * Tarjan の方法を、再帰を使わずに書いたもの。goal(i) が真の状態（end・gameover）を含むかたまりは除く
  */
 export function traps(g: Graph, n: number, goal: (i: number) => boolean): number[][] {
-  const index = new Int32Array(n).fill(-1), low = new Int32Array(n), comp = new Int32Array(n).fill(-1);
+  const index = new Int32Array(n).fill(-1),
+    low = new Int32Array(n),
+    comp = new Int32Array(n).fill(-1);
   const onStack = new Uint8Array(n);
   const stack = new IntList();
   // 作業用: 調べている状態と、次に見る辺の位置
-  const workV = new IntList(), workE = new IntList();
+  const workV = new IntList(),
+    workE = new IntList();
   const found: number[][] = [];
-  let counter = 0, comps = 0;
+  let counter = 0,
+    comps = 0;
   for (let root = 0; root < n; root++) {
     if (index[root] !== -1) continue;
     const open = (v: number) => {
       index[v] = low[v] = counter++;
-      stack.push(v); onStack[v] = 1;
-      workV.push(v); workE.push(g.from(v));
+      stack.push(v);
+      onStack[v] = 1;
+      workV.push(v);
+      workE.push(g.from(v));
     };
     open(root);
     while (workV.length > 0) {
@@ -78,12 +90,22 @@ export function traps(g: Graph, n: number, goal: (i: number) => boolean): number
         else if (onStack[w]) low[v] = Math.min(low[v]!, index[w]!);
         continue;
       }
-      workV.length--; workE.length--;
-      if (workV.length > 0) { const p = workV.at(workV.length - 1); low[p] = Math.min(low[p]!, low[v]!); }
+      workV.length--;
+      workE.length--;
+      if (workV.length > 0) {
+        const p = workV.at(workV.length - 1);
+        low[p] = Math.min(low[p]!, low[v]!);
+      }
       if (low[v] === index[v]) {
         // かたまりが決まった時点で、行き先のかたまりもすべて決まっている（先に見つかる）ので、ここで判定する
         const c: number[] = [];
-        for (;;) { const x = stack.at(--stack.length); onStack[x] = 0; comp[x] = comps; c.push(x); if (x === v) break; }
+        for (;;) {
+          const x = stack.at(--stack.length);
+          onStack[x] = 0;
+          comp[x] = comps;
+          c.push(x);
+          if (x === v) break;
+        }
         if (isTrap(c, comps)) found.push(c);
         comps++;
       }

@@ -1,6 +1,12 @@
 // 整合性チェックで試す操作（verify.ts）と、操作を 1 つ行って文章送りだけの場面をまとめて進める step。
 // Rust 版（crates/aa-verify/src/actions.rs）と同じ並び・同じ選び方にすること。
-import { heldProfiles, type CompiledScenario, type Engine, type GameState, type PlaceScene } from '@gyakusai/core';
+import {
+  heldProfiles,
+  type CompiledScenario,
+  type Engine,
+  type GameState,
+  type PlaceScene,
+} from '@gyakusai/core';
 import { nodeOf, type Flow } from './verify-flow.ts';
 import { inspectActions, inspectStop, markInspect, type Act } from './verify-inspect.ts';
 import { inspectSkippable } from './verify-inspect-sim.ts';
@@ -16,23 +22,35 @@ const pointCache = new WeakMap<PlaceScene, [number, number][]>();
 function examinePoints(place: PlaceScene): [number, number][] {
   const cached = pointCache.get(place);
   if (cached) return cached;
-  const cut = (lo: number[], max: number) => [...new Set([0, ...lo])].filter(v => v >= 0 && v < max).sort((a, b) => a - b);
-  const xs = cut(place.examine.flatMap(e => [e.area[0], e.area[0] + e.area[2]]), SCREEN.w);
-  const ys = cut(place.examine.flatMap(e => [e.area[1], e.area[1] + e.area[3]]), SCREEN.h);
+  const cut = (lo: number[], max: number) =>
+    [...new Set([0, ...lo])].filter((v) => v >= 0 && v < max).sort((a, b) => a - b);
+  const xs = cut(
+    place.examine.flatMap((e) => [e.area[0], e.area[0] + e.area[2]]),
+    SCREEN.w,
+  );
+  const ys = cut(
+    place.examine.flatMap((e) => [e.area[1], e.area[1] + e.area[3]]),
+    SCREEN.h,
+  );
   const pts: [number, number][] = [];
   const seen = new Set<string>();
   for (const y of ys) {
     for (const x of xs) {
-      const sig = place.examine.map(({ area: [ax, ay, w, h] }) => (x >= ax && x < ax + w && y >= ay && y < ay + h ? 1 : 0)).join('');
-      if (!seen.has(sig)) { seen.add(sig); pts.push([x, y]); }
+      const sig = place.examine
+        .map(({ area: [ax, ay, w, h] }) => (x >= ax && x < ax + w && y >= ay && y < ay + h ? 1 : 0))
+        .join('');
+      if (!seen.has(sig)) {
+        seen.add(sig);
+        pts.push([x, y]);
+      }
     }
   }
   pointCache.set(place, pts);
   return pts;
 }
 
-const ADVANCE: Act = { d: 'a', f: x => x.advance() };
-const PRESS: Act = { d: 'p', f: x => x.press() };
+const ADVANCE: Act = { d: 'a', f: (x) => x.advance() };
+const PRESS: Act = { d: 'p', f: (x) => x.press() };
 
 /**
  * 今の Beat で選べる操作（順番は決まっていて、詰みの場面を再現するときにも使う）。
@@ -46,39 +64,68 @@ export function actions(sc: CompiledScenario, e: Engine, passed?: Set<string>): 
   const s = e.state;
   /** answers: 証拠品の正解、profiles: 人物ファイルの正解（null なら人物ファイルはつきつけられない） */
   const present = (answers: Record<string, number>, profiles: Record<string, number> | null) => {
-    const wrong = s.evidence.find(id => !(id in answers));
-    const out = s.evidence.filter(id => id in answers || id === wrong).map(id => ({ d: `v${id}`, f: (x: Engine) => x.present(id, 'evidence') }));
+    const wrong = s.evidence.find((id) => !(id in answers));
+    const out = s.evidence
+      .filter((id) => id in answers || id === wrong)
+      .map((id) => ({ d: `v${id}`, f: (x: Engine) => x.present(id, 'evidence') }));
     if (!profiles) return out;
     const held = heldProfiles(sc, s);
-    const wrongProfile = wrong === undefined ? held.find(id => !(id in profiles)) : undefined;
-    return [...out, ...held.filter(id => id in profiles || id === wrongProfile).map(id => ({ d: `r${id}`, f: (x: Engine) => x.present(id, 'profile') }))];
+    const wrongProfile = wrong === undefined ? held.find((id) => !(id in profiles)) : undefined;
+    return [
+      ...out,
+      ...held
+        .filter((id) => id in profiles || id === wrongProfile)
+        .map((id) => ({ d: `r${id}`, f: (x: Engine) => x.present(id, 'profile') })),
+    ];
   };
   const scene = sc.scenes[s.scene];
   const inspect = 'inspect' in b && b.inspect ? inspectActions(sc, e, b.inspect, passed) : [];
   switch (b.kind) {
-    case 'line': case 'card': return [ADVANCE, ...inspect];
-    case 'shout': case 'banner': case 'fade': case 'wait': return [ADVANCE];
-    case 'choice': return [...b.options.map((_, i) => ({ d: `c${i}`, f: (x: Engine) => x.choose(i) })), ...inspect];
+    case 'line':
+    case 'card':
+      return [ADVANCE, ...inspect];
+    case 'shout':
+    case 'banner':
+    case 'fade':
+    case 'wait':
+      return [ADVANCE];
+    case 'choice':
+      return [
+        ...b.options.map((_, i) => ({ d: `c${i}`, f: (x: Engine) => x.choose(i) })),
+        ...inspect,
+      ];
     case 'demand': {
       const ins = scene?.program[s.pc];
-      return ins?.op === 'demand' ? [...present(ins.options, ins.profiles ?? null), ...inspect] : inspect;
+      return ins?.op === 'demand'
+        ? [...present(ins.options, ins.profiles ?? null), ...inspect]
+        : inspect;
     }
     case 'statement': {
       if (!b.cross) return [ADVANCE, ...inspect];
       const st = scene?.kind === 'testimony' ? scene.statements[s.statement] : undefined;
-      return [ADVANCE, ...(b.canPress ? [PRESS] : []), ...present(st?.present ?? {}, null), ...inspect];
+      return [
+        ADVANCE,
+        ...(b.canPress ? [PRESS] : []),
+        ...present(st?.present ?? {}, null),
+        ...inspect,
+      ];
     }
     case 'investigate': {
       const place = sc.scenes[b.place] as PlaceScene;
       return [
-        ...examinePoints(place).map(([px, py]) => ({ d: `e${px},${py}`, f: (x: Engine) => x.examine(px, py) })),
-        ...b.move.map(m => ({ d: `m${m.id}`, f: (x: Engine) => x.move(m.id) })),
-        ...b.talk.map(t => ({ d: `t${t.id}`, f: (x: Engine) => x.talk(t.id) })),
+        ...examinePoints(place).map(([px, py]) => ({
+          d: `e${px},${py}`,
+          f: (x: Engine) => x.examine(px, py),
+        })),
+        ...b.move.map((m) => ({ d: `m${m.id}`, f: (x: Engine) => x.move(m.id) })),
+        ...b.talk.map((t) => ({ d: `t${t.id}`, f: (x: Engine) => x.talk(t.id) })),
         ...(b.present ? present(place.present, place.presentProfile ?? {}) : []),
         ...inspect,
       ];
     }
-    case 'end': case 'gameover': return [];
+    case 'end':
+    case 'gameover':
+      return [];
   }
 }
 
@@ -90,7 +137,10 @@ const LINEAR = new Set(['say', 'shout', 'banner', 'card', 'fade', 'wait']);
  * 状態を変えうる証拠品を持っていて法廷記録を開けるなら、詳しく調べることもできるので止まる
  */
 function linear(sc: CompiledScenario, s: Readonly<GameState>): boolean {
-  return linearStatic(sc, s) || (inspectStop(sc, s) && inspectSkippable(sc, s, x => linearStatic(sc, x)));
+  return (
+    linearStatic(sc, s) ||
+    (inspectStop(sc, s) && inspectSkippable(sc, s, (x) => linearStatic(sc, x)))
+  );
 }
 
 /** 詳しく調べて状態が変わるかを試さずに見る linear（詳しく調べられる所では止まる） */
@@ -122,7 +172,10 @@ export function step(flow: Flow, e: Engine, act: (e: Engine) => void, passed?: S
     }
     // 止まった場面のシーンを記録する（探索編の場所は、探偵メニューに着くまで visited に残らないため）。
     // 法廷記録を開けるなら、詳しく調べられるシーンも記録する
-    if (passed) { passed.add(scene); markInspect(sc, e.state, passed); }
+    if (passed) {
+      passed.add(scene);
+      markInspect(sc, e.state, passed);
+    }
     e.advance();
   }
 }

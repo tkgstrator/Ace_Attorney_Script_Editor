@@ -6,10 +6,15 @@ type Test = (e: Expr | undefined) => boolean;
 
 /** 今その場所にいる人物（候補のうち when が真の最初の人物） */
 export function personAt(place: PlaceScene, test: Test): string | null {
-  return place.person.find(p => test(p.when))?.id ?? null;
+  return place.person.find((p) => test(p.when))?.id ?? null;
 }
 
-export function investigateBeat(scenario: CompiledScenario, place: PlaceScene, state: GameState, test: Test): Beat {
+export function investigateBeat(
+  scenario: CompiledScenario,
+  place: PlaceScene,
+  state: GameState,
+  test: Test,
+): Beat {
   const person = personAt(place, test);
   return {
     kind: 'investigate',
@@ -17,19 +22,31 @@ export function investigateBeat(scenario: CompiledScenario, place: PlaceScene, s
     name: place.name,
     person,
     examine: true,
-    move: place.move.filter(m => test(m.when)).map(m => {
-      const to = scenario.scenes[m.to];
-      return { id: m.to, name: to?.kind === 'place' ? to.name : m.to };
-    }),
-    talk: person === null ? [] : place.talk.filter(t => test(t.when)).map(t => ({ id: t.id, topic: t.topic, seen: state.seen.includes(t.id) })),
+    move: place.move
+      .filter((m) => test(m.when))
+      .map((m) => {
+        const to = scenario.scenes[m.to];
+        return { id: m.to, name: to?.kind === 'place' ? to.name : m.to };
+      }),
+    talk:
+      person === null
+        ? []
+        : place.talk
+            .filter((t) => test(t.when))
+            .map((t) => ({ id: t.id, topic: t.topic, seen: state.seen.includes(t.id) })),
     present: person !== null,
     ...inspectField(scenario, state, 'investigate'),
   };
 }
 
 /** 画面上の点 (x, y) を調べたときに実行するブロックと、調べた印の ID（何もなければ印なし） */
-export function examineAt(place: PlaceScene, x: number, y: number, test: Test): { pc: number; seen?: string } {
-  const hit = place.examine.find(e => {
+export function examineAt(
+  place: PlaceScene,
+  x: number,
+  y: number,
+  test: Test,
+): { pc: number; seen?: string } {
+  const hit = place.examine.find((e) => {
     const [ax, ay, w, h] = e.area;
     return test(e.when) && x >= ax && x < ax + w && y >= ay && y < ay + h;
   });

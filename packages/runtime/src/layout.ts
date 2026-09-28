@@ -11,10 +11,15 @@ export const HEIGHT = SCREEN_H;
 export type Rect = { x: number; y: number; w: number; h: number };
 /** タブの角の落とし方（bl = 左下、bottom = 下の両側） */
 export type Slant = 'none' | 'bl' | 'br' | 'tl' | 'tr' | 'bottom';
-export const hit = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+export const hit = (r: Rect, x: number, y: number) =>
+  x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 
 export const TEXT_COLORS: Record<TextColor, string> = {
-  white: '#f8f8f8', blue: '#78c0ff', green: '#48e048', orange: '#f89830', red: '#f05040',
+  white: '#f8f8f8',
+  blue: '#78c0ff',
+  green: '#48e048',
+  orange: '#f89830',
+  red: '#f05040',
 };
 
 export const SHOUTS = {
@@ -43,39 +48,82 @@ export const TEXTBOX_ALPHA = 0.6;
 export const RECORD_PER_PAGE = 8;
 
 export const COLORS = {
-  tabFill: '#6a2808', tabEdge: '#e8e0d0',
-  nameBar: '#2c2c34', nameText: '#f8a020',
-  desc: '#b0d8a0', descLine: '#a0c890', descText: '#282828',
-  nameTag: '#4848a0', nameTagEdge: '#b8b8e8',
-  life: '#3868e8', lifeEdge: '#101840',
+  tabFill: '#6a2808',
+  tabEdge: '#e8e0d0',
+  nameBar: '#2c2c34',
+  nameText: '#f8a020',
+  desc: '#b0d8a0',
+  descLine: '#a0c890',
+  descText: '#282828',
+  nameTag: '#4848a0',
+  nameTagEdge: '#b8b8e8',
+  life: '#3868e8',
+  lifeEdge: '#101840',
 };
 
 /** 法廷記録の色（DS 版の下画面の画素の値） */
 export const REC_COLORS = {
   // 背景の絵がないときの色と、横じま（明るい行に足す色）
-  bgMid: '#595141', bgLow: '#4d463a', stripe: '#1c1c1c',
+  bgMid: '#595141',
+  bgLow: '#4d463a',
+  stripe: '#1c1c1c',
   // 上下の明るい帯
-  plate: '#dfdfdf', plateEdge: '#969696', plateAa: '#cecece',
+  plate: '#dfdfdf',
+  plateEdge: '#969696',
+  plateAa: '#cecece',
   // 見出しの暗い帯
-  bar: '#5d5d5d', barDark: '#353535', barEdge: '#4d4d4d',
+  bar: '#5d5d5d',
+  barDark: '#353535',
+  barEdge: '#4d4d4d',
   // 茶色のボタン
-  btnOuter: '#ffffff', btnEdge: '#454545', btnFill: '#7d3500', btnLight: '#a67d5d', btnLight2: '#9e5d3d',
-  btnDark: '#6d2d00', btnSide: '#864514', btnSideR: '#752d00', btnText: '#ffffff', btnTextEdge: '#652400', btnArrow: '#c69e86',
+  btnOuter: '#ffffff',
+  btnEdge: '#454545',
+  btnFill: '#7d3500',
+  btnLight: '#a67d5d',
+  btnLight2: '#9e5d3d',
+  btnDark: '#6d2d00',
+  btnSide: '#864514',
+  btnSideR: '#752d00',
+  btnText: '#ffffff',
+  btnTextEdge: '#652400',
+  btnArrow: '#c69e86',
   // 赤い縦長のボタン
-  sideEdge: '#414141', sideFill: '#792800', sideInner: '#712800', sideDark: '#612000', arrowAa: '#be9686',
+  sideEdge: '#414141',
+  sideFill: '#792800',
+  sideInner: '#712800',
+  sideDark: '#612000',
+  arrowAa: '#be9686',
   // 木の板と、空きのマス
-  panel: '#867141', panelEdge: '#715941', cellLight: '#e7df96', cellMid: '#beae69', cellCorner: '#b6b6b6',
+  panel: '#867141',
+  panelEdge: '#715941',
+  cellLight: '#e7df96',
+  cellMid: '#beae69',
+  cellCorner: '#b6b6b6',
   cellFill: '#797979',
   // 2 重の枠
-  frameWhite: '#efefef', frameGrey: '#9e9e9e', frameShadow: '#868686', frameCorner: '#cecece',
+  frameWhite: '#efefef',
+  frameGrey: '#9e9e9e',
+  frameShadow: '#868686',
+  frameCorner: '#cecece',
   // 名前の帯と、説明の緑の欄
-  nameBar: '#393939', nameText: '#ffae18',
-  desc: '#9ec696', descEdge: '#699669', descBottom: '#cecece', descCorner: '#b6b6b6', descText: '#393939',
+  nameBar: '#393939',
+  nameText: '#ffae18',
+  desc: '#9ec696',
+  descEdge: '#699669',
+  descBottom: '#cecece',
+  descCorner: '#b6b6b6',
+  descText: '#393939',
   // 詳細の上下の帯
-  frieze: '#c6c6c6', friezeTop: '#cecece', friezeBottom: '#b6b6b6', friezeHi: '#ffffff', friezeHi2: '#f7f7f7',
-  friezeLine: '#8e8e8e', friezeLineTop: '#969696',
+  frieze: '#c6c6c6',
+  friezeTop: '#cecece',
+  friezeBottom: '#b6b6b6',
+  friezeHi: '#ffffff',
+  friezeHi2: '#f7f7f7',
+  friezeLine: '#8e8e8e',
+  friezeLineTop: '#969696',
   // 見出しの文字
-  titleText: '#ffffff', titleEdge: '#353535',
+  titleText: '#ffffff',
+  titleEdge: '#353535',
 };
 
 /** メイン画面の配置 */
@@ -103,7 +151,12 @@ export const UI = {
   pressTab: { x: 108, y: 112, w: 72, h: 18 },
   presentTab: { x: 184, y: 112, w: 72, h: 18 },
   /** 選択肢のボタン。上にずらしたテキストウィンドウの、さらに上の空きに並べる */
-  choice: (i: number, n: number): Rect => ({ x: 16, y: Math.round(56 - (n * 32 - 8) / 2) + i * 32, w: 224, h: 24 }),
+  choice: (i: number, n: number): Rect => ({
+    x: 16,
+    y: Math.round(56 - (n * 32 - 8) / 2) + i * 32,
+    w: 224,
+    h: 24,
+  }),
   /** 探偵メニューのボタン（調べる・移動する・話す・つきつける）。テキストウィンドウの位置に横に並べる */
   invButton: (i: number): Rect => ({ x: 4 + i * 63, y: 156, w: 59, h: 28 }),
   /** 探偵メニューの行き先・話題の一覧と、調べるときの「もどる」 */
@@ -130,7 +183,12 @@ export const UI = {
     /** 一覧の木の板 */
     panel: { x: 24, y: 56, w: 208, h: 104 },
     /** 一覧のマス（アイコンを置く 40×40。選んだマスは、その外側 2 ドットに枠が付く） */
-    cell: (i: number): Rect => ({ x: 36 + (i % 4) * 48, y: 64 + Math.floor(i / 4) * 48, w: 40, h: 40 }),
+    cell: (i: number): Rect => ({
+      x: 36 + (i % 4) * 48,
+      y: 64 + Math.floor(i / 4) * 48,
+      w: 40,
+      h: 40,
+    }),
     pageL: { x: 0, y: 56, w: 16, h: 96 },
     pageR: { x: 240, y: 56, w: 16, h: 96 },
     /** 詳細の上下の帯（6 行）と、その間の木の板 */

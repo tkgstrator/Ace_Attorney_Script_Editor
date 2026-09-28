@@ -8,10 +8,17 @@ const MARGIN = 1;
 /** 色の違いがこれより小さい点は同じとみなす（RGB の差の合計） */
 const THRESHOLD = 48;
 
-interface Rgba { w: number; h: number; data: Uint8Array }
+interface Rgba {
+  w: number;
+  h: number;
+  data: Uint8Array;
+}
 
 function read(magick: (...args: string[]) => Uint8Array, file: string): Rgba {
-  const [w, h] = new TextDecoder().decode(magick(file, '-format', '%w %h', 'info:')).split(' ').map(Number) as [number, number];
+  const [w, h] = new TextDecoder()
+    .decode(magick(file, '-format', '%w %h', 'info:'))
+    .split(' ')
+    .map(Number) as [number, number];
   return { w, h, data: magick(file, '-depth', '8', 'rgba:-') };
 }
 
@@ -29,16 +36,26 @@ export function patchMouth(base: Rgba, talk: Rgba): Uint8Array {
   for (let y = 0; y + WINDOW.h <= h / 2; y++) {
     for (let x = 0; x + WINDOW.w <= w; x++) {
       let n = 0;
-      for (let dy = 0; dy < WINDOW.h; dy++) for (let dx = 0; dx < WINDOW.w; dx++) n += diff[(y + dy) * w + x + dx]!;
+      for (let dy = 0; dy < WINDOW.h; dy++)
+        for (let dx = 0; dx < WINDOW.w; dx++) n += diff[(y + dy) * w + x + dx]!;
       if (n > best.n) best = { x, y, n };
     }
   }
   // 窓の中の違いを囲む範囲に余白を足す
-  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  let x0 = w,
+    y0 = h,
+    x1 = -1,
+    y1 = -1;
   for (let dy = 0; dy < WINDOW.h; dy++) {
     for (let dx = 0; dx < WINDOW.w; dx++) {
-      const x = best.x + dx, y = best.y + dy;
-      if (diff[y * w + x]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      const x = best.x + dx,
+        y = best.y + dy;
+      if (diff[y * w + x]) {
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
     }
   }
   const out = base.data.slice();
@@ -53,9 +70,15 @@ export function patchMouth(base: Rgba, talk: Rgba): Uint8Array {
 }
 
 /** 加工済みの base.png と talk.png から、talk.png を口だけ差し替えたものに書き換える */
-export function fixTalkFrame(magick: (...args: string[]) => Uint8Array, basePath: string, talkPath: string,
-  write: (rgba: Uint8Array, w: number, h: number, path: string) => void): void {
-  const base = read(magick, basePath), talk = read(magick, talkPath);
-  if (base.w !== talk.w || base.h !== talk.h) throw new Error(`大きさが違います: ${basePath} と ${talkPath}`);
+export function fixTalkFrame(
+  magick: (...args: string[]) => Uint8Array,
+  basePath: string,
+  talkPath: string,
+  write: (rgba: Uint8Array, w: number, h: number, path: string) => void,
+): void {
+  const base = read(magick, basePath),
+    talk = read(magick, talkPath);
+  if (base.w !== talk.w || base.h !== talk.h)
+    throw new Error(`大きさが違います: ${basePath} と ${talkPath}`);
   write(patchMouth(base, talk), base.w, base.h, talkPath);
 }

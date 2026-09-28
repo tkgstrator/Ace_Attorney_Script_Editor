@@ -34,12 +34,16 @@ export function parse(text: string): Document {
 }
 
 /** 編集用のプレーンなデータ（エラーがあれば error に入る） */
-export function toData(text: string): { data: Record<string, unknown> | null; error: string | null } {
+export function toData(text: string): {
+  data: Record<string, unknown> | null;
+  error: string | null;
+} {
   const doc = parse(text);
   if (doc.errors.length > 0) return { data: null, error: doc.errors[0]!.message.split('\n')[0]! };
   const js = doc.toJS();
   if (js === null || js === undefined) return { data: {}, error: null };
-  if (typeof js !== 'object' || Array.isArray(js)) return { data: null, error: '一番上がマップ（key: value）になっていません' };
+  if (typeof js !== 'object' || Array.isArray(js))
+    return { data: null, error: '一番上がマップ（key: value）になっていません' };
   return { data: js as Record<string, unknown>, error: null };
 }
 
@@ -51,11 +55,14 @@ export function createNode(doc: Document, value: unknown, isMapValue: boolean): 
   const node = doc.createNode(value) as Node;
   const walk = (n: unknown, parentIsPair: boolean) => {
     if (!isCollection(n)) return;
-    const scalarsOnly = n.items.every(i => (isPair(i) ? isScalar(i.value) : isScalar(i)));
-    const short = n.items.length > 0 && n.items.length <= 5 && n.items.every(i => {
-      const v = isPair(i) ? i.value : i;
-      return !isScalar(v) || typeof v.value !== 'string' || v.value.length <= 16;
-    });
+    const scalarsOnly = n.items.every((i) => (isPair(i) ? isScalar(i.value) : isScalar(i)));
+    const short =
+      n.items.length > 0 &&
+      n.items.length <= 5 &&
+      n.items.every((i) => {
+        const v = isPair(i) ? i.value : i;
+        return !isScalar(v) || typeof v.value !== 'string' || v.value.length <= 16;
+      });
     if (parentIsPair && scalarsOnly && short) n.flow = true;
     for (const i of n.items) {
       if (isPair(i)) walk(i.value, true);
@@ -71,12 +78,20 @@ export function createNode(doc: Document, value: unknown, isMapValue: boolean): 
  * yaml は行末コメントの位置揃えの空白や、[ ] の内側の空白を 1 通りに直してしまうため
  */
 export function restoreLines(before: string, after: string): string {
-  const norm = (line: string) => line.replace(/\s+#/, ' #').replace(/([[{])\s+/g, '$1').replace(/\s+([\]}])/g, '$1');
+  const norm = (line: string) =>
+    line
+      .replace(/\s+#/, ' #')
+      .replace(/([[{])\s+/g, '$1')
+      .replace(/\s+([\]}])/g, '$1');
   const original = new Map<string, string>();
   for (const line of before.split('\n')) original.set(norm(line), line);
   // 新しい行: 列は [a, b]、マップは { a: b } と書く（サンプルの書き方に合わせる）
-  const tidy = (line: string) => (/["'#]/.test(line) ? line : line.replace(/\[ ([^[\]{}]*?) \]/g, '[$1]'));
-  return after.split('\n').map(line => original.get(norm(line)) ?? tidy(line)).join('\n');
+  const tidy = (line: string) =>
+    /["'#]/.test(line) ? line : line.replace(/\[ ([^[\]{}]*?) \]/g, '[$1]');
+  return after
+    .split('\n')
+    .map((line) => original.get(norm(line)) ?? tidy(line))
+    .join('\n');
 }
 
 /** パスが指す値（プレーンなデータから） */

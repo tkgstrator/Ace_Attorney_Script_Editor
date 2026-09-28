@@ -12,7 +12,11 @@ export class BackgroundView {
   #startY = 0;
 
   /** 今の背景に合わせる。背景が変わったら最初の位置に戻す */
-  sync(key: string, image: CanvasImageSource | undefined, start: [number, number] | undefined): void {
+  sync(
+    key: string,
+    image: CanvasImageSource | undefined,
+    start: [number, number] | undefined,
+  ): void {
     if (key === this.#key && image === this.#image) return;
     const changed = key !== this.#key;
     this.#key = key;
@@ -35,12 +39,15 @@ export class BackgroundView {
   }
 
   /** 人物・重ね絵をずらす量（スクロールした分だけ、背景と一緒に動く） */
-  get offset(): [number, number] { return [this.#startX - this.x, this.#startY - this.y]; }
+  get offset(): [number, number] {
+    return [this.#startX - this.x, this.#startY - this.y];
+  }
 
   draw(ctx: CanvasRenderingContext2D): void {
     if (!this.#image) return;
     const { w, h } = size(this.#image);
-    const sw = Math.min(SCREEN_W, w), sh = Math.min(SCREEN_H, h);
+    const sw = Math.min(SCREEN_W, w),
+      sh = Math.min(SCREEN_H, h);
     ctx.drawImage(this.#image, this.x, this.y, sw, sh, 0, 0, sw, sh);
   }
 }

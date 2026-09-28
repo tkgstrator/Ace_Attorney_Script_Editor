@@ -13,9 +13,11 @@ export async function readCase(name: string): Promise<string> {
 }
 
 export async function writeCase(name: string, text: string): Promise<void> {
-  await check(await fetch(`/api/cases/${encodeURIComponent(name)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'text/yaml; charset=utf-8' },
-    body: text,
-  }));
+  await check(
+    await fetch(`/api/cases/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/yaml; charset=utf-8' },
+      body: text,
+    }),
+  );
 }

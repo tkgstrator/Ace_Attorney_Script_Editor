@@ -92,7 +92,8 @@ export class CourtRecord {
     } else if (key === 'Tab' || key === 'r' || key === 'R') this.#switchTab(engine);
     else if (key === 'e' || key === 'E') this.#inspect(engine);
     else if (key === 'x' || key === 'X' || key === 'Escape') {
-      if (this.detail) this.detail = false; else this.open = false;
+      if (this.detail) this.detail = false;
+      else this.open = false;
     } else return false;
     return true;
   }
@@ -100,11 +101,23 @@ export class CourtRecord {
   /** 開いているときのクリック */
   click(engine: Engine, x: number, y: number) {
     const R = UI.rec;
-    if (hit(R.back, x, y)) { this.open = false; return; }
+    if (hit(R.back, x, y)) {
+      this.open = false;
+      return;
+    }
     const present = this.canPresent(engine);
-    if (this.#canSwitch(engine) && hit(R.switchTab, x, y)) { this.#switchTab(engine); return; }
-    if (present && hit(R.presentBtn, x, y)) { this.#present(engine); return; }
-    if (this.inspectable(engine) && hit(R.inspectBtn, x, y)) { this.#inspect(engine); return; }
+    if (this.#canSwitch(engine) && hit(R.switchTab, x, y)) {
+      this.#switchTab(engine);
+      return;
+    }
+    if (present && hit(R.presentBtn, x, y)) {
+      this.#present(engine);
+      return;
+    }
+    if (this.inspectable(engine) && hit(R.inspectBtn, x, y)) {
+      this.#inspect(engine);
+      return;
+    }
     if (this.detail) {
       if (hit(R.itemL, x, y)) this.#move(engine, -1);
       else if (hit(R.itemR, x, y)) this.#move(engine, 1);
@@ -115,15 +128,23 @@ export class CourtRecord {
     const sel = this.selected(engine);
     const page = Math.floor(sel / RECORD_PER_PAGE);
     const pages = Math.max(1, Math.ceil(items.length / RECORD_PER_PAGE));
-    if (hit(R.pageL, x, y)) { this.#sel[this.tab] = ((page + pages - 1) % pages) * RECORD_PER_PAGE; return; }
-    if (hit(R.pageR, x, y)) { this.#sel[this.tab] = ((page + 1) % pages) * RECORD_PER_PAGE; return; }
+    if (hit(R.pageL, x, y)) {
+      this.#sel[this.tab] = ((page + pages - 1) % pages) * RECORD_PER_PAGE;
+      return;
+    }
+    if (hit(R.pageR, x, y)) {
+      this.#sel[this.tab] = ((page + 1) % pages) * RECORD_PER_PAGE;
+      return;
+    }
     for (let i = 0; i < RECORD_PER_PAGE; i++) {
       const idx = page * RECORD_PER_PAGE + i;
       const c = R.cell(i);
       // マスの間（8 ドット）は半分ずつ、隣のマスの当たりに含める
-      if (idx >= items.length || !hit({ x: c.x - 4, y: c.y - 4, w: c.w + 8, h: c.h + 8 }, x, y)) continue;
+      if (idx >= items.length || !hit({ x: c.x - 4, y: c.y - 4, w: c.w + 8, h: c.h + 8 }, x, y))
+        continue;
       // 選んでいる項目をもう一度クリックすると詳細を開く
-      if (sel === idx) this.detail = true; else this.#sel[this.tab] = idx;
+      if (sel === idx) this.detail = true;
+      else this.#sel[this.tab] = idx;
     }
   }
 
@@ -152,7 +173,10 @@ export class CourtRecord {
     Parts.uiTopPlate(p, present);
     // つきつけるときは、人物ファイルもつきつけられる場面（探偵パートなど）だけ、もう一方のファイルへのタブを出す
     // （DS 版と同じ。キーの Tab ではいつでも切り替えられる）
-    if (this.#canSwitch(engine) && !Parts.putUi(p, this.tab === 'evidence' ? 'toProfile' : 'toEvidence', 176, 0)) {
+    if (
+      this.#canSwitch(engine) &&
+      !Parts.putUi(p, this.tab === 'evidence' ? 'toProfile' : 'toEvidence', 176, 0)
+    ) {
       Parts.drawSwitchTab(p);
       this.#switchLabel(p, this.tab === 'evidence' ? labels.profileFile : labels.evidenceFile);
     }
@@ -178,8 +202,17 @@ export class CourtRecord {
 
   /** 右上のタブの文字（先頭に薄い色の ➡） */
   #switchLabel(p: Painter, label: string) {
-    const arrow = [[3, 3], [3, 4], [0, 6], [0, 8], [0, 6], [3, 4], [3, 3]] as const;
-    const x0 = 183, y0 = 11;
+    const arrow = [
+      [3, 3],
+      [3, 4],
+      [0, 6],
+      [0, 8],
+      [0, 6],
+      [3, 4],
+      [3, 3],
+    ] as const;
+    const x0 = 183,
+      y0 = 11;
     arrow.forEach(([a, b], i) => p.rect(x0 + a - 1, y0 + i - 1, b - a + 3, 3, C.btnTextEdge));
     arrow.forEach(([a, b], i) => p.rect(x0 + a, y0 + i, b - a + 1, 1, C.btnArrow));
     titleText(p, label, 192, 10, 62, C.btnTextEdge);
@@ -199,8 +232,23 @@ export class CourtRecord {
   }
 
   #icon(p: Painter, engine: Engine, id: string, r: Rect) {
-    if (this.tab === 'evidence') p.evidenceIcon(engine.scenario.evidence[id]?.icon ?? id, this.#nameOf(engine, id), r.x, r.y, r.w / 32);
-    else p.face(id, this.#nameOf(engine, id), r.x, r.y, r.w === 64 ? 64 : 40, engine.scenario.characters[id]?.profile?.icon);
+    if (this.tab === 'evidence')
+      p.evidenceIcon(
+        engine.scenario.evidence[id]?.icon ?? id,
+        this.#nameOf(engine, id),
+        r.x,
+        r.y,
+        r.w / 32,
+      );
+    else
+      p.face(
+        id,
+        this.#nameOf(engine, id),
+        r.x,
+        r.y,
+        r.w === 64 ? 64 : 40,
+        engine.scenario.characters[id]?.profile?.icon,
+      );
   }
 
   #renderDetail(p: Painter, engine: Engine, id: string) {
@@ -209,10 +257,16 @@ export class CourtRecord {
     p.rect(W.x, W.y, W.w, W.h, C.panel);
     Parts.frieze(p, R.friezeTop);
     Parts.frieze(p, R.friezeBottom);
-    const desc = this.tab === 'evidence'
-      ? engine.scenario.evidence[id]?.description ?? ''
-      : engine.scenario.characters[id]?.profile?.description ?? '';
-    drawCard(p, RECORD_CARD, { tab: this.tab, label: this.#label(engine, id), description: desc, drawIcon: r => this.#icon(p, engine, id, r) });
+    const desc =
+      this.tab === 'evidence'
+        ? (engine.scenario.evidence[id]?.description ?? '')
+        : (engine.scenario.characters[id]?.profile?.description ?? '');
+    drawCard(p, RECORD_CARD, {
+      tab: this.tab,
+      label: this.#label(engine, id),
+      description: desc,
+      drawIcon: (r) => this.#icon(p, engine, id, r),
+    });
     Parts.sideButton(p, R.itemL, 'left');
     Parts.sideButton(p, R.itemR, 'right');
   }
@@ -230,11 +284,15 @@ export class CourtRecord {
       const idx = page * RECORD_PER_PAGE + i;
       const c = R.cell(i);
       const id = items[idx];
-      if (!id) { Parts.emptyCell(p, c); continue; }
+      if (!id) {
+        Parts.emptyCell(p, c);
+        continue;
+      }
       p.rect(c.x, c.y, c.w, c.h, C.cellFill);
       this.#icon(p, engine, id, c);
       // 選んでいる項目の枠（DS 版では点滅する）
-      if (idx === sel && (frame >> 5) % 4 !== 3) Parts.frame(p, { x: c.x - 2, y: c.y - 2, w: c.w + 3, h: c.h + 3 });
+      if (idx === sel && (frame >> 5) % 4 !== 3)
+        Parts.frame(p, { x: c.x - 2, y: c.y - 2, w: c.w + 3, h: c.h + 3 });
     }
     const pages = Math.ceil(items.length / RECORD_PER_PAGE);
     Parts.sideButton(p, R.pageL, 'left', pages > 1);
@@ -260,9 +318,12 @@ function titleText(p: Painter, label: string, x: number, y: number, maxW: number
   ctx.restore();
 }
 
-
 /** 茶色のボタンの文字（白、濃い茶色の縁取り）。(cx, cy) が文字の中心 */
 function buttonText(p: Painter, label: string, cx: number, cy: number) {
   const t = p.fonts.text;
-  t.draw(label, cx, t.centerY(cy - 8, 16), { color: C.btnText, outline: C.btnTextEdge, align: 'center' });
+  t.draw(label, cx, t.centerY(cy - 8, 16), {
+    color: C.btnText,
+    outline: C.btnTextEdge,
+    align: 'center',
+  });
 }
