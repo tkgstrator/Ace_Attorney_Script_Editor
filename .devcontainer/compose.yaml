@@ -1,0 +1,30 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - node_modules:/home/vscode/app/node_modules
+      - target:/home/vscode/app/target
+      - cargo-registry:/home/vscode/.cargo/registry
+      - cargo-git:/home/vscode/.cargo/git
+      - venv:/home/vscode/app/.venv
+      - uv-cache:/home/vscode/.cache/uv
+      - ../:/home/vscode/app:cached
+    environment:
+      NODE_ENV: development
+      NODE_OPTIONS: "--no-deprecation"
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    tty: true
+    stdin_open: true
+
+volumes:
+  node_modules:
+  target:
+  cargo-registry:
+  cargo-git:
+  venv:
+  uv-cache:

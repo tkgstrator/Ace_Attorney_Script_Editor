@@ -1,0 +1,13 @@
+[project]
+name = "gyakusai-tools"
+version = "0.1.0"
+description = "tools/rom の ROM 解析スクリプトが使う依存関係"
+requires-python = ">=3.11"
+dependencies = [
+  "pillow",
+  "numpy",
+  "capstone",
+]
+
+[tool.uv]
+package = false

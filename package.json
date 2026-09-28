@@ -1,0 +1,28 @@
+{
+  "name": "gyakusai",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "tools/convert"
+  ],
+  "scripts": {
+    "dev": "bun run --filter './apps/*' dev",
+    "build": "vite build apps/player",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "bun packages/script/src/cli.ts",
+    "schema": "bun packages/script/src/gen-schema.ts schema/scenario.schema.json",
+    "editor": "vite apps/editor"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@types/bun": "latest",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

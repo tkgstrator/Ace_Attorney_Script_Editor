@@ -1,0 +1,137 @@
+# 人物ファイルのつきつけと、法廷記録を開ける場面ならいつでも詳しく調べる（整合性チェックの TS 版と Rust 版の一致を確かめる用）
+id: t2
+title: 人物ファイルといつでも調べる
+player: me
+defaults: { autoShow: false }
+characters:
+  me: { name: 私 }
+  tomoe: { name: 巴, profile: { description: 主席検事 } }
+  ema: { name: 茜, profile: { description: 妹 } }
+  judge: { name: 裁判長 }
+evidence:
+  badge: { name: バッジ, description: 弁護士の }
+  phone:
+    name: 携帯電話
+    description: 巴のもの
+    examine:
+      - spot: 画面
+        when: not opened
+        then:
+          - set: { opened: true }
+          - ema: リダイヤルですね。
+      - spot: 発信の記録
+        when: opened and not called
+        then:
+          - set: { called: true, person: 2 }
+          - give: memo
+          - ema: 分かりました！
+      - spot: 裏
+        then:
+          - me: シールだ。
+  wallet:
+    name: サイフ
+    description: 拾った
+    examine:
+      - spot: 中身
+        when: not idcard
+        then:
+          - set: { idcard: true }
+          - ui: { record: false }
+          - ema: IDカードです！
+          - ui: { record: true }
+          - if: day == 1
+            then:
+              - goto: found
+  memo: { name: メモ, description: 通話の記録 }
+flags:
+  opened: false
+  called: false
+  idcard: false
+  person: 1
+  talked: false
+  day: 0
+start: { scene: intro, evidence: [badge], profiles: [tomoe] }
+parts:
+  - id: inv
+    kind: investigation
+    title: 探偵
+    scenes:
+      intro:
+        - me: 事務所だ。
+        - give: phone
+        - me: 携帯電話を受け取った。
+        - set: { person: 1 }
+        - me: 巴さんがいる。
+        - investigate: office
+      found:
+        - me: 見つけた。
+        - set: { day: 2 }
+        - investigate: office
+    places:
+      office:
+        name: 事務所
+        person:
+          - { id: tomoe, when: person == 1 }
+          - { id: ema, when: person == 2 }
+        talk:
+          - topic: 事件
+            then:
+              - tomoe: 話すことはありません。
+              - set: { person: 1 }
+              - tomoe: 以上です。
+              - set: { talked: true }
+              - tomoe: 本当に以上です。
+          - topic: サイフ
+            when: talked and not has(wallet)
+            then:
+              - ema: これを。
+              - give: wallet
+              - set: { day: 1 }
+              - ema: サイフです。
+          - topic: 茜について
+            when: person == 2
+            then:
+              - giveProfile: ema
+              - ema: よろしく。
+        present:
+          ema:
+            - tomoe: 妹です。
+          memo:
+            - tomoe: ……。
+            - goto: trial
+        presentWrong:
+          - tomoe: 関係ありません。
+  - id: court
+    kind: trial
+    title: 法廷
+    scenes:
+      trial:
+        - judge: 開廷します。
+        - ui: { record: false }
+        - judge: 記録は見られません。
+        - ui: { record: true }
+        - choice:
+            - text: 進む
+        - demand: 電話の持ち主は？
+          present:
+            tomoe:
+              - judge: そのとおり。
+          wrong:
+            - judge: 違います。
+        - demand: 証拠品を見せなさい
+          profiles: true
+          present:
+            memo:
+              - goto: t1
+          wrong:
+            - penalty: true
+      t1:
+        testimony: 証言
+        witness: tomoe
+        statements:
+          - text: 私は電話していません。
+            present:
+              memo:
+                - judge: 矛盾ですね。
+                - end: true
+          - text: 本当です。

@@ -1,0 +1,14 @@
+お役目かんりょ～～☆　立ち絵４枚と、口を開けた会話用４枚を、それぞれ別の組み込み image_gen 呼び出しで作ったよ。全８枚を指定先に保存し、ImageMagickで `srgba` のアルファチャンネルがあることを確認したのです♪
+
+- [naruse.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/naruse.png)
+- [naruse-talk.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/naruse-talk.png)
+- [himuro.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/himuro.png)
+- [himuro-talk.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/himuro-talk.png)
+- [torii.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/torii.png)
+- [torii-talk.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/torii-talk.png)
+- [judge.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/judge.png)
+- [judge-talk.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/judge-talk.png)
+
+生成時は、指定された人物像と立ち姿に、共通して「肖像キャンバス・腰より下まで描く・透過背景・くっきりしたレトロなピクセル画」を指定したよ。会話用には各通常版を読み込み、口だけを開ける編集を指定したのです。
+/personal/AceAttorney/assets/generated/raw/character/judge.png)
+- [assets/generated/raw/character/judge-talk.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/character/judge-talk.png)
