@@ -5,6 +5,7 @@
 """法廷記録の項目番号 → 名前・説明文（tables/record_text.json）の対応を、絵とは別の手がかりで確かめる。
 
     uv run tools/rom/record_text_verify.py [record_text.json]
+    uv run tools/rom/record_text_verify.py --game aa2|aa3 [record_text.json]   # 逆転裁判2・3（3D の物の表は無いので 2 は見ない）
 
 record_text_check.py は「読んだ字が絵と同じか」を確かめるが、「その絵がその項目のものか」は確かめない。
 ここでは項目番号と名前の対応を、次の手がかりと突き合わせる（全部の項目。矛盾が 0 なら終了コード 0）。
@@ -18,6 +19,7 @@ record_text_check.py は「読んだ字が絵と同じか」を確かめるが�
      （話の最初の中身・台本の record_add / record_swap に出ない）。法廷記録に入る項目には名前と説明文の絵がある。
      欄が空きなら、その欄の文字も空（record_text.json に文字があれば矛盾）。
   4. 名前の字の種類: 人物ファイルとして入る項目の名前は人物ファイルの字（年齢の付く形）、証拠品として入る項目は証拠品の字。
+     2・3 は字形が同じなので、年齢「（NN）」の付く名前が人物ファイルとして入るかを見る（check_age_form）。
   5. 同じ説明文（空でないもの）の項目どうしは、同じ名前。
   6. 同じ名前と説明文の項目どうしは、同じアイコン（別の物に同じ文が付いていない）。
      5・6 は、分かれた組に法廷記録に入らない項目があるときに矛盾とする（入る項目どうしは同じ文の別の物。shared_text）。
@@ -171,8 +173,7 @@ def check_age(ev: list[dict], texts: dict[str, dict]) -> tuple[int, list[str]]:
     return ok, bad
 
 
-def check_kind(ev: list[dict], into: dict[int, set[str]], x_dir: str) -> tuple[int, list[str]]:
-    lines = record_lines(x_dir)
+def check_kind(ev: list[dict], into: dict[int, set[str]], lines: dict[str, list]) -> tuple[int, list[str]]:
     ok, bad = 0, []
     for it in ev:
         src = it['image']['name']['ja']
@@ -185,6 +186,25 @@ def check_kind(ev: list[dict], into: dict[int, set[str]], x_dir: str) -> tuple[i
             ok += 1
         else:
             bad.append(f'字の種類\t{it["id"]}\t{src} は {font} の字、入れ方は {sorted(kinds)}')
+    return ok, bad
+
+
+#: 名前の最後の年齢「（NN）」「（？？）」「（故人）」
+AGE_TAIL = re.compile(r'（(\d+|？+|故人)）$')
+
+
+def check_age_form(ev: list[dict], into: dict[int, set[str]], texts: dict[str, dict]) -> tuple[int, list[str]]:
+    """2・3 の 4 の代わり（2・3 の名前の字形は証拠品と人物ファイルで同じなので、字の種類では分けられない）:
+    年齢の付く名前は人物ファイルとして入り、証拠品としてだけ入る項目の名前には年齢が付かない"""
+    ok, bad = 0, []
+    for it in ev:
+        kinds, name = into.get(it['id'], set()), bare(texts.get(str(it['id']), {}).get('name', ''))
+        if not kinds or not name:
+            continue
+        if AGE_TAIL.search(name) and 'profile' not in kinds:
+            bad.append(f'年齢の形\t{it["id"]}\t{name!r} は年齢が付くのに、入れ方は {sorted(kinds)}')
+        else:
+            ok += 1
     return ok, bad
 
 
@@ -218,23 +238,39 @@ def check_icons(ev: list[dict], texts: dict[str, dict], into: dict) -> tuple[int
                        lambda it, _t: it['icon'])
 
 
+def target() -> tuple[str, dict[str, list], list[str]]:
+    """(取り出し先, 絵 → 行, 残りの引数)。--game aa2|aa3 なら 2・3 の取り出し先と、record_text23.py と同じ字の分け方"""
+    args = sys.argv[1:]
+    if '--game' not in args:
+        return X, record_lines(X), args
+    from game import by_key
+    from record_text23 import game_lines
+    k = args.index('--game')
+    x_dir = str(by_key(args[k + 1]).out)
+    return x_dir, game_lines(x_dir), args[:k] + args[k + 2:]
+
+
 def main() -> None:
-    path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(X, 'tables', 'record_text.json')
+    x_dir, lines, args = target()
+    path = args[0] if args else os.path.join(x_dir, 'tables', 'record_text.json')
     texts = json.load(open(path, encoding='utf-8'))['items']
-    ev_doc = json.load(open(os.path.join(X, 'tables', 'evidence.json'), encoding='utf-8'))
+    ev_doc = json.load(open(os.path.join(x_dir, 'tables', 'evidence.json'), encoding='utf-8'))
     ev = ev_doc['items']
     names = {it['id']: texts.get(str(it['id']), {}).get('name', '') for it in ev}
-    ops = script_ops(X)
+    ops = script_ops(x_dir)
     into = filed(ev_doc, ops)
-    results = [('台本の「ファイルした」', check_script(ops, names)), ('3D の物のテクスチャ', check_3d(ev, names, into, X)),
-               ('空き欄と法廷記録', check_blank(ev, into, texts)), ('年齢', check_age(ev, texts)), ('名前の字の種類', check_kind(ev, into, X)),
+    # 2・3 には 3D の物が無い（examine3d.json も無い）
+    three_d = [('3D の物のテクスチャ', check_3d(ev, names, into, x_dir))] if x_dir == X else []
+    results = [('台本の「ファイルした」', check_script(ops, names)), *three_d,
+               ('空き欄と法廷記録', check_blank(ev, into, texts)), ('年齢', check_age(ev, texts)),
+               ('名前の字の種類', check_kind(ev, into, lines)) if x_dir == X else ('名前の年齢の形', check_age_form(ev, into, texts)),
                ('同じ説明文の名前', check_pairs(ev, texts, into)), ('同じ文のアイコン', check_icons(ev, texts, into))]
     head = [f'項目 {len(ev)}（法廷記録に入る {len(into)}・名前の無い {sum(1 for n in names.values() if not n)}）']
     report = []
     for title, (ok, bad) in results:
         head.append(f'{title}: 合う {ok}・矛盾 {len(bad)}')
         report += bad
-    out = os.path.join(X, 'font', 'small', 'record_verify.txt')
+    out = os.path.join(x_dir, 'font', 'small', 'record_verify.txt')
     with open(out, 'w', encoding='utf-8') as f:
         f.write('\n'.join(head + ['# 手がかり\t項目\t内容'] + report) + '\n')
     print('\n'.join(head + report[:40]))
