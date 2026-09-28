@@ -3,32 +3,21 @@ import {
   type Expr,
   ExprSyntaxError,
   exprRefs,
-  type Instr,
   type PartDef,
   parseExpr,
   parseRich,
-  plainText,
   RichTextError,
   type Scene,
-  type Statement,
-  type TextColor,
   type Value,
 } from '@gyakusai/core';
 import type { z } from 'zod';
-import { Builder, patch } from './builder.ts';
-import { compileEffect } from './compile-effect.ts';
+import { Builder } from './builder.ts';
 import { compileInspect } from './compile-inspect.ts';
 import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
+import { makeStepCompiler } from './compile-step.ts';
 import { compileTestimony } from './compile-testimony.ts';
 import { describeIssue } from './issues.ts';
-import {
-  type CommandName,
-  commandSchemas,
-  type RawPlace,
-  type RawScenario,
-  RESERVED_KEYS,
-  scenarioSchema,
-} from './schema.ts';
+import { type RawPlace, type RawScenario, RESERVED_KEYS, scenarioSchema } from './schema.ts';
 import { collectSources, type SourceMap } from './source-map.ts';
 
 export type Path = (string | number)[];
@@ -200,256 +189,24 @@ export function compile(raw: unknown): CompileResult {
     return e;
   };
 
-  // ---- ステップ列 → 命令列 ----
-  const compileSteps = (steps: unknown, path: Path, b: Builder): void => {
-    if (!Array.isArray(steps)) {
-      error(path, 'ステップの配列を書いてください');
-      return;
-    }
-    const outer = b.at;
-    steps.forEach((step, i) => {
-      b.at = [...path, i];
-      compileStep(step, [...path, i], b);
-    });
-    b.at = outer;
-  };
-
-  const compileStep = (step: unknown, path: Path, b: Builder): void => {
-    if (typeof step !== 'object' || step === null || Array.isArray(step)) {
-      error(path, '各ステップは「キー: 値」の形で書いてください');
-      return;
-    }
-    const keys = Object.keys(step);
-    const cmds = keys.filter((k): k is CommandName => k in commandSchemas);
-    if (cmds.length === 0) {
-      const only = keys[0];
-      if (keys.length === 1 && only !== undefined && only in characters) {
-        const text = (step as Record<string, unknown>)[only];
-        if (typeof text !== 'string') {
-          error([...path, only], '台詞は文字列で書いてください');
-          return;
-        }
-        emitSay(only, text, undefined, b, [...path, only]);
-        return;
-      }
-      error(
-        path,
-        keys.length === 1
-          ? `「${keys[0]}」はコマンドでも人物 ID でもありません`
-          : `どのコマンドか判別できません（キー: ${keys.join(', ')}）`,
-      );
-      return;
-    }
-    if (cmds.length > 1) {
-      error(path, `1つのステップに複数のコマンドがあります: ${cmds.join(', ')}`);
-      return;
-    }
-    const cmd = cmds[0]!;
-    const res = commandSchemas[cmd].safeParse(step);
-    if (!res.success) {
-      zodIssues(path, res.error);
-      return;
-    }
-    const s = res.data as Record<string, unknown>;
-
-    switch (cmd) {
-      case 'say': {
-        const who = s.say as string | null;
-        if (who !== null) checkCharacter(who, [...path, 'say']);
-        emitSay(
-          who,
-          s.text as string,
-          s.color as TextColor | undefined,
-          b,
-          [...path, 'text'],
-          s.auto === true,
-        );
-        break;
-      }
-      case 'narrate':
-        emitSay(null, s.narrate as string, undefined, b, [...path, 'narrate']);
-        break;
-      case 'set':
-        for (const [flag, value] of Object.entries(s.set as Record<string, Value>)) {
-          const p = [...path, 'set', flag];
-          if (!(flag in flags))
-            error(p, `未定義のフラグです: ${flag}（flags に初期値を書いてください）`);
-          else if (typeof flags[flag] !== typeof value)
-            error(
-              p,
-              `フラグ ${flag} は ${typeof flags[flag]} 型です（${typeof value} は入れられません）`,
-            );
-          b.emit({ op: 'set', flag, value });
-        }
-        break;
-      case 'add':
-        for (const [flag, amount] of Object.entries(s.add as Record<string, number>)) {
-          const p = [...path, 'add', flag];
-          if (!(flag in flags)) error(p, `未定義のフラグです: ${flag}`);
-          else if (typeof flags[flag] !== 'number')
-            error(p, `フラグ ${flag} は数値ではないので add できません`);
-          b.emit({ op: 'add', flag, amount });
-        }
-        break;
-      case 'giveProfile':
-      case 'takeProfile':
-        for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
-          checkCharacter(id, [...path, cmd]);
-          b.emit({ op: cmd, character: id });
-        }
-        break;
-      case 'give':
-      case 'take':
-        for (const id of ([] as string[]).concat(s[cmd] as string | string[])) {
-          checkEvidence(id, [...path, cmd]);
-          b.emit({ op: cmd, evidence: id });
-        }
-        break;
-      case 'if': {
-        const e = cond(s.if as string, [...path, 'if']);
-        const jumpUnless = b.emit({ op: 'jumpUnless', cond: e ?? { t: 'lit', v: false }, to: -1 });
-        compileSteps(s.then, [...path, 'then'], b);
-        if (s.else !== undefined) {
-          const jumpEnd = b.emit({ op: 'jump', to: -1 });
-          patch(b, jumpUnless, b.pc);
-          compileSteps(s.else, [...path, 'else'], b);
-          patch(b, jumpEnd, b.pc);
-        } else {
-          patch(b, jumpUnless, b.pc);
-        }
-        break;
-      }
-      case 'choice': {
-        const opts = s.choice as { text: string; when?: string; then?: unknown[] }[];
-        const ins: Extract<Instr, { op: 'choice' }> = { op: 'choice', options: [] };
-        b.emit(ins);
-        const exits: number[] = [];
-        opts.forEach((o, i) => {
-          const p = [...path, 'choice', i];
-          checkText(o.text);
-          const when = o.when !== undefined ? cond(o.when, [...p, 'when']) : undefined;
-          ins.options.push({ text: o.text, ...(when ? { when } : {}), to: b.pc });
-          if (o.then) compileSteps(o.then, [...p, 'then'], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      case 'demand': {
-        checkText(s.demand as string, [...path, 'demand']);
-        if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
-        const ins: Extract<Instr, { op: 'demand' }> = {
-          op: 'demand',
-          prompt: s.demand as string,
-          options: {},
-          wrong: -1,
-          ...(s.by ? { speaker: s.by as string } : {}),
-          ...(s.profiles === true ? { profiles: {} } : {}),
-        };
-        const at = b.emit(ins);
-        const exits: number[] = [];
-        for (const [ev, body] of Object.entries(s.present as Record<string, unknown[]>)) {
-          const kind = presentKind(ev, [...path, 'present', ev]);
-          if (kind === 'profile' && s.profiles === false)
-            error(
-              [...path, 'profiles'],
-              `人物ファイル（${ev}）が正解なので、profiles: false にはできません`,
-            );
-          if (kind === 'profile') {
-            ins.profiles ??= {};
-            ins.profiles[ev] = b.pc;
-          } else ins.options[ev] = b.pc;
-          b.emit({ op: 'shout', kind: 'takethat', by: player });
-          compileSteps(body, [...path, 'present', ev], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        }
-        ins.wrong = b.pc;
-        b.emit({ op: 'shout', kind: 'takethat', by: player });
-        compileWrong(s.wrong, [...path, 'wrong'], b);
-        b.emit({ op: 'jump', to: at });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      case 'goto':
-        checkScene(s.goto as string, [...path, 'goto']);
-        b.emit({ op: 'goto', scene: s.goto as string });
-        break;
-      case 'penalty':
-        b.emit({
-          op: 'penalty',
-          amount: s.penalty === true ? penaltyDefault : (s.penalty as number),
-        });
-        break;
-      case 'shout': {
-        const by = (s.by as string | undefined) ?? player;
-        if (s.by !== undefined) checkCharacter(s.by as string, [...path, 'by']);
-        b.emit({ op: 'shout', kind: s.shout as Extract<Instr, { op: 'shout' }>['kind'], by });
-        break;
-      }
-      case 'banner':
-        checkText(s.banner as string);
-        b.emit({ op: 'banner', text: s.banner as string });
-        break;
-      case 'card':
-        checkText(s.card as string);
-        b.emit({ op: 'card', text: s.card as string });
-        break;
-      case 'location':
-        b.emit({ op: 'location', location: s.location as string | null });
-        break;
-      case 'investigate':
-        checkPlace(s.investigate as string, [...path, 'investigate']);
-        b.emit({ op: 'investigate', place: s.investigate as string });
-        break;
-      case 'end':
-        b.emit({ op: 'end' });
-        break;
-      case 'gameover':
-        b.emit({ op: 'gameover' });
-        break;
-      case 'random': {
-        const at = b.emit({ op: 'random', to: [] });
-        const exits: number[] = [];
-        (s.random as unknown[]).forEach((branch, i) => {
-          (b.code[at] as Extract<Instr, { op: 'random' }>).to.push(b.pc);
-          compileSteps(branch, [...path, 'random', i], b);
-          exits.push(b.emit({ op: 'jump', to: -1 }));
-        });
-        for (const j of exits) patch(b, j, b.pc);
-        break;
-      }
-      default:
-        compileEffect(cmd, s, b, { checkCharacter, checkEvidence, path });
-    }
-  };
-
-  const emitSay = (
-    speaker: string | null,
-    text: string,
-    color: TextColor | undefined,
-    b: Builder,
-    path: Path,
-    auto = false,
-  ) => {
-    checkText(text, path);
-    checkInlineRefs(text, path);
-    // （ ）で囲んだ台詞は心の声として青字にする
-    const thought = /^[（(]/.test(plainText(text));
-    b.emit({
-      op: 'say',
-      speaker,
-      text,
-      color: color ?? (thought ? 'blue' : 'white'),
-      ...(auto ? { auto: true } : {}),
-    });
-  };
-
-  const compileWrong = (steps: unknown, path: Path, b: Builder) => {
-    if (steps !== undefined) compileSteps(steps, path, b);
-    else if (src.defaults?.wrongPresent)
-      compileSteps(src.defaults.wrongPresent, ['defaults', 'wrongPresent'], b);
-    else b.emit({ op: 'penalty', amount: penaltyDefault });
-  };
+  // ---- ステップ列 → 命令列（compile-step.ts） ----
+  const { compileSteps, compileWrong } = makeStepCompiler({
+    characters,
+    flags,
+    player,
+    penaltyDefault,
+    wrongPresent: src.defaults?.wrongPresent,
+    error,
+    zodIssues,
+    checkCharacter,
+    checkEvidence,
+    checkScene,
+    checkPlace,
+    checkText,
+    checkInlineRefs,
+    cond,
+    presentKind,
+  });
 
   // ---- 全体の検証 ----
   for (const id of Object.keys(characters)) {
