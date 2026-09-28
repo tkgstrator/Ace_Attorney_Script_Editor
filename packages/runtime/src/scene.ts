@@ -1,11 +1,12 @@
 // 背景 → 立ち絵 → 手前（机）→ フェードの覆い、の順に描く。
+// 立ち絵・机・重ね絵は 4:3 の枠（256×192。広い画面では中央に置く）の座標で描く。
 import type { Beat, Engine, Pose } from '@gyakusai/core';
 import type { BackgroundView } from './background.ts';
-import type { OverlayView } from './overlays.ts';
-import type { PanView } from './pan.ts';
 import type { ScreenEffects } from './effects.ts';
 import { SCREEN_H, SCREEN_W } from './layout.ts';
+import type { OverlayView } from './overlays.ts';
 import type { Painter } from './painter.ts';
+import type { PanView } from './pan.ts';
 
 export interface SceneTiming {
   typing: boolean;
@@ -32,20 +33,21 @@ export function drawScene(
   const view = views.bg;
   const key = location ?? (who ? engine.scenario.characters[who]?.stand : undefined) ?? 'court';
   const bg = key === 'black' ? undefined : assets.background?.(key);
+  const { ox, w, h } = p.layout;
   // 背景が無ければ黒（元のゲームの「背景なし」と同じ）。画面より大きい背景（横に流す背景など）は縮めずに左上から描く
-  p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
+  p.rect(0, 0, w, h, '#000000');
   view.sync(key, bg, assets.backgroundStart?.(key));
   // 視点の流しの最中（と、流し終えた後）は、全景・人物・机をその表のとおりに描く
   if (views.pan.draw(p, engine, t.typing, () => view.draw(ctx))) {
-    views.overlays.draw(ctx, assets, overlays, 0, 0);
+    views.overlays.draw(ctx, assets, overlays, ox, 0);
     fx.drawCover(p, fade);
     return;
   }
   view.draw(ctx);
   // 人物は、背景をスクロールした分だけ一緒にずらす
-  const [ox, oy] = view.offset;
+  const [tx, ty] = view.offset;
   ctx.save();
-  ctx.translate(ox, oy);
+  ctx.translate(tx, ty);
   // 人物の半透明のフェード: 出すときはだんだん濃く、消すときは消える人物をだんだん薄く描く
   const cf = fx.charFade;
   if (cf?.dir === 'out' && cf.character) {
@@ -57,15 +59,15 @@ export function drawScene(
   ctx.globalAlpha = 1;
   ctx.restore();
   const fg = assets.foreground?.(key);
-  if (fg) ctx.drawImage(fg, 0, 0, SCREEN_W, SCREEN_H);
+  if (fg) ctx.drawImage(fg, ox, 0, SCREEN_W, SCREEN_H);
   // 重ね絵は机の手前・文字の枠の奥（背景と一緒にスクロールする）
-  views.overlays.draw(ctx, assets, overlays, ox, oy);
+  views.overlays.draw(ctx, assets, overlays, tx, ty);
   if (engine.state.stage.palette === 'grayscale') grayscale(ctx);
   // フェード: 動いている間は進み具合に合わせ、フェードアウトの後は覆ったまま（台詞はこの上に出る）
   fx.drawCover(p, fade);
 }
 
-/** 人物の立ち絵（動きの指定があれば画面の大きさの絵、なければ下端・中央に合わせた絵） */
+/** 人物の立ち絵（動きの指定があれば 4:3 の画面の大きさの絵、なければ 4:3 の枠の下端・中央に合わせた絵） */
 function drawPortrait(p: Painter, who: string, pose: Pose | null, b: Beat, t: SceneTiming) {
   const { ctx, assets } = p;
   if (pose) {

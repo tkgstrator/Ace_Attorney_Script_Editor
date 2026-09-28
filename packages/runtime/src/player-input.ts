@@ -1,5 +1,5 @@
 // Player（player.ts）のキーボード・マウス入力を、エンジンの操作に変換する。
-import { hit, TIMING, UI } from './layout.ts';
+import { hit, TIMING } from './layout.ts';
 import { canOpenRecord, onCross, type PlayerHost } from './player-host.ts';
 import { topButtonRect } from './top-buttons.ts';
 
@@ -97,8 +97,10 @@ export function key(h: PlayerHost, key: string): boolean {
 
 /** クリック（画面の座標） */
 export function click(h: PlayerHost, x: number, y: number) {
+  const L = h.p.layout;
   if (h.record.open) {
-    onRecord(h, () => h.record.click(h.engine, x, y));
+    // 法廷記録は 4:3 の枠（広い画面では中央）に描くので、枠の中の座標に直す
+    onRecord(h, () => h.record.click(h.engine, x - L.ox, y));
     return;
   }
   const b = h.beat;
@@ -115,7 +117,7 @@ export function click(h: PlayerHost, x: number, y: number) {
     h.record.show(h.engine, 'evidence');
     return;
   }
-  if (b.kind === 'demand' && b.giveUp && hit(UI.pressTab, x, y)) {
+  if (b.kind === 'demand' && b.giveUp && hit(L.ui.pressTab, x, y)) {
     h.engine.giveUp();
     return;
   }
@@ -134,7 +136,7 @@ export function click(h: PlayerHost, x: number, y: number) {
       confirm(h);
       return;
     }
-    const i = b.options.findIndex((_, j) => hit(UI.choice(j, b.options.length), x, y));
+    const i = b.options.findIndex((_, j) => hit(L.ui.choice(j, b.options.length), x, y));
     if (i >= 0 && h.age >= TIMING.choiceGuardMs) {
       h.audio?.se('ui_decide');
       h.engine.choose(i);

@@ -1,8 +1,8 @@
 // 人物を選ぶ（nominate。DS 版の第 5 話の指紋の照合・人物の指名）の顔の並びの表示と入力。pick.ts から使う。
 // 範囲（Beat の areas）は DS 版の下画面の枠の位置（4 人ずつ 2 段）。顔の絵があれば顔、なければ名前のボタン。
 // 案内は上に、カーソルの当たっている人物の名前は下に出す（テキストの枠は顔の 2 段目と重なるので出さない）
+// 範囲は 4:3 の枠の座標なので、広い画面では中央に置く（当たりを調べる点は pick.ts が 4:3 の枠の座標に直して渡す）
 import type { Beat, Engine } from '@gyakusai/core';
-import { SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
 type PickBeat = Extract<Beat, { kind: 'pick' }>;
@@ -49,15 +49,17 @@ export function drawPeople(
   prompt: string,
   blinkOn: boolean,
 ): void {
-  p.rect(0, 0, SCREEN_W, SCREEN_H, '#1c2a44');
+  const { w: W, h: H, ox } = p.layout;
+  p.rect(0, 0, W, H, '#1c2a44');
   const t = p.fonts.text;
-  p.dim({ x: 0, y: 14, w: SCREEN_W, h: 22 }, '#000008', 0.6);
-  t.draw(t.wrap(prompt, SCREEN_W - 16)[0] ?? '', SCREEN_W / 2, t.centerY(14, 22), {
+  p.dim({ x: 0, y: 14, w: W, h: 22 }, '#000008', 0.6);
+  t.draw(t.wrap(prompt, W - 16)[0] ?? '', W / 2, t.centerY(14, 22), {
     color: '#ffffff',
     align: 'center',
   });
   b.areas.forEach((a, i) => {
-    const [x, y, w, h] = a.area;
+    const [ax, y, w, h] = a.area;
+    const x = ax + ox;
     const id = a.person ?? '';
     const name = personName(sc, id);
     const on = i === sel;
@@ -81,7 +83,7 @@ export function drawPeople(
   const cur = b.areas[sel];
   if (cur?.person) {
     const name = personName(sc, cur.person);
-    p.dim({ x: 0, y: 162, w: SCREEN_W, h: 22 }, '#000008', 0.6);
-    t.draw(name, SCREEN_W / 2, t.centerY(162, 22), { color: '#ffffff', align: 'center' });
+    p.dim({ x: 0, y: 162, w: W, h: 22 }, '#000008', 0.6);
+    t.draw(name, W / 2, t.centerY(162, 22), { color: '#ffffff', align: 'center' });
   }
 }
