@@ -11,6 +11,7 @@ import { type Flow, nodeOf } from './verify-flow.ts';
 import { type Act, inspectActions, inspectStop, markInspect } from './verify-inspect.ts';
 import { inspectSkippable } from './verify-inspect-sim.ts';
 
+/** 4:3 の画面の大きさ（背景の座標） */
 const SCREEN = { w: 256, h: 192 };
 const pointCache = new WeakMap<PlaceScene, [number, number][]>();
 
@@ -19,7 +20,9 @@ const pointCache = new WeakMap<PlaceScene, [number, number][]>();
  * 「どの範囲に入っているか」の組み合わせごとに 1 点を選ぶ（同じ組み合わせの点は、どの条件でも同じ結果になる）。
  * 重なった範囲の奥の範囲や、どの範囲にも入らない所も漏れなく試せる。
  * 背景の大きさは分からないので、画面の大きさと、範囲の右・下の端のうち大きい方までを背景とみなす
- * （横長の背景は、調べる間にスクロールすればどこでも調べられる）
+ * （横長の背景は、調べる間にスクロールすればどこでも調べられる）。
+ * 画面の幅（4:3 / 16:9）によらない: プレイヤーは 16:9 でも、背景の座標でこの範囲（4:3 の画面と背景の大きい方）の
+ * 点しか調べさせない（狭い背景の左右の黒い所は調べられない。runtime の BackgroundView.examinable）
  */
 function examinePoints(place: PlaceScene): [number, number][] {
   const cached = pointCache.get(place);
