@@ -110,10 +110,21 @@ if (scenario) {
           'damage',
         ],
   );
+  // 画面の幅（?aspect=16:9 で 16:9。既定は 4:3）
+  const aspect = new URLSearchParams(location.search).get('aspect') === '16:9' ? '16:9' : '4:3';
+  const aspectSelect = $<HTMLSelectElement>('aspect');
+  aspectSelect.value = aspect;
+  aspectSelect.addEventListener('change', () => {
+    const url = new URL(location.href);
+    if (aspectSelect.value === '16:9') url.searchParams.set('aspect', '16:9');
+    else url.searchParams.delete('aspect');
+    location.href = url.href;
+  });
   const player = new Player({
     canvas,
     engine,
     assets,
+    aspect,
     audio,
     ...fonts,
     onRestart: () => start(),

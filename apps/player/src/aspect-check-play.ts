@@ -2,10 +2,12 @@
 // 画面の更新（requestAnimationFrame）・時刻（performance.now）・乱数（Math.random）をこちらで決めるので、
 // 同じ章・同じ手順なら、何度描いても同じ画素になる。
 import { type CompiledScenario, Engine } from '@gyakusai/core';
-import { type Assets, Player, type PlayerOptions } from '@gyakusai/runtime';
+import { type Aspect, type Assets, Player, type PlayerOptions } from '@gyakusai/runtime';
+import { type Flow, runFlow } from './aspect-check-flows.ts';
 
-type Fonts = Partial<PlayerOptions>;
-export type Aspect = '4:3' | '16:9';
+export type { Aspect };
+
+type Fonts = Partial<PlayerOptions> | undefined;
 
 export interface Shot {
   label: string;
@@ -20,30 +22,35 @@ const frames = new Map<number, FrameRequestCallback>();
 let frameId = 0;
 let clock = 0;
 let seed = 1;
-window.requestAnimationFrame = (cb) => {
-  frames.set(++frameId, cb);
-  return frameId;
-};
-window.cancelAnimationFrame = (id) => {
-  frames.delete(id);
-};
-performance.now = () => clock;
-Math.random = () => {
-  // mulberry32
-  seed = (seed + 0x6d2b79f5) | 0;
-  let t = seed;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-};
+/** 更新・時刻・乱数をこちらのものに差し替える（このモジュールが 2 度読み込まれても、reset した方が握る） */
+function install() {
+  window.requestAnimationFrame = (cb) => {
+    frames.set(++frameId, cb);
+    return frameId;
+  };
+  window.cancelAnimationFrame = (id) => {
+    frames.delete(id);
+  };
+  performance.now = () => clock;
+  Math.random = () => {
+    // mulberry32
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+install();
 
-function reset() {
+export function reset() {
+  install();
   frames.clear();
   clock = 0;
   seed = 1;
 }
 
-function pump(n: number) {
+export function pump(n: number) {
   for (let i = 0; i < n; i++) {
     const cbs = [...frames.values()];
     frames.clear();
@@ -52,7 +59,7 @@ function pump(n: number) {
   }
 }
 
-const key = (k: string) => {
+export const key = (k: string) => {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
   pump(20);
 };
@@ -67,6 +74,44 @@ function hashOf(data: ImageData): string {
 
 // ---- 章を進めて撮る ----------------------------------------------------------------
 
+/** Player を作り、画面を撮る関数を用意する。PlayerClass は比べたい別の版の Player を渡すとき */
+function setup(
+  scenario: CompiledScenario,
+  assets: Assets,
+  fonts: Fonts,
+  aspect: Aspect,
+  PlayerClass: typeof Player = Player,
+) {
+  reset();
+  const canvas = document.createElement('canvas');
+  const engine = new Engine(scenario);
+  const player = new PlayerClass({ canvas, engine, assets, ...fonts, aspect });
+  const ctx = canvas.getContext('2d')!;
+  const shots: Shot[] = [];
+  const snap = (label: string, n = 40) => {
+    pump(n);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    shots.push({ label, hash: hashOf(data), url: canvas.toDataURL(), width: canvas.width });
+  };
+  return { engine, player, shots, snap };
+}
+
+/** 決まった手順（aspect-check-flows.ts）で進めて撮る */
+export function flowShots(
+  scenario: CompiledScenario,
+  assets: Assets,
+  fonts: Fonts,
+  aspect: Aspect,
+  flow: Flow,
+  PlayerClass: typeof Player = Player,
+): Shot[] {
+  const { engine, player, shots, snap } = setup(scenario, assets, fonts, aspect, PlayerClass);
+  pump(2);
+  runFlow(engine, flow, { pump, key, shot: (label) => snap(label, 1) });
+  player.destroy();
+  return shots;
+}
+
 /**
  * 章の各シーンの始めから、最大 perScene 場面ずつ撮る（全部で max 枚まで）。
  * 探偵パートは、メニュー・調べる画面・話題の一覧も撮る。最初の台詞では法廷記録も開いて撮る
@@ -79,19 +124,7 @@ export function playShots(
   max: number,
   perScene = 4,
 ): Shot[] {
-  reset();
-  const canvas = document.createElement('canvas');
-  const engine = new Engine(scenario);
-  // 画面の幅の設定を知らない Player（変更の前）でも同じ手順で撮れるように、設定は型を広げて渡す
-  const opts = { canvas, engine, assets, ...fonts, aspect } as PlayerOptions;
-  const player = new Player(opts);
-  const ctx = canvas.getContext('2d')!;
-  const shots: Shot[] = [];
-  const snap = (label: string, n = 40) => {
-    pump(n);
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    shots.push({ label, hash: hashOf(data), url: canvas.toDataURL(), width: canvas.width });
-  };
+  const { engine, player, shots, snap } = setup(scenario, assets, fonts, aspect);
   let recordShot = false;
   pump(2);
   for (const scene of Object.keys(scenario.scenes)) {
