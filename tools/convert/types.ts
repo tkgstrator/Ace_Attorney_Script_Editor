@@ -73,6 +73,8 @@ export interface CourtPart {
 }
 
 export interface Tables {
+  /** どのゲームの台本か（aa1 = 蘇る逆転、aa2 = 逆転裁判2、aa3 = 逆転裁判3） */
+  game: import('./tables.ts').GameKey;
   names: { id: number; text: { ja: string; en: string } }[];
   chars: Record<string, { name: string | null; name_id: number }>;
   evidence: { id: number; text_ja?: { name: string; desc: string }; start_as?: string }[];

@@ -6,6 +6,14 @@ import type { Entry, Tables } from './types.ts';
 export const ROOT = resolve(import.meta.dir, '../..');
 export const EXTRACTED = join(ROOT, 'assets/extracted');
 
+/** どのゲームの台本か（aa1 = 蘇る逆転、aa2 = 逆転裁判2、aa3 = 逆転裁判3） */
+export type GameKey = 'aa1' | 'aa2' | 'aa3';
+export const GAMES: Record<GameKey, { dir: string; commonItem: number }> = {
+  aa1: { dir: EXTRACTED, commonItem: 72 },
+  aa2: { dir: join(EXTRACTED, 'aa2'), commonItem: 44 },
+  aa3: { dir: join(EXTRACTED, 'aa3'), commonItem: 84 },
+};
+
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
 
 /** tools/rom/script_json.py が書き出した項目の JSON */
@@ -19,7 +27,7 @@ export function loadEntry(n: number, dir = join(EXTRACTED, 'script/json')): Entr
   return readJson<Entry>(path);
 }
 
-export function loadTables(dir = join(EXTRACTED, 'tables')): Tables {
+export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1'): Tables {
   const names = readJson<{ names: Tables['names'] }>(join(dir, 'names.json')).names;
   const chars = readJson<{ chars: Tables['chars'] }>(join(dir, 'chars.json')).chars;
   const ev = readJson<{ items: Tables['evidence']; start: Tables['evidenceStart'] }>(
@@ -27,7 +35,7 @@ export function loadTables(dir = join(EXTRACTED, 'tables')): Tables {
   );
   const court = readJson<Tables['court']>(join(dir, 'court.json'));
   const sounds = new Map<number, string>();
-  const rendered = join(EXTRACTED, 'sound/rendered/index.json');
+  const rendered = join(dir, '../sound/rendered/index.json');
   if (existsSync(rendered)) {
     for (const it of readJson<{ items: { sdatIndex: number; name: string }[] }>(rendered).items)
       sounds.set(it.sdatIndex, it.name);
@@ -57,6 +65,7 @@ export function loadTables(dir = join(EXTRACTED, 'tables')): Tables {
   const x3dPath = join(dir, 'examine3d.json');
   const examine3d = existsSync(x3dPath) ? readJson<Tables['examine3d']>(x3dPath) : undefined;
   return {
+    game,
     names,
     chars,
     evidence: ev.items,

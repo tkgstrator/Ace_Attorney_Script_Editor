@@ -2,6 +2,8 @@
 export const CASE_ROOTS: Record<string, { label: string; dir: string }> = {
   sample: { label: 'サンプル', dir: 'apps/player/cases' },
   official: { label: '公式（変換）', dir: 'assets/extracted/converted' },
+  official2: { label: '公式 2（変換）', dir: 'assets/extracted/aa2/converted' },
+  official3: { label: '公式 3（変換）', dir: 'assets/extracted/aa3/converted' },
 };
 
 const split = (name: string) => {
