@@ -12,6 +12,7 @@ import { applyInlineCommand } from './exec.ts';
 import { inspectFrame } from './inspect.ts';
 import { examineAt, investigateBeat, personAt } from './investigation.ts';
 import { Machine } from './machine.ts';
+import { pickIndexAt } from './pick.ts';
 import { holds, kindOf, type RecordKind, recordName } from './present.ts';
 import type { InlineCommand } from './rich.ts';
 import { initialState, migrateState } from './state.ts';
@@ -21,6 +22,7 @@ import type {
   EngineEvent,
   Expr,
   GameState,
+  Instr,
   Snapshot,
   Value,
 } from './types.ts';
@@ -123,7 +125,7 @@ export class Engine {
       }
     } else {
       const ins = this.#m.instr();
-      if (ins.op === 'choice' || ins.op === 'demand')
+      if (ins.op === 'choice' || ins.op === 'pick' || ins.op === 'demand')
         throw new EngineError(`${ins.op} では advance できません`);
       if (ins.op === 'end' || ins.op === 'gameover') return;
       s.pc++;
@@ -205,6 +207,42 @@ export class Engine {
     if (!opt) throw new EngineError(`選択肢の番号が範囲外です: ${index}`);
     this.#m.state.pc = opt.to;
     this.#m.settle();
+  }
+
+  /**
+   * 絵の上の範囲を選ぶ（pick）。index は今選べるもの（範囲・範囲の外・やめるの順。Beat の areas の後に
+   * 範囲の外、やめる）の番号。表示側は pickAt・pickQuit を使う
+   */
+  pick(index: number): void {
+    const opt = visibleOptions(this.#pickInstr(), (e) => this.#m.test(e))[index];
+    if (!opt) throw new EngineError(`範囲の番号が範囲外です: ${index}`);
+    this.#m.state.pc = opt.to;
+    this.#m.settle();
+  }
+
+  /**
+   * 絵 image（Beat の images の番号。今の背景の上なら 0）の上の点 (x, y) を選ぶ。当たる範囲が無ければ範囲の外。
+   * 範囲の外を選べないときは何もせず false
+   */
+  pickAt(x: number, y: number, image = 0): boolean {
+    const i = pickIndexAt(this.#pickInstr(), x, y, image, (e) => this.#m.test(e));
+    if (i === null) return false;
+    this.pick(i);
+    return true;
+  }
+
+  /** pick をやめる（やめられるときだけ） */
+  pickQuit(): void {
+    const opts = visibleOptions(this.#pickInstr(), (e) => this.#m.test(e));
+    const i = opts.findIndex((o) => o.kind === 'quit');
+    if (i < 0) throw new EngineError('今はやめられません');
+    this.pick(i);
+  }
+
+  #pickInstr(): Extract<Instr, { op: 'pick' }> {
+    const ins = this.#m.state.mode === 'run' ? this.#m.instr() : null;
+    if (ins?.op !== 'pick') throw new EngineError('範囲を選ぶ場面ではありません');
+    return ins;
   }
 
   // ---- 探索編 --------------------------------------------------------------------

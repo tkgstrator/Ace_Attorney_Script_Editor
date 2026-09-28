@@ -105,6 +105,9 @@ export function renderScreen(h: PlayerHost) {
     case 'investigate':
       h.inv.render(p, b, h.labels, h.frame, h.markers, h.views.bg);
       break;
+    case 'pick':
+      h.pick.render(p, b, h.labels, h.frame, h.markers, h.views.bg);
+      break;
     case 'end':
       W.endScreen(p, h.labels.end);
       break;

@@ -52,7 +52,7 @@ pub fn flag_bounds(m: &Model) -> Vec<Option<Bound>> {
         for ins in &sc.program {
             match ins {
                 Op::JumpUnless(c, _) => walk(Some(c), true, &mut range, &mut exact, &mut note),
-                Op::Choice(o) => o.iter().for_each(|o| walk(o.when.as_ref(), true, &mut range, &mut exact, &mut note)),
+                Op::Choice(o) | Op::Pick(o) => o.iter().for_each(|o| walk(o.when.as_ref(), true, &mut range, &mut exact, &mut note)),
                 Op::Add(f, a) => if *a >= 0.0 { up[*f as usize] = true } else { down[*f as usize] = true },
                 _ => {}
             }

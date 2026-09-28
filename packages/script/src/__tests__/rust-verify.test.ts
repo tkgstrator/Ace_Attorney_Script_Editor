@@ -171,6 +171,38 @@ ${topics.map((i) => `        - text: 話題${i}\n          when: not t${i}\n    
     );
   });
 
+  it('範囲を選ぶ（pick）の範囲・範囲の外・やめるも、TS 版と同じく試す', () => {
+    const pick = (glove: string) =>
+      tiny(
+        '  glove: false',
+        `
+  s:
+    - pick: 指を選ぶ
+      images: [a, b]
+      areas:
+        - area: [0, 0, 10, 10]
+          image: 0
+          when: not glove
+          then:
+            - set: { glove: true }
+            - goto: s
+        - area: [20, 0, 10, 10]
+          image: 1
+          when: ${glove}
+          then:
+            - end: true
+      miss:
+        - a: 何もない
+      quit:
+        - goto: dead
+  dead:
+    - a: 抜け出せない
+    - goto: dead`,
+      );
+    expect(same(pick('glove')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+    expect(same(pick('glove and false')).findings.length).toBeGreaterThan(0);
+  });
+
   it('証拠品を詳しく調べて手に入る証拠品も、TS 版と同じく扱う', () => {
     const yaml = `
 id: t

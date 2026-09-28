@@ -86,6 +86,7 @@ export const DEFAULT_LABELS = {
   move: '移動する',
   talk: '話す',
   examineHint: 'どこを調べる？',
+  pickHint: 'どこを選ぶ？',
   testifying: '証言中',
   end: 'おしまい',
   gameover: 'ゲームオーバー',

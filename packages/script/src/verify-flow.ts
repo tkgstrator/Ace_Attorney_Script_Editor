@@ -88,7 +88,7 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') collect(ins.cond);
-      if (ins.op === 'choice')
+      if (ins.op === 'choice' || ins.op === 'pick')
         ins.options.forEach((o) => {
           collect(o.when);
         });
@@ -198,6 +198,13 @@ export function analyzeFlow(sc: CompiledScenario, opts: { all?: boolean } = {}):
             edge(node, b + o.to);
           });
           inspectsAnywhere(node);
+          break;
+        // 範囲を選ぶ間は法廷記録を開けない（詳しく調べられない）
+        case 'pick':
+          ins.options.forEach((o) => {
+            uses(node, o.when);
+            edge(node, b + o.to);
+          });
           break;
         case 'say':
         case 'card':

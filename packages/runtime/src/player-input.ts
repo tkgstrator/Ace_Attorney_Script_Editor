@@ -41,6 +41,7 @@ export function confirm(h: PlayerHost) {
       break;
     case 'shout':
     case 'investigate':
+    case 'pick':
     case 'fade':
     case 'wait':
       break;
@@ -66,6 +67,7 @@ export function key(h: PlayerHost, key: string): boolean {
   const b = h.beat;
   if (b.kind === 'investigate')
     return h.inv.key(h.engine, b, key, () => h.record.show(h.engine, 'evidence'), h.views.bg);
+  if (b.kind === 'pick') return h.pick.key(h.engine, b, key, h.views.bg);
   if (b.kind === 'choice' && !h.typing) {
     const n = b.options.length;
     if (key === 'ArrowUp') {
@@ -103,6 +105,10 @@ export function click(h: PlayerHost, x: number, y: number) {
   const recordAt = topButtonRect(h.p, 'record');
   if (b.kind === 'investigate' && !(canOpenRecord(h) && hit(recordAt, x, y))) {
     h.inv.click(h.engine, b, x, y, () => h.record.show(h.engine, 'evidence'), h.views.bg);
+    return;
+  }
+  if (b.kind === 'pick') {
+    h.pick.click(h.engine, b, x, y, h.views.bg);
     return;
   }
   if (canOpenRecord(h) && hit(recordAt, x, y)) {

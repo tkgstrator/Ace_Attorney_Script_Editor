@@ -35,6 +35,7 @@ export const COMMAND_LABELS: Record<CommandName, string> = {
   if: '条件分岐',
   choice: '選択肢',
   demand: 'つきつけ要求',
+  pick: '範囲を選ぶ',
   goto: 'シーン移動',
   penalty: 'ペナルティ',
   shout: '吹き出し',
@@ -158,6 +159,9 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
       };
     case 'demand':
       return { demand: '証拠品をつきつけてください', present: {}, wrong: [] };
+    case 'pick':
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      return { pick: '', areas: [{ area: [96, 64, 64, 64], then: [] }], miss: [] };
     case 'goto':
       return { goto: first(ctx.scenes, 'scene') };
     case 'penalty':

@@ -94,7 +94,7 @@ function usesLife(sc: CompiledScenario): boolean {
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond);
-      if (ins.op === 'choice')
+      if (ins.op === 'choice' || ins.op === 'pick')
         ins.options.forEach((o) => {
           walk(o.when);
         });
@@ -158,7 +158,7 @@ function rank(b: Beat): number {
       ? 1
       : b.kind === 'investigate'
         ? 2
-        : b.kind === 'choice'
+        : b.kind === 'choice' || b.kind === 'pick'
           ? 3
           : 4;
 }

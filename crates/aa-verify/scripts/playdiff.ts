@@ -4,10 +4,10 @@
 //   bun crates/aa-verify/scripts/playdiff.ts <IR.json> [遊ぶ回数=20] [1 回の歩数=400] [種=1]
 import { readFileSync } from 'node:fs';
 import {
-  Engine,
-  heldProfiles,
   type CompiledScenario,
+  Engine,
   type GameState,
+  heldProfiles,
 } from '../../../packages/core/src/index.ts';
 import { prepare } from '../../../packages/script/src/verify-key.ts';
 
@@ -69,8 +69,14 @@ function play(e: Engine, rand: () => number): string | null {
       opts.push('a');
       break;
     case 'choice':
-      b.options.forEach((_, i) => opts.push(`c${i}`));
+      b.options.forEach((_, i) => {
+        opts.push(`c${i}`);
+      });
       opts.push(...inspects);
+      break;
+    case 'pick':
+      for (let i = 0; i < b.areas.length + (b.miss ? 1 : 0) + (b.quit ? 1 : 0); i++)
+        opts.push(`k${i}`);
       break;
     case 'demand':
       opts.push(...held, ...(b.profiles ? profiles : []), ...inspects);
@@ -106,6 +112,9 @@ function play(e: Engine, rand: () => number): string | null {
       break;
     case 'c':
       e.choose(Number(a.slice(1)));
+      break;
+    case 'k':
+      e.pick(Number(a.slice(1)));
       break;
     case 'v':
       e.present(a.slice(1), 'evidence');

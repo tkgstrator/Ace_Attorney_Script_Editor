@@ -11,6 +11,7 @@ export {
   lockFlag,
   lockOutScene,
 } from './lock.ts';
+export { onImage, pickIndexAt, pickMarkers } from './pick.ts';
 export {
   allProfiles,
   heldProfiles,

@@ -225,7 +225,7 @@ export class InvestigationUI {
 }
 
 /** 調べるときのカーソル（十字）。背景の上でも見えるよう黒い縁を付ける */
-function cursor(p: Painter, x: number, y: number, color: string) {
+export function cursor(p: Painter, x: number, y: number, color: string) {
   const arms: [number, number, number, number][] = [
     [x - 9, y, 6, 1],
     [x + 4, y, 6, 1],

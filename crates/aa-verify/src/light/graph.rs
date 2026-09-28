@@ -124,6 +124,7 @@ pub fn build(m: &Model) -> LGraph<'_> {
                     out.extend(opts.iter().map(|o| LEdge { cond: o.when.as_ref(), site: Site::Choice, ..plain(b + o.to) }));
                     inspect_edges(&g, &mut out);
                 }
+                Op::Pick(opts) => out.extend(opts.iter().map(|o| LEdge { cond: o.when.as_ref(), site: Site::Choice, ..plain(b + o.to) })),
                 Op::Stop(StopKind::Line | StopKind::Card) => { out.extend(next.map(plain)); inspect_edges(&g, &mut out); }
                 Op::Demand { options, profiles, wrong, give_up, .. } => {
                     let all = options.iter().chain(profiles.iter().flatten());

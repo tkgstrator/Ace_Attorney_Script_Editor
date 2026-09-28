@@ -71,6 +71,9 @@ pub enum Op {
     Nop(&'static str),
     Stop(StopKind),
     Choice(Vec<Opt>),
+    /// 絵の上の範囲を選ぶ（pick）。選べるもの（範囲・範囲の外・やめる）の並び。when は範囲だけ。
+    /// 流れの上は選択肢と同じ（法廷記録は開けない）
+    Pick(Vec<Opt>),
     /// options は IR の並び（証拠品の番号, pc）。profiles は人物ファイルの正解（人物ファイルの番号, pc）で、
     /// None なら人物ファイルはつきつけられない
     /// give_up はサイコ・ロックの「やめる」の行き先（あれば、つきつけずにやめられる）
@@ -104,7 +107,7 @@ impl Op {
                 StopKind::Line => "say", StopKind::Shout => "shout", StopKind::Banner => "banner",
                 StopKind::Card => "card", StopKind::Wait => "wait", StopKind::Fade => "fade",
             },
-            Op::Choice(_) => "choice", Op::Demand { .. } => "demand", Op::Set(..) => "set", Op::Add(..) => "add",
+            Op::Choice(_) => "choice", Op::Pick(_) => "pick", Op::Demand { .. } => "demand", Op::Set(..) => "set", Op::Add(..) => "add",
             Op::Give(_) => "give", Op::Take(_) => "take", Op::Jump(_) => "jump", Op::JumpUnless(..) => "jumpUnless",
             Op::Random(_) => "random", Op::Goto(_) => "goto", Op::Investigate(_) => "investigate", Op::Menu => "menu",
             Op::Resume(_) => "resume", Op::InspectEnd => "inspectEnd", Op::End => "end", Op::Gameover => "gameover",

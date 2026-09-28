@@ -13,6 +13,7 @@ import {
   emitUnlock,
   type LockRegistry,
 } from './compile-lock.ts';
+import { compilePick } from './compile-pick.ts';
 import type { PlaceContext } from './compile-place.ts';
 import { type CommandName, commandSchemas, type RawScenario } from './schema.ts';
 
@@ -238,6 +239,14 @@ export function makeStepCompiler(ctx: StepContext) {
         for (const j of exits) patch(b, j, b.pc);
         break;
       }
+      case 'pick':
+        compilePick(s as unknown as Parameters<typeof compilePick>[0], path, b, {
+          compileSteps,
+          cond,
+          checkText,
+          error,
+        });
+        break;
       case 'psycheLock': {
         for (const k of ['start', 'quit', 'gaugeOut'] as const)
           if (typeof s[k] === 'string') checkScene(s[k] as string, [...path, k]);

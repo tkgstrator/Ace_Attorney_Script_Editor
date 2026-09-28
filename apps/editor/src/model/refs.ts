@@ -104,6 +104,15 @@ export function findRefs(data: unknown, target: RefTarget, id: string): Ref[] {
             steps(o.then, [...path, 'choice', i, 'then']);
           });
         return;
+      case 'pick':
+        if (Array.isArray(s.areas))
+          s.areas.forEach((o, i) => {
+            if (!isRec(o)) return;
+            cond(o.when, [...path, 'areas', i, 'when']);
+            steps(o.then, [...path, 'areas', i, 'then']);
+          });
+        steps(s.miss, at('miss'));
+        return steps(s.quit, at('quit'));
       case 'demand':
         presentKeys(s.present, at('present'), true);
         steps(s.wrong, at('wrong'));
