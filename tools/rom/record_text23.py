@@ -4,6 +4,9 @@
 点の並びの完全一致で引く。一覧に無い字形（2・3 にだけ出てくる字）は、蘇る逆転と同じやり方（small_font_ocr.py）で
 行ごとに macOS の文字認識で読み、分かっている字を目印にして突き合わせ、字形ごとに多数決で決める。
 さらに、前後の分かっている字の並びを台本の文から探し、当てはまる字の票を足す（record_lex23.py）。
+台本（<ゲームの置き場所>/script/NNN.txt）は、今のフォントの直し表（font_fixes.<ゲームコード>.tsv）で
+script_dump.py が書き出したものを使う（古い読みの台本だと票も、名前の種類の決め方（load_game）も狂う）。
+確かめ方: record_text_verify.py --game（台本・空き欄・年齢の形など）、record_text_check.py --game（描き直し）。
 目で見て直したものは tools/rom/record_text_fixes.<ゲームコード>.json に置く:
   glyphs: {"画像:行:並びの番号": 文字}  その場所の字形の文字（同じ字形の全部の場所に効く。空きマスも数える）
   fixes:  {項目の番号: {欄: [[行, 並びの番号, 文字], ...]}}  場所ごとの直し（record_text_fixes.json と同じ形）
@@ -27,6 +30,9 @@ from small_font_seg import Glyph, crop  # noqa: E402
 KINDS = ('desc', 'name', 'profile')
 #: 名前の 1 字の幅の上限（これより広いかたまりは 2 字）
 NAME_MAX_W = 13
+#: 最後でない字の幅の上限。「手」「迫」「ブ」（3 の 035・037・042）は 1 字で 14 点ある。最後の 14 点のかたまりは
+#: 年齢の「3）」が 1 マスに入ったもの（3 の 056）なので NAME_MAX_W で分ける
+NAME_MID_MAX_W = 14
 #: 送りが決まらない名前の行で、これ以上あいた字の間は空きマス
 NAME_SPACE = 8
 #: 空きマスを入れる前後の字の幅の下限（かっこ・数字・細いかなは字の中に余白があるので数えない）
@@ -58,7 +64,8 @@ def split_wide(line) -> None:
     while todo:
         g = todo.pop(0)
         w = g.bits.shape[1] if g is not None else 0
-        if w <= NAME_MAX_W:
+        last = all(x is None for x in todo)
+        if w <= (NAME_MAX_W if last else NAME_MID_MAX_W):
             cells.append(g)
             continue
         cols = g.bits.sum(0)
@@ -166,19 +173,58 @@ def read_kind(kind: str, lines: list, root: str, fonts: dict, corpus, glyph_fixe
     return rows, marks, review
 
 
-def read_all(root: str, code: str, redo: bool = False) -> tuple[dict, dict[str, str], list[str], dict]:
-    """画像 → 行ごとの字の並び、画像 → 名前の字の種類（name / profile）、確認用の行、画像 → 行ごとの印（read_kind）"""
-    fonts = load_fonts(X)
+def filed_kinds(root: str) -> dict[str, set[str]]:
+    """名前の絵 → 法廷記録への入れ方（evidence / profile。話の最初の中身と台本の record_add / record_swap）"""
+    from record_text_verify import filed, script_ops
+    with open(os.path.join(root, 'tables', 'evidence.json'), encoding='utf-8') as f:
+        ev_doc = json.load(f)
+    into = filed(ev_doc, script_ops(root))
+    out: dict[str, set[str]] = {}
+    for it in ev_doc['items']:
+        src = it.get('image', {}).get('name', {}).get('ja')
+        if src and it['id'] in into:
+            out.setdefault(src, set()).update(into[it['id']])
+    return out
+
+
+def load_game(root: str) -> dict[str, list]:
+    """種類 → 行の一覧（small_font.load に、名前の字を分け直して年齢付きを人物ファイルにしたもの）。
+    2・3 の名前の字形は証拠品と人物ファイルで同じなので、絵の形では分けられない。法廷記録への入れ方が 1 通りの名前は
+    それに合わせる（年齢の無い人物ファイル「アヤサトキョウコ」、かっこ付きの証拠品「上面図（綾里家）」など）"""
     loaded = load(root)
     for kind in ('name', 'profile'):
         for ln in loaded[kind]:
             split_wide(ln)
     # 分けたあとで年齢のかっこが最後に来た名前は人物ファイル（small_font.split_names と同じ決め方）
-    moved = [ln for ln in loaded['name'] if has_age(ln)]
-    loaded['name'] = [ln for ln in loaded['name'] if ln not in moved]
-    for ln in moved:
-        ln.kind = 'profile'
-    loaded['profile'] += moved
+    for ln in loaded['name']:
+        if has_age(ln):
+            ln.kind = 'profile'
+    kinds = filed_kinds(root)
+    for ln in loaded['name'] + loaded['profile']:
+        k = kinds.get(ln.src, set())
+        if len(k) == 1:
+            ln.kind = 'profile' if k == {'profile'} else 'name'
+    lines = loaded['name'] + loaded['profile']
+    loaded['name'] = [ln for ln in lines if ln.kind == 'name']
+    loaded['profile'] = [ln for ln in lines if ln.kind == 'profile']
+    return loaded
+
+
+def game_lines(root: str) -> dict[str, list]:
+    """絵の相対パス → 行の一覧（record_glyphs.record_lines と同じ形で、字の分け方は load_game）"""
+    out: dict[str, list] = {}
+    for lines in load_game(root).values():
+        for ln in lines:
+            out.setdefault(ln.src, []).append(ln)
+    for v in out.values():
+        v.sort(key=lambda ln: ln.index)
+    return out
+
+
+def read_all(root: str, code: str, redo: bool = False) -> tuple[dict, dict[str, str], list[str], dict]:
+    """画像 → 行ごとの字の並び、画像 → 名前の字の種類（name / profile）、確認用の行、画像 → 行ごとの印（read_kind）"""
+    fonts = load_fonts(X)
+    loaded = load_game(root)
     corpus = load_text(root)
     glyph_fixes, _ = read_game_fixes(code)
     by_src: dict[str, list] = {}
