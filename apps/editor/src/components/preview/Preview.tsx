@@ -12,6 +12,7 @@ import { Diagnostics } from './Diagnostics.tsx';
 import { PlayControls, type Restart } from './PlayControls.tsx';
 import { usePanels } from './panels.ts';
 import { VerifyPanel } from './VerifyPanel.tsx';
+import { VolumeControl } from './VolumeControl.tsx';
 
 export interface PlayRequest {
   scene: string | null;
@@ -163,7 +164,7 @@ export const Preview = memo(function Preview({
       <div
         className="flex items-center gap-1 border-b px-3 py-1.5 text-xs"
         role="toolbar"
-        aria-label="表示する欄"
+        aria-label="表示する欄と音量"
       >
         <span className="mr-1 text-muted-foreground">表示:</span>
         {(
@@ -188,6 +189,7 @@ export const Preview = memo(function Preview({
             {label}
           </button>
         ))}
+        <VolumeControl />
       </div>
       <section
         className={cn('space-y-2 border-b p-3', !panels.game && 'hidden')}
