@@ -1,5 +1,5 @@
 // ステップ一覧の上の、表示する種類の切り替え。隠した種類のステップは「演出 3」のような 1 行にまとまる（FoldRow）。
-// 「テキストのみ」は、台詞だけにチェックを入れた状態にするボタン（カードはふだんどおり編集できる）
+// 「テキストのみ」は、台詞と選択肢・分岐だけにチェックを入れた状態にするボタン（カードはふだんどおり編集できる）
 import { Eye, FileText, ListFilter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,7 @@ export function ViewBar() {
         variant="ghost"
         className={cn('h-7 px-2 text-xs', textOnly && 'bg-accent text-accent-foreground')}
         aria-pressed={textOnly}
-        title="台詞だけを見せます（ほかの種類は 1 行にまとまります）。もう一度押すと、すべて表示に戻ります"
+        title="台詞と選択肢・分岐だけを見せます（ほかの種類は 1 行にまとまります）。もう一度押すと、すべて表示に戻ります"
         onClick={() => (textOnly ? showAllGroups() : showDialogueOnly())}
       >
         <FileText /> テキストのみ
