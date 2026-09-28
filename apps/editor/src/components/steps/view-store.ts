@@ -62,11 +62,14 @@ export function showAllGroups(): void {
   if (settings.hidden.size > 0) update({ hidden: new Set() });
 }
 
-/** 台詞だけを見せる（「テキストのみ」） */
+/** 「テキストのみ」で見せる種類（分岐の中の台詞も読めるよう、選択肢・分岐も見せる） */
+const TEXT_GROUPS: ReadonlySet<StepGroup> = new Set<StepGroup>(['dialogue', 'branch']);
+
+/** 台詞と選択肢・分岐だけを見せる（「テキストのみ」） */
 export function showDialogueOnly(): void {
-  update({ hidden: new Set(STEP_GROUPS.map((g) => g.id).filter((g) => g !== 'dialogue')) });
+  update({ hidden: new Set(STEP_GROUPS.map((g) => g.id).filter((g) => !TEXT_GROUPS.has(g))) });
 }
 
-/** 台詞だけを見せているか */
+/** 「テキストのみ」の状態か */
 export const isDialogueOnly = (hidden: ReadonlySet<StepGroup>) =>
-  !hidden.has('dialogue') && hidden.size === STEP_GROUPS.length - 1;
+  STEP_GROUPS.every((g) => hidden.has(g.id) !== TEXT_GROUPS.has(g.id));
