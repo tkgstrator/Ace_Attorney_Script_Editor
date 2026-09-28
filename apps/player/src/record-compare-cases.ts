@@ -25,7 +25,7 @@ export interface RecordCase {
 const E2 = ['e23', 'e6'];
 const E4 = ['e23', 'e6', 'e7', 'e8'];
 const E5 = ['e23', 'e6', 'e7', 'e8', 'e9'];
-const P4 = ['mia', 'butz', 'r3', 'payne'];
+const P4 = ['mia', 'butz', 'cindy_stone', 'payne'];
 const P5 = [...P4, 'sahwit'];
 const NO_SWITCH =
   'DS 版は証拠品を入手した直後などに「人物ファイル」のタブを出さない（こちらは常に出す）';
@@ -123,7 +123,7 @@ characters:
   p: { name: ナルホド }
   mia: { name: チヒロ, profile: { name: 綾里　千尋, age: 27, icon: r0, description: "綾里法律事務所の所長。\\nぼくの上司で、\\nヤリ手の弁護士。" } }
   butz: { name: ヤハリ, profile: { name: 矢張　政志, age: 23, icon: r2, description: "この事件の被告人。\\nぼくの同級生で、\\nにくめないヤツだ。" } }
-  r3: { name: 高日 美佳, profile: { name: 高日　美佳, age: 22, icon: r3, description: "事件の被害者。\\nマンションで一人暮らし\\nしていた、モデルさん。" } }
+  cindy_stone: { name: 高日 美佳, profile: { name: 高日　美佳, age: 22, icon: r3, description: "事件の被害者。\\nマンションで一人暮らし\\nしていた、モデルさん。" } }
   payne: { name: アウチ, profile: { name: 亜内　武文, age: 52, icon: r5, description: "この事件の担当検事。\\n押しが弱く、なんとなく\\nパッとしない男。" } }
   sahwit: { name: ヤマノ, profile: { name: 山野　星雄, age: 44, icon: r4, description: "死体の第一発見者。\\n新聞勧誘員で、現場で\\n矢張を目撃している。" } }
 evidence:

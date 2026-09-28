@@ -1,7 +1,7 @@
 // 変換中に共有するもの（表・集計・ID の割り当て・参照の記録）。
-import { RESERVED_KEYS } from '../../packages/script/src/schema.ts';
+import { characterId, profileId, speakerId } from './people.ts';
 import { Stats } from './stats.ts';
-import { isStorySection, parseProfileName, slug, soundId } from './tables.ts';
+import { isStorySection, soundId } from './tables.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
 export interface Character {
@@ -16,10 +16,14 @@ export class Shared {
   readonly characters = new Map<string, Character>();
   readonly evidence = new Set<number>();
   readonly standVotes = new Map<string, Map<string, number>>();
-  /** 名前の番号 → 人物 ID（使った順に決める。英語の名札が重なれば 2 つ目から _番号） */
+  /** 名前の番号 → 人物 ID（対応表から。表が無ければ使った順に決め、英語の名札が重なれば 2 つ目から _番号） */
   readonly nameIds = new Map<number, string>();
-  /** 2・3: 話し手に結び付かない人物ファイルの、英語の名前の絵の番号 → 人物 ID（英語の名前から作る） */
+  /** 2・3: 話し手に結び付かない人物ファイルの、英語の名前の絵の番号 → 人物 ID（表が無いときに英語の名前から作る） */
   readonly profileIds = new Map<number, string>();
+  /** 人物 ID → 元の ROM の番号（name:名前の番号 / char:人物の番号 / profile:法廷記録の番号。対応表の手入れ用） */
+  readonly idSources = new Map<string, Set<string>>();
+  /** 人物 ID の対応表に無い番号の警告 */
+  readonly idWarnings = new Set<string>();
   /** 人物ファイルとして使う法廷記録の番号（つきつけの表で証拠品と区別する） */
   readonly profileRecords = new Set<number>();
   /** 章の中で法廷記録に入りうる番号（空なら調べない。単体の変換・テスト用） */
@@ -64,7 +68,6 @@ export class Context {
   readonly extraScenes = new Map<string, Step[]>();
   /** 3D で詳しく調べた結果として証拠品の examine に取り込む区画 → ステップ列（examine3d.ts） */
   readonly examineSteps = new Map<number, Step[]>();
-  readonly #nameIds: Map<number, string>;
   readonly part: number;
   readonly t: Tables;
   readonly entry: Entry;
@@ -96,7 +99,6 @@ export class Context {
     this.entry = entry;
     this.part = entry.entry >> 1;
     this.shared = opts.shared ?? new Shared();
-    this.#nameIds = this.shared.nameIds;
     this.pfx = opts.pfx ?? '';
     this.gpfx = opts.gpfx ?? this.pfx;
     this.inv = opts.inv ?? null;
@@ -139,45 +141,18 @@ export class Context {
     return [{ set: { [this.returnFlag()]: true } }, { goto: this.menuScene() }];
   }
 
-  #idForName(n: number): string {
-    let id = this.#nameIds.get(n);
-    if (id) return id;
-    const base = slug(this.t.names.find((x) => x.id === n)?.text.en ?? '');
-    const taken = new Set([...this.#nameIds.values(), ...this.shared.profileIds.values()]);
-    id = !base ? `c${n}` : taken.has(base) || RESERVED_KEYS.has(base) ? `${base}_${n}` : base;
-    this.#nameIds.set(n, id);
-    return id;
-  }
-
   get court() {
     return this.t.court.parts.find((p) => p.part === this.part);
   }
 
-  /** 名前の番号（14）→ 人物 ID（0 = null） */
+  /** 名前の番号（14）→ 人物 ID（0 = null）。people.ts */
   speaker(n: number): string | null {
-    if (n === 0) return null;
-    const id = this.#idForName(n);
-    if (!this.characters.has(id)) {
-      const tag = this.t.names.find((x) => x.id === n)?.text[this.entry.lang] ?? '';
-      this.characters.set(id, { name: tag, blip: this.t.blipKinds[n] === 1 ? 'female' : 'male' });
-    }
-    return id;
+    return speakerId(this, n);
   }
 
-  /** 人物の番号（30）→ 人物 ID。名前の番号が同じなら、その名前の人物と同じ ID */
+  /** 人物の番号（30）→ 人物 ID。people.ts */
   character(k: number): string {
-    const c = this.t.chars[String(k)];
-    const n = c?.name_id ?? k;
-    if (
-      this.t.names.some((x) => x.id === n) &&
-      n !== 0 &&
-      (this.t.names.find((x) => x.id === n)?.text.ja ?? '') !== ''
-    ) {
-      return this.speaker(n)!;
-    }
-    const id = `c${k}`;
-    if (!this.characters.has(id)) this.characters.set(id, { name: c?.name ?? '' });
-    return id;
+    return characterId(this, k);
   }
 
   evidenceId(n: number): string {
@@ -311,55 +286,8 @@ export class Context {
     );
   }
 
-  /**
-   * 法廷記録の人物ファイル → 人物。蘇る逆転は氏名が chars.json と一致すればその人物、なければ r番号。
-   * 2・3 は tables/profiles.json（英語の名前と名札の対応）で話し手の人物にまとめ、台詞の無い人物は英語の名前から ID を作る
-   */
+  /** 法廷記録の人物ファイル → 人物 ID（人物の profile も書く）。people.ts */
   profile(rec: number): string {
-    const text = this.recordText(rec);
-    const p = text ? parseProfileName(text.name) : { name: `人物ファイル ${rec}` };
-    let id: string;
-    let name = p.name;
-    const link = this.t.profiles?.[String(rec)];
-    if (link) {
-      id = this.#profileOf(rec, link);
-    } else {
-      const bare = (x: string) => x.replace(/\s/g, '');
-      const k = Object.entries(this.t.chars).find(
-        ([, c]) => c.name && bare(c.name) === bare(p.name),
-      )?.[0];
-      id = k !== undefined ? this.character(Number(k)) : `r${rec}`;
-      if (k !== undefined) name = this.t.chars[k]!.name!;
-    }
-    const ch = this.characters.get(id) ?? { name: p.name };
-    ch.profile = {
-      name,
-      ...(p.age !== undefined ? { age: p.age } : {}),
-      description: text?.desc ?? '',
-      icon: `r${rec}`,
-    };
-    this.characters.set(id, ch);
-    return id;
-  }
-
-  /** 2・3 の人物ファイルの人物 ID（話し手の名前の番号があればその人物、なければ英語の名前の ID） */
-  #profileOf(rec: number, link: NonNullable<Tables['profiles']>[string]): string {
-    const n = link.name_id;
-    const tag = this.t.names.find((x) => x.id === n)?.text;
-    if (n !== null && tag && tag.ja !== '') {
-      // 同じ名札の名前の番号がいくつもあれば（ヤハリの 15 と 29 など）、章の中で名札の ID を先に取った番号にまとめる
-      const same = this.t.names.filter((x) => x.text.ja === tag.ja && x.text.en === tag.en);
-      const base = slug(tag.en);
-      const owner = same.find((x) => this.#nameIds.get(x.id) === base);
-      return this.speaker(owner?.id ?? n)!;
-    }
-    const ids = this.shared.profileIds;
-    let id = ids.get(link.name_image);
-    if (id) return id;
-    const base = slug(link.name_en);
-    const taken = new Set([...this.#nameIds.values(), ...ids.values()]);
-    id = !base ? `r${rec}` : taken.has(base) || RESERVED_KEYS.has(base) ? `${base}_r${rec}` : base;
-    ids.set(link.name_image, id);
-    return id;
+    return profileId(this, rec);
   }
 }

@@ -14,6 +14,7 @@
 //
 // 出力は元のゲームの文を含むので assets/extracted/ の下に置き、配布しない。
 // --stats: 命令ごとの変換の内訳と、YAML で表せない所の一覧を出す。
+// --ids: 人物 ID と元の ROM の番号（name: 名前 / char: 人物 / profile: 人物ファイル）の一覧を出す（character-ids.json の手入れ用）。
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Document, isScalar, visit } from 'yaml';
@@ -77,7 +78,8 @@ export function loadInvParts(base = GAMES.aa1.dir): Record<string, any>[] {
 function main() {
   const args = process.argv.slice(2);
   const stats = args.includes('--stats');
-  const rest = args.filter((a) => a !== '--stats');
+  const listIds = args.includes('--ids');
+  const rest = args.filter((a) => a !== '--stats' && a !== '--ids');
   const id = arg(rest, '--id');
   const title = arg(rest, '--title');
   const outArg = arg(rest, '--out');
@@ -139,6 +141,16 @@ function main() {
       `証拠品 ${Object.keys(scenario.evidence as object).length}（命令: ステップ ${t.step}、文中 ${t.inline}、構造 ${t.structure}、` +
       `近似 ${t.approx}、native ${t.native}、無視 ${t.ignored}）`,
   );
+  const shared = new Set(results.map((r) => r.ctx.shared));
+  const warnings = new Set([...shared].flatMap((sh) => [...sh.idWarnings]));
+  for (const w of [...warnings].sort()) console.warn(w);
+  if (listIds) {
+    const src = new Map<string, Set<string>>();
+    for (const sh of shared)
+      for (const [id, set] of sh.idSources) src.set(id, new Set([...(src.get(id) ?? []), ...set]));
+    for (const [id, set] of [...src].sort(([a], [b]) => a.localeCompare(b)))
+      console.log(`${id}\t${[...set].join(' ')}`);
+  }
   if (stats) console.log(`\n${all.report()}`);
 }
 
