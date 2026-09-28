@@ -1,7 +1,5 @@
 # 文量
 
-蘇る逆転の変換済みの ep4.yaml の part9・part10 は第 3 話の最後の探偵・法廷なので、集計では第 3 話に数える（`corpus.ts` の `MOVE_PARTS`）。
-
 数の出どころは [numbers/volume.md](numbers/volume.md)（`bun tools/analysis/volume.ts`）と
 [numbers/structure.md](numbers/structure.md)。台詞は重複を除いた数で、1 台詞 = 1 ページ。
 
