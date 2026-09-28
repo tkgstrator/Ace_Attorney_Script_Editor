@@ -1,8 +1,6 @@
 // シナリオの実行器（packages/core の Engine のうち、分岐と状態に関わる部分だけ）。
 // 表示・音は扱わない（人物ファイルは証拠品と同じく持つ）。命令の意味・エラーの文は core に合わせる。
-use crate::expr::{test, Env};
-use crate::model::*;
-use crate::state::{Mode, Phase, State};
+use crate::{expr::{test, Env}, model::*, state::{Mode, Phase, State}};
 
 const STEP_LIMIT: usize = 100_000;
 
@@ -352,11 +350,11 @@ impl<'m> Engine<'m> {
         match self.s.mode {
             Mode::Testimony => {
                 self.require_cross("present")?;
-                if profile { return Err("尋問では人物ファイルをつきつけられません".into()); }
                 let t = self.testimony()?;
-                let target = find(&t.statements[self.s.statement as usize].present).unwrap_or(t.wrong);
+                let st = &t.statements[self.s.statement as usize];
+                let list = if profile { st.present_profile.as_deref().ok_or("この証言では人物ファイルをつきつけられません")? } else { &st.present };
                 self.s.var_ev = Some(ev);
-                self.run(target);
+                self.run(find(list).unwrap_or(t.wrong));
             }
             Mode::Investigate => {
                 let p = self.place()?;

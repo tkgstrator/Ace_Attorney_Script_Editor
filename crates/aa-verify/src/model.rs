@@ -118,6 +118,8 @@ pub struct Statement {
     pub when: Option<Expr>,
     pub press: Option<u32>,
     pub present: Vec<(u32, u32)>,
+    /// 人物ファイルの正解（None なら、この証言では人物ファイルはつきつけられない）
+    pub present_profile: Option<Vec<(u32, u32)>>,
     pub before: Option<u32>,
 }
 

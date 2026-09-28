@@ -110,7 +110,7 @@ export function actions(sc: CompiledScenario, e: Engine, passed?: Set<string>): 
       return [
         ADVANCE,
         ...(b.canPress ? [PRESS] : []),
-        ...present(st?.present ?? {}, null),
+        ...present(st?.present ?? {}, st?.presentProfile ?? null),
         ...inspect,
       ];
     }

@@ -227,6 +227,15 @@ parts:
     // 2 つ目の錠の正解を持っていないと、挑戦は抜け出せる（やめる）が、話題が開かずに詰む
     const noPhoto = yaml.replace('evidence: [magatama, news, photo]', 'evidence: [magatama, news]');
     expect(same(noPhoto).findings.some((f) => f.severity === 'error')).toBe(true);
+    // 尋問で人物ファイルをつきつける・選択肢で挑戦をやめる（quitLock）
+    const lock23 = readFileSync(
+      fileURLToPath(new URL('../fixtures/lock23.yaml', import.meta.url)),
+      'utf8',
+    );
+    expect(same(lock23).findings).toEqual([]);
+    // 人物ファイルを持っていないと尋問から先へ進めない
+    const noProfile = lock23.replace('profiles: [larry]', 'profiles: []');
+    expect(same(noProfile).findings.some((f) => f.severity === 'error')).toBe(true);
   });
 
   it('横長の背景の場所（範囲は背景の座標）で、画面の幅より右の範囲も TS 版と同じく試す', () => {

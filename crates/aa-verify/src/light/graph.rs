@@ -152,7 +152,7 @@ pub fn build(m: &Model) -> LGraph<'_> {
                 for st in &t.statements {
                     let w = st.when.as_ref();
                     for pc in st.press.iter().chain(st.before.iter()) { out.push(LEdge { cond: w, site: Site::Statement, ..plain(b + pc) }); }
-                    out.extend(st.present.iter().map(|(x, pc)| LEdge { cond: w, site: Site::Present, ev: Some(*x), ..plain(b + pc) }));
+                    out.extend(st.present.iter().chain(st.present_profile.iter().flatten()).map(|(x, pc)| LEdge { cond: w, site: Site::Present, ev: Some(*x), ..plain(b + pc) }));
                 }
                 out.extend([Some(t.wrong), t.after, t.reading, t.looping].into_iter().flatten().map(|pc| plain(b + pc)));
                 inspect_edges(&g, &mut out);

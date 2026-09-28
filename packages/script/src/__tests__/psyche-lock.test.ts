@@ -11,6 +11,11 @@ const yaml = readFileSync(
   'utf8',
 );
 
+const lock23 = readFileSync(
+  fileURLToPath(new URL('../fixtures/lock23.yaml', import.meta.url)),
+  'utf8',
+);
+
 function load(src = yaml) {
   const { scenario, diagnostics } = loadScenario(src);
   if (!scenario) throw new Error(diagnostics.map((d) => `${d.line} ${d.message}`).join('\n'));
@@ -93,6 +98,39 @@ describe('サイコ・ロック', () => {
 
   it('整合性チェック: 詰みがなく、ライフが尽きたときのシーンは「たどり着かない」に出さない', () => {
     expect(verifyScenario(load()).findings).toEqual([]);
+  });
+
+  it('quitLock（選択肢の「やめる」など）で挑戦をやめ、quit のシーンへ行く', () => {
+    const e = new Engine(load(lock23));
+    skip(e);
+    e.present('magatama');
+    const c = skip(e);
+    expect(c.kind).toBe('choice');
+    expect(e.state.flags[LOCK_CURRENT]).toBe('lock0');
+    e.choose(2);
+    expect(skip(e).kind).toBe('investigate');
+    expect(e.state.flags[LOCK_CURRENT]).toBe('');
+    expect(e.state.flags.__lock_lock0_active).toBe(true);
+  });
+
+  it('尋問でも、present に人物 ID を書いた証言では人物ファイルをつきつけられる（逆転裁判2・3）', () => {
+    const e = new Engine(load(lock23));
+    skip(e);
+    e.present('magatama');
+    skip(e);
+    e.choose(0);
+    const inv = skip(e);
+    e.talk(inv.kind === 'investigate' ? inv.talk[0]!.id : '');
+    // 証言を聞き終えて尋問へ
+    let b = skip(e);
+    for (let i = 0; i < 20 && !(b.kind === 'statement' && b.cross); i++) {
+      e.advance();
+      b = skip(e);
+    }
+    expect(e.canPresentProfile).toBe(true);
+    e.present('larry');
+    expect(skip(e).kind).toBe('end');
+    expect(verifyScenario(load(lock23)).findings).toEqual([]);
   });
 
   it('heal は最大を超えず、true なら最大まで', () => {

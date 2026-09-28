@@ -55,3 +55,43 @@ fn 詰みもたどり着かないシーンもない() {
     let r = verify_complete(&m, CompleteOptions { limit: 100_000, liveness: true, ts_exact: false, parts: true, confirm: Some(100_000), progress: None }).unwrap();
     assert!(r.findings.is_empty(), "{:?}", r.findings.iter().map(|f| &f.message).collect::<Vec<_>>());
 }
+
+fn model23() -> aa_verify::model::Model {
+    let text = std::fs::read_to_string(format!("{}/tests/data/lock23.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    load(&text).unwrap()
+}
+
+/// 人物ファイル（証拠品の番号の並びで、profile のもの）
+fn profile(m: &aa_verify::model::Model, id: &str) -> u32 {
+    m.evidence.iter().position(|e| e.id == id && e.profile).unwrap() as u32
+}
+
+#[test]
+fn 選択肢のquit_lockで挑戦をやめる() {
+    let m = model23();
+    let mut e = Engine::new(&m).unwrap();
+    assert_eq!(skip(&mut e), BeatKind::Investigate);
+    e.present(ev(&m, "magatama")).unwrap();
+    assert_eq!(skip(&mut e), BeatKind::Choice);
+    e.choose(2).unwrap();
+    assert_eq!(skip(&mut e), BeatKind::Investigate);
+}
+
+#[test]
+fn 尋問で人物ファイルをつきつけられる() {
+    let m = model23();
+    let r = verify_complete(&m, CompleteOptions { limit: 100_000, liveness: true, ts_exact: false, parts: true, confirm: Some(100_000), progress: None }).unwrap();
+    assert!(r.findings.is_empty(), "{:?}", r.findings.iter().map(|f| &f.message).collect::<Vec<_>>());
+    let mut e = Engine::new(&m).unwrap();
+    skip(&mut e);
+    e.present(ev(&m, "magatama")).unwrap();
+    skip(&mut e);
+    e.choose(0).unwrap();
+    skip(&mut e);
+    e.talk(0).unwrap();
+    for _ in 0..50 {
+        if skip(&mut e) == (BeatKind::Statement { cross: true }) && e.present(profile(&m, "larry")).is_ok() { break; }
+        e.advance().unwrap();
+    }
+    assert_eq!(skip(&mut e), BeatKind::End);
+}

@@ -79,7 +79,7 @@ fn describe(e: &Engine, b: BeatKind) -> String {
     }
     if let Some(t) = scene.and_then(|s| s.testimony()) {
         let mut answers: Vec<u32> = vec![];
-        for st in &t.statements { for (x, _) in &st.present { if !answers.contains(x) { answers.push(*x); } } }
+        for st in &t.statements { for (x, _) in st.present.iter().chain(st.present_profile.iter().flatten()) { if !answers.contains(x) { answers.push(*x); } } }
         let lack = missing(&answers);
         return format!(
             "尋問「{}」から先へ進めません（つきつけで使う {} のうち、持っていない: {}）",

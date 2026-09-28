@@ -69,6 +69,7 @@ export const COMMAND_LABELS: Record<CommandName, string> = {
   psycheLock: 'サイコ・ロック',
   breakLock: '錠を壊す',
   unlock: 'ロックの解除',
+  quitLock: 'ロックの挑戦をやめる',
 };
 
 /** 追加メニューでの並び（よく使うものから） */
@@ -171,6 +172,8 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
       return { breakLock: true };
     case 'unlock':
       return { unlock: true };
+    case 'quitLock':
+      return { quitLock: true };
     case 'shout':
       return { shout: 'objection' };
     case 'banner':

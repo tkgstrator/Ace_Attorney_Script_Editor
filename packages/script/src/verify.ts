@@ -113,9 +113,6 @@ function usesLife(sc: CompiledScenario): boolean {
 /** 詰みの場面の説明（何を求められていて、何が足りないか） */
 function describe(sc: CompiledScenario, e: Engine, b: Beat): string {
   const s = e.state;
-  const held = new Set(s.evidence);
-  const name = (id: string) => sc.evidence[id]?.name ?? id;
-  const missing = (ids: string[]) => ids.filter((id) => !held.has(id)).map(name);
   const scene = sc.scenes[s.scene];
   if (b.kind === 'demand') {
     const ins = scene?.program[s.pc];
@@ -135,8 +132,17 @@ function describe(sc: CompiledScenario, e: Engine, b: Beat): string {
     );
   }
   if (scene?.kind === 'testimony') {
-    const answers = [...new Set(scene.statements.flatMap((st) => Object.keys(st.present)))];
-    return `尋問「${scene.title}」から先へ進めません（つきつけで使う ${answers.map(name).join('・')} のうち、持っていない: ${missing(answers).join('・') || 'なし'}）`;
+    // 証言ごとに証拠品・人物ファイルの順（人物ファイルは逆転裁判2・3 の presentProfile）
+    const seen = new Set<string>();
+    const answers = scene.statements
+      .flatMap((st) => [
+        ...Object.keys(st.present).map((id) => [id, 'evidence'] as const),
+        ...Object.keys(st.presentProfile ?? {}).map((id) => [id, 'profile'] as const),
+      ])
+      .filter(([id, k]) => !seen.has(`${k}:${id}`) && !!seen.add(`${k}:${id}`));
+    const names = (list: typeof answers) => list.map(([id, k]) => recordName(sc, id, k)).join('・');
+    const lack = answers.filter(([id, k]) => !holds(sc, s, id, k));
+    return `尋問「${scene.title}」から先へ進めません（つきつけで使う ${names(answers)} のうち、持っていない: ${names(lack) || 'なし'}）`;
   }
   if (b.kind === 'investigate')
     return `探索編の「${b.name}」から先へ進めません（移動先・話題・調べる所の条件を満たせない可能性）`;

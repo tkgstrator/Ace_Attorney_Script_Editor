@@ -251,6 +251,12 @@ export function makeStepCompiler(ctx: StepContext) {
       case 'unlock':
         emitUnlock(b, locks, lockHeal);
         break;
+      case 'quitLock':
+        // demand の giveUp と同じ。挑んでいなければ次のステップへ
+        if (locks.size === 0)
+          error([...path, 'quitLock'], 'サイコ・ロック（psycheLock のステップ）が章にありません');
+        for (const j of emitGiveUp(b, locks)) patch(b, j, b.pc);
+        break;
       case 'heal':
         b.emit({ op: 'heal', amount: s.heal === true ? 'full' : (s.heal as number) });
         break;

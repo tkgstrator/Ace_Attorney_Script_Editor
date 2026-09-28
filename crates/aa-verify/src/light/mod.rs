@@ -51,7 +51,7 @@ fn evidence(m: &Model, g: &LGraph, fx: &fix::Fix, pr: &[Vec<(u32, u32)>], out: &
         match &sc.kind {
             Kind::Testimony(t) => {
                 let mut ans = vec![];
-                for st in &t.statements { for (x, _) in &st.present { if !ans.contains(x) { ans.push(*x); } } }
+                for st in &t.statements { for (x, _) in st.present.iter().chain(st.present_profile.iter().flatten()) { if !ans.contains(x) { ans.push(*x); } } }
                 points.push((g.testimony[si], format!("尋問「{}」", t.title), ans, true));
             }
             Kind::Place(p) if !p.present.is_empty() || !p.present_profile.is_empty() => {
