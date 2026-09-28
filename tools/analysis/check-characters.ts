@@ -15,6 +15,8 @@ const DIR = process.env.CHAR_DIR ?? join(import.meta.dir, '../../docs/characters
 const START = /<!-- auto:start[^>]*-->/;
 const END = '<!-- auto:end -->';
 const FX = ['揺れ', 'フラッシュ', '効果音', 'BGM一時停止の直後', '遅い文字送り', '速い文字送り'];
+/** --unknown: 自動の部分に無い語の数も一覧にする（手で確かめるため。食い違いには数えない） */
+const UNKNOWN = process.argv.includes('--unknown');
 const GAME = /(蘇る逆転|逆転裁判2|逆転裁判3)/g;
 
 const nums = (s: string): string[] => s.match(/\d+(?:\.\d+)?/g) ?? [];
@@ -67,8 +69,15 @@ export function checkHand(hand: string, auto: Auto): string[] {
     const at = `${i + 1} 行`;
     const verify = (label: string, found: string[], what: string) => {
       const key = label.replace(/^〜/, '').replace(/[、。！？]+$/, '');
-      const known = auto.items.get(key);
-      if (!known) return;
+      // 自動の部分の文末は 3 字までなので、長い語尾（「ですのよ」）は終わりの 3 字（「すのよ」）でも引く
+      const known =
+        auto.items.get(key) ?? (key.length > 3 ? auto.items.get(key.slice(-3)) : undefined);
+      if (!key) return;
+      if (!known) {
+        if (UNKNOWN)
+          out.push(`${at}: 「${key}」（${found.join('・')}）は自動の部分に無い（確かめられない）`);
+        return;
+      }
       for (const n of found) {
         // 小数を丸めて整数で書いた所（「約 167 倍」など）は合っているとみなす
         const rounded =
@@ -149,7 +158,7 @@ export function checkFile(text: string): string[] {
 }
 
 if (import.meta.main) {
-  const only = process.argv.slice(2);
+  const only = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   let bad = 0;
   for (const f of readdirSync(DIR).sort()) {
     if (!f.endsWith('.md') || f === 'README.md') continue;
@@ -157,7 +166,7 @@ if (import.meta.main) {
     if (only.length && !only.includes(id)) continue;
     for (const m of checkFile(readFileSync(join(DIR, f), 'utf8'))) {
       console.log(`${id}.md ${m}`);
-      bad++;
+      if (!m.includes('確かめられない')) bad++;
     }
   }
   console.error(bad ? `食い違い ${bad} 件` : '食い違いなし');

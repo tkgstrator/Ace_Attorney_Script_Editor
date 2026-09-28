@@ -1,7 +1,8 @@
 // 人物ごとの話し方の数値を docs/characters/<人物ID>.md に書き出す。
 // 使い方: bun tools/analysis/characters.ts [--min 80] [--dry]
 // ファイルの「<!-- auto:start -->」〜「<!-- auto:end -->」の間だけを書き換え、手で書いた所（その前後）は残す。
-// 無いファイルはテンプレートで作る。docs/characters/README.md の一覧も同じく印の間を書き換える。
+// 無いファイルはテンプレートで作る。docs/characters/README.md の一覧も同じく印の間を書き換える
+// （一覧の年齢・立場は、各ファイルの手書きの「基本情報」から写す）。
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -182,6 +183,25 @@ function template(s: CharStats): string {
 
 （役どころと話し方の芯を 2〜3 行で）
 
+## 基本情報
+
+- フルネーム:
+- 性別:
+- 登場作品:
+- 職業:
+- 立場:
+- 年齢:
+
+| 話 | 立場 | 年齢 | 年齢の出どころ |
+|---|---|---|---|
+
+## 性格
+
+## 人間関係
+
+| 相手 | 関係 | 呼び方 |
+|---|---|---|
+
 ## 数で見る
 
 ${START}
@@ -216,10 +236,17 @@ for (const s of targets) {
   else writeFileSync(path, next);
 }
 
-// README の一覧
+// README の一覧。年齢・立場は、各ファイルの手書きの「基本情報」の「- 年齢: 」「- 立場: 」の行から写す
+function summary(id: string, key: '年齢' | '立場'): string {
+  const path = join(DIR, `${id}.md`);
+  if (!existsSync(path)) return '';
+  const head = readFileSync(path, 'utf8').split(START)[0] as string;
+  const m = head.match(new RegExp(`^- ${key}: (.+)$`, 'm'));
+  return (m?.[1] ?? '').replace(/\|/g, '／');
+}
 const readme = join(DIR, 'README.md');
 const list = table(
-  ['人物', 'ID', '台詞', '作品'],
+  ['人物', 'ID', '台詞', '作品', '年齢', '立場'],
   targets.map((s) => [
     `[${nameOf(s)}](${s.id}.md)`,
     s.id,
@@ -227,6 +254,8 @@ const list = table(
     [
       ...new Set([...s.perEp.m].map(([k]) => GAME_NAME[(epByKey.get(k) as Episode).game as Game])),
     ].join('・'),
+    summary(s.id, '年齢'),
+    summary(s.id, '立場'),
   ]),
 );
 if (!DRY && existsSync(readme))
