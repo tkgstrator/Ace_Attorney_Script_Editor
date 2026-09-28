@@ -343,10 +343,8 @@ export function convertOps(
         }
         return finish(ctx, section, ops, i, out());
       }
-      case 73: // 2・3: ゲームの終わり（game+8 = 1。最終話の最後、スタッフロールへ）
+      case 73: // ゲームの終わり（game+8 = 1。最終話の最後。蘇る逆転は第 5 話の結末 068 §6・§7 の後、タイトルへ）
       case 22:
-        if (o.op === 73 && ctx.t.game === 'aa1') simpleOp(o, ctx, hands, mem, section);
-        if (o.op === 73 && ctx.t.game === 'aa1') break;
         w.close('auto');
         flow(o);
         out().push(...(o.op === 73 ? [{ end: true }] : ctx.nextPart));
