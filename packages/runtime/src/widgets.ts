@@ -2,14 +2,14 @@
 import type { EvidenceDef } from '@gyakusai/core';
 import {
   COLORS,
+  type Rect,
   SCREEN_H,
   SCREEN_W,
   SHOUTS,
+  type ShoutKind,
   TEXTBOX_ALPHA,
   TOP,
   UI,
-  type Rect,
-  type ShoutKind,
 } from './layout.ts';
 import type { Painter } from './painter.ts';
 import { ADDED_CARD, drawCard } from './record-card.ts';
@@ -41,7 +41,9 @@ export function textTop(p: Painter, box: Rect = TOP.box): number {
 /** テキストウィンドウの本文 */
 export function bodyText(p: Painter, rows: Glyph[][], color: string, box: Rect = TOP.box) {
   const y = textTop(p, box);
-  rows.forEach((row, i) => glyphRow(p, row, color, TOP.textX, y + i * TOP.lineH));
+  rows.forEach((row, i) => {
+    glyphRow(p, row, color, TOP.textX, y + i * TOP.lineH);
+  });
 }
 
 /** 1 行の文字を、文中の [color] で変えた色ごとにまとめて描く（等幅なので、何文字目かで位置が決まる） */
@@ -102,20 +104,9 @@ export function centeredText(
 export function nextArrow(p: Painter, frame: number) {
   const t = (frame % TOP.arrow.period) / TOP.arrow.period;
   const x = TOP.arrow.x + Math.round(((1 - Math.cos(t * Math.PI * 2)) / 2) * TOP.arrow.swing);
-  [1, 3, 5, 7, 9, 7, 5, 3, 1].forEach((w, i) => p.rect(x, TOP.arrow.y + i, w, 1, '#ffffff'));
-}
-
-/** 選択肢のときにテキストウィンドウの下に出す帯（「ぼくのコタエを示そう」） */
-export function choiceBand(p: Painter, label: string) {
-  const r = TOP.choiceBand;
-  const t = p.fonts.text;
-  p.rect(r.x, r.y, r.w, r.h, COLORS.tabEdge);
-  p.rect(r.x + 1, r.y + 1, r.w - 2, r.h - 1, COLORS.tabFill);
-  t.draw(label, Math.round((SCREEN_W - t.measure(label)) / 2), t.centerY(r.y + 1, r.h - 1), {
-    color: '#ffffff',
+  [1, 3, 5, 7, 9, 7, 5, 3, 1].forEach((w, i) => {
+    p.rect(x, TOP.arrow.y + i, w, 1, '#ffffff');
   });
-  p.triangle(12, r.y + r.h / 2, 7, 11, 'down', '#ffffff');
-  p.triangle(244, r.y + r.h / 2, 7, 11, 'down', '#ffffff');
 }
 
 /** 選択肢のボタン */

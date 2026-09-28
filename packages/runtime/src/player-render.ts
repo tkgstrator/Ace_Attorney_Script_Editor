@@ -37,9 +37,9 @@ export function renderScreen(h: PlayerHost) {
   if (b.kind === 'choice') {
     p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, '#000000', 0.45);
     const last = h.lastLine;
-    W.textbox(p, last?.name ?? null, TOP.choiceBox);
-    if (last) W.bodyText(p, last.lines, last.color, TOP.choiceBox);
-    W.choiceBand(p, h.labels.choicePrompt);
+    // 1 画面なので、DS 版のように文字の枠を上にずらして帯を出すことはせず、ふだんの位置に問いかけを残す
+    W.textbox(p, last?.name ?? null);
+    if (last) W.bodyText(p, last.lines, last.color);
     W.choiceButtons(p, b.options, h.choiceSel, blinkOn);
     return;
   }
