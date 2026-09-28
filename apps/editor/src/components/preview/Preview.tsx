@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { getAssets, getAudio, getDsFont } from '@/preview/assets.ts';
 import type { Compiled } from '@/preview/use-compile.ts';
 import { Diagnostics } from './Diagnostics.tsx';
+import { ExamineMarkersToggle } from './ExamineMarkersToggle.tsx';
 import { type From, PlayControls, type Restart } from './PlayControls.tsx';
 import { usePanels } from './panels.ts';
 import { describe, type Good, type Notice, restartFor, retarget } from './play-at.ts';
@@ -200,9 +201,9 @@ export const Preview = memo(function Preview({
   return (
     <div className="flex h-full flex-col">
       <div
-        className="flex items-center gap-1 border-b px-3 py-1.5 text-xs"
+        className="flex flex-wrap items-center gap-1 border-b px-3 py-1.5 text-xs"
         role="toolbar"
-        aria-label="表示する欄と音量"
+        aria-label="表示する欄・音量・目印"
       >
         <span className="mr-1 text-muted-foreground">表示:</span>
         {(
@@ -218,7 +219,7 @@ export const Preview = memo(function Preview({
             aria-pressed={panels[k]}
             onClick={() => toggle(k)}
             className={cn(
-              'rounded-full border px-2 py-0.5',
+              'whitespace-nowrap rounded-full border px-2 py-0.5',
               panels[k]
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -228,6 +229,7 @@ export const Preview = memo(function Preview({
           </button>
         ))}
         <VolumeControl />
+        <ExamineMarkersToggle player={player.current} />
       </div>
       <section
         className={cn('space-y-2 border-b p-3', !panels.game && 'hidden')}
