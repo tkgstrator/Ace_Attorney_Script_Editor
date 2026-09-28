@@ -216,11 +216,11 @@ describe('探索編の検証', () => {
     expect(msgs.some((m) => m.includes('「street」は場所です'))).toBe(true);
   });
 
-  it('シーンと場所の ID の重複、画面からはみ出す範囲をエラーにする', () => {
+  it('シーンと場所の ID の重複、背景の左・上の端からはみ出す範囲をエラーにする', () => {
     const bad = CHAPTER.replace(
       'trial_start:\n        - me: 開廷だ。',
       'office:\n        - me: 開廷だ。',
-    ).replace('area: [0, 100, 50, 40]', 'area: [240, 100, 50, 40]');
+    ).replace('area: [0, 100, 50, 40]', 'area: [-10, 100, 50, 40]');
     const msgs = errors(bad);
     expect(msgs.some((m) => m.includes('ID「office」が重複'))).toBe(true);
     expect(msgs.some((m) => m.includes('はみ出して'))).toBe(true);

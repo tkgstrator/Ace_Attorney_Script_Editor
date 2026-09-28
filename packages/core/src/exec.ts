@@ -68,7 +68,8 @@ export function execSimple(ins: Instr, s: GameState, events: EngineEvent[]): boo
       if (ins.on) s.stage.overlays.push(ins.id);
       return true;
     case 'scroll':
-      s.stage.scroll = ins.scroll;
+      // 実行のたびに別の値にする（表示側は、調べるで背景を動かした後、同じスクロールをもう一度は当てない）
+      s.stage.scroll = ins.scroll ? { ...ins.scroll } : null;
       return true;
     case 'showEvidence':
       s.stage.evidence = ins.evidence;

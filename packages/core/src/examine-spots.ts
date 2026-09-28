@@ -10,11 +10,12 @@ export interface ExamineSpot {
   /** 調べた印の ID（seen() で使うもの） */
   id: string;
   name?: string;
+  /** 範囲（背景の座標） */
   area: Area;
   /** もう調べたか（state.seen に入っているか） */
   seen: boolean;
   /**
-   * 目印を置く点（画面のドット）。この点を調べると、必ずこの所に当たる。
+   * 目印を置く点（背景の座標。画面に描くときは背景のスクロールした位置を引く）。この点を調べると、必ずこの所に当たる。
    * 手前の所にすっかり隠れて、どこを調べても当たらないときは null
    */
   point: [number, number] | null;

@@ -58,7 +58,8 @@ impl Act {
 const SCREEN_W: i64 = 256;
 const SCREEN_H: i64 = 192;
 
-/// 場所で試す「調べる」の点（範囲の辺で区切った升目のうち、どの範囲に入るかの組み合わせごとに 1 点）
+/// 場所で試す「調べる」の点（背景の座標。範囲の辺で区切った升目のうち、どの範囲に入るかの組み合わせごとに 1 点）。
+/// 背景の大きさは分からないので、画面の大きさと範囲の右・下の端のうち大きい方までを背景とみなす（verify-actions.ts と同じ）
 pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
     let cut = |lo: Vec<i64>, max: i64| {
         let mut v: Vec<i64> = std::iter::once(0).chain(lo).filter(|&v| v >= 0 && v < max).collect();
@@ -66,8 +67,10 @@ pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
         v.dedup();
         v
     };
-    let xs = cut(p.examine.iter().flat_map(|e| [e.area[0], e.area[0] + e.area[2]]).collect(), SCREEN_W);
-    let ys = cut(p.examine.iter().flat_map(|e| [e.area[1], e.area[1] + e.area[3]]).collect(), SCREEN_H);
+    let max_x = p.examine.iter().map(|e| e.area[0] + e.area[2]).fold(SCREEN_W, i64::max);
+    let max_y = p.examine.iter().map(|e| e.area[1] + e.area[3]).fold(SCREEN_H, i64::max);
+    let xs = cut(p.examine.iter().flat_map(|e| [e.area[0], e.area[0] + e.area[2]]).collect(), max_x);
+    let ys = cut(p.examine.iter().flat_map(|e| [e.area[1], e.area[1] + e.area[3]]).collect(), max_y);
     let mut pts = vec![];
     let mut sigs: Vec<Vec<bool>> = vec![];
     for &y in &ys {

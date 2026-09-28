@@ -34,6 +34,12 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
   const Place = z.strictObject({
     name: z.string().describe('「移動する」の一覧などに出す場所の名前'),
     background: Id.optional().describe('背景のキー。省略すると場所の ID'),
+    examineScroll: z
+      .union([z.boolean(), Cond])
+      .optional()
+      .describe(
+        '「調べる」の間に背景をスクロールできるか（true / false か条件式。背景が画面より大きいときだけ効く。省略するとできる）',
+      ),
     person: z
       .union([Id, z.array(z.strictObject({ id: Id, when: Cond.optional() }))])
       .optional()
@@ -52,7 +58,9 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
           name: z.string().optional().describe('エディタでの表示名'),
           area: z
             .tuple([z.number(), z.number(), z.number(), z.number()])
-            .describe('画面（256×192 ドット）上の範囲 [x, y, 幅, 高さ]'),
+            .describe(
+              '背景の上の範囲 [x, y, 幅, 高さ]（ドット。横長の背景なら 0〜512 など、背景の座標）',
+            ),
           when: Cond.optional(),
           // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           then: steps,
