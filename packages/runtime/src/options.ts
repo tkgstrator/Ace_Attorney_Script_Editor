@@ -1,6 +1,7 @@
 import type { Engine } from '@gyakusai/core';
 import type { AudioOut } from './audio.ts';
 import type { ShoutKind } from './layout.ts';
+import type { Aspect } from './screen.ts';
 import type { FontSpec } from './text.ts';
 
 /**
@@ -114,6 +115,11 @@ export interface PlayerOptions {
   recordTitleFont?: FontSpec;
   /** 長くて収まらない選択肢のフォント（本文の字を詰めて並べたもの）。既定は descriptionFont */
   condensedFont?: FontSpec;
+  /**
+   * 画面の横幅。'4:3' は DS 版と同じ 256×192 ドット、'16:9' は 342×192 ドット。既定 '4:3'。
+   * 16:9 では、部品を画面の左・右・中央に寄せ、背景・立ち絵・法廷記録は 4:3 の枠（256 幅）を中央に置いて描く
+   */
+  aspect?: Aspect;
   /** テキストウィンドウの 1 行の文字数（全角）。既定 16 */
   charsPerLine?: number;
   /** テキストウィンドウの行数。収まらない文は、この行数ごとにページを分ける。既定 2 */

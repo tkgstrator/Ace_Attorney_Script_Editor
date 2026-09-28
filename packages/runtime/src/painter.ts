@@ -1,6 +1,7 @@
 // ドット単位の描画の部品。矩形・枠・タブ・矢印など、画面のどこでも使う小さなものをまとめる。
 import { COLORS, type Rect, type Slant } from './layout.ts';
 import type { Assets } from './options.ts';
+import { type Layout, layoutFor } from './screen.ts';
 import type { TextRenderer } from './text.ts';
 
 export interface Fonts {
@@ -24,11 +25,24 @@ export class Painter {
   readonly ctx: CanvasRenderingContext2D;
   readonly fonts: Fonts;
   readonly assets: Assets;
+  /** 画面の幅と、幅に合わせた部品の配置 */
+  readonly layout: Layout;
 
-  constructor(ctx: CanvasRenderingContext2D, fonts: Fonts, assets: Assets) {
+  constructor(
+    ctx: CanvasRenderingContext2D,
+    fonts: Fonts,
+    assets: Assets,
+    layout: Layout = layoutFor(),
+  ) {
     this.ctx = ctx;
     this.fonts = fonts;
     this.assets = assets;
+    this.layout = layout;
+  }
+
+  /** 画面全体の矩形 */
+  get screen(): Rect {
+    return { x: 0, y: 0, w: this.layout.w, h: this.layout.h };
   }
 
   rect(x: number, y: number, w: number, h: number, color: string) {

@@ -5,7 +5,7 @@ import { Blip, blipKindOf } from './blip.ts';
 import { ScreenEffects } from './effects.ts';
 import { createFonts } from './fonts.ts';
 import { InvestigationUI } from './investigation.ts';
-import { DOT, FRAME_MS, HEIGHT, TEXT_COLORS, TIMING, WIDTH } from './layout.ts';
+import { DOT, FRAME_MS, TEXT_COLORS, TIMING } from './layout.ts';
 import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
 import { OverlayView } from './overlays.ts';
 import { Painter } from './painter.ts';
@@ -13,9 +13,10 @@ import { PanView } from './pan.ts';
 import { PickUI } from './pick.ts';
 import type { LastLine, PlayerHost } from './player-host.ts';
 import { click, key } from './player-input.ts';
-import { renderScreen } from './player-render.ts';
+import { renderFrame } from './player-render.ts';
 import { CourtRecord } from './record.ts';
 import { LineResume } from './resume.ts';
+import { layoutFor, screenWidth } from './screen.ts';
 import { Typewriter } from './typewriter.ts';
 
 /**
@@ -35,8 +36,8 @@ export class Player {
   readonly #reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   readonly #record = new CourtRecord();
   readonly #resume = new LineResume();
-  readonly #inv = new InvestigationUI();
-  readonly #pick = new PickUI();
+  readonly #inv: InvestigationUI;
+  readonly #pick: PickUI;
   readonly #audio: AudioOut | undefined;
   /** 「調べる」で選べる所に目印を出すか（元のゲームにはない手助け。途中で切り替えてよい） */
   examineMarkers: boolean;
@@ -54,7 +55,7 @@ export class Player {
   #added: string | null = null;
   readonly #fx = new ScreenEffects(this.#reduceMotion);
   readonly #blip = new Blip();
-  readonly #views = { bg: new BackgroundView(), overlays: new OverlayView(), pan: new PanView() };
+  readonly #views: { bg: BackgroundView; overlays: OverlayView; pan: PanView };
   #lifeShow = 0;
   #frame = 0;
   #blink = 0;
@@ -134,10 +135,14 @@ export class Player {
   constructor(opts: PlayerOptions) {
     this.engine = opts.engine;
     this.#canvas = opts.canvas;
-    this.#canvas.width = WIDTH * DOT;
-    this.#canvas.height = HEIGHT * DOT;
+    const L = layoutFor(screenWidth(opts.aspect));
+    this.#canvas.width = L.w * DOT;
+    this.#canvas.height = L.h * DOT;
     this.#ctx = this.#canvas.getContext('2d')!;
-    this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {});
+    this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {}, L);
+    this.#inv = new InvestigationUI(L);
+    this.#pick = new PickUI(L);
+    this.#views = { bg: new BackgroundView(L), overlays: new OverlayView(), pan: new PanView() };
     const text = this.#p.fonts.text;
     this.#textWidth = (opts.charsPerLine ?? 16) * text.em - (text.em - text.font.size);
     this.#linesPerPage = opts.linesPerPage ?? 2;
@@ -154,8 +159,8 @@ export class Player {
       this.#syncBeat(); // 前のフレームの後にエンジンが進んでいても、最新の Beat に対して操作する
       click(
         this.#host,
-        Math.floor(((e.clientX - b.left) / b.width) * WIDTH),
-        Math.floor(((e.clientY - b.top) / b.height) * HEIGHT),
+        Math.floor(((e.clientX - b.left) / b.width) * L.w),
+        Math.floor(((e.clientY - b.top) / b.height) * L.h),
       );
     };
     const onKey = (e: KeyboardEvent) => {
@@ -381,13 +386,6 @@ export class Player {
     const ctx = this.#ctx;
     ctx.setTransform(DOT, 0, 0, DOT, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
-    ctx.save();
-    this.#fx.applyShake(ctx);
-
-    renderScreen(this.#host);
-    ctx.restore();
-    this.#fx.drawFlash(this.#p);
-    if (this.#record.open) this.#record.render(this.#p, this.engine, this.#labels, this.#frame);
+    renderFrame(this.#host);
   }
 }

@@ -6,10 +6,11 @@ import { type Beat, type Engine, pickMarkers, plainText } from '@gyakusai/core';
 import type { BackgroundView } from './background.ts';
 import { drawExamineMarkers } from './examine-markers.ts';
 import { cursor } from './investigation.ts';
-import { hit, SCREEN_H, SCREEN_W, UI } from './layout.ts';
+import { hit, type Rect, SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
 import { drawPeople, isPeople, movePeople, personAt } from './pick-people.ts';
+import { type Layout, layoutFor } from './screen.ts';
 import * as W from './widgets.ts';
 
 type PickBeat = Extract<Beat, { kind: 'pick' }>;
@@ -17,12 +18,18 @@ type PickBeat = Extract<Beat, { kind: 'pick' }>;
 const GUARD_MS = 250;
 
 export class PickUI {
+  readonly #L: Layout;
   /** 今見せている絵（Beat の images の番号） */
   image = 0;
   /** 人物を選ぶときの、選んでいる人物（Beat の areas の番号） */
   person = 0;
-  #cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 - 24 };
+  #cursor: { x: number; y: number };
   #since = 0;
+
+  constructor(layout: Layout = layoutFor()) {
+    this.#L = layout;
+    this.#cursor = { x: layout.w / 2, y: layout.h / 2 - 24 };
+  }
 
   /** 別の Beat になったら、最初の絵に戻す */
   reset(): void {
@@ -35,12 +42,22 @@ export class PickUI {
     return performance.now() - this.#since < GUARD_MS;
   }
 
-  /** 画面の点 → 絵（背景）の座標。絵が無ければ背景のスクロールした位置を足す */
+  /**
+   * 画面の左上に当たる絵（背景）の座標。絵（4:3 の画面の大きさ）は 4:3 の枠に置く。
+   * 絵が無ければ背景のスクロールした位置を足す
+   */
   #origin(b: PickBeat, bg: BackgroundView | undefined): [number, number] {
-    return b.images.length === 0 && bg ? [bg.x, bg.y] : [0, 0];
+    return b.images.length === 0 && bg ? bg.origin : [-this.#L.ox, 0];
+  }
+
+  /** 選べる所（画面の座標。4:3 では画面全体、広い画面では絵・狭い背景の左右の黒い所を除く） */
+  #area(b: PickBeat, bg: BackgroundView | undefined): Rect {
+    if (b.images.length === 0 && bg) return bg.examinable;
+    return { x: this.#L.ox, y: 0, w: SCREEN_W, h: SCREEN_H };
   }
 
   #choose(engine: Engine, b: PickBeat, x: number, y: number, bg: BackgroundView | undefined) {
+    if (!hit(this.#area(b, bg), x, y)) return;
     const [ox, oy] = this.#origin(b, bg);
     engine.pickAt(x + ox, y + oy, this.image);
   }
@@ -58,12 +75,13 @@ export class PickUI {
       else return false;
       return true;
     }
-    const step = UI.cursorStep;
+    const step = this.#L.ui.cursorStep;
     const c = this.#cursor;
-    if (key === 'ArrowLeft') c.x = Math.max(0, c.x - step);
-    else if (key === 'ArrowRight') c.x = Math.min(SCREEN_W - 1, c.x + step);
-    else if (key === 'ArrowUp') c.y = Math.max(0, c.y - step);
-    else if (key === 'ArrowDown') c.y = Math.min(SCREEN_H - 1, c.y + step);
+    const a = this.#area(b, bg);
+    if (key === 'ArrowLeft') c.x = Math.max(a.x, c.x - step);
+    else if (key === 'ArrowRight') c.x = Math.min(a.x + a.w - 1, c.x + step);
+    else if (key === 'ArrowUp') c.y = Math.max(a.y, c.y - step);
+    else if (key === 'ArrowDown') c.y = Math.min(a.y + a.h - 1, c.y + step);
     else if (key === 'l' || key === 'L') this.#turn(b, -1);
     else if (key === 'r' || key === 'R') this.#turn(b, 1);
     else if (b.quit && (key === 'Escape' || key === 'b' || key === 'B')) engine.pickQuit();
@@ -74,12 +92,13 @@ export class PickUI {
 
   click(engine: Engine, b: PickBeat, x: number, y: number, bg?: BackgroundView): void {
     if (isPeople(b)) {
-      const i = personAt(b, x, y);
+      const i = personAt(b, x - this.#L.ox, y);
       if (i === null) return;
       this.person = i;
       if (!this.#guarded) engine.pick(i);
       return;
     }
+    const UI = this.#L.ui;
     if (b.quit && hit(UI.invBack, x, y)) {
       engine.pickQuit();
       return;
@@ -94,7 +113,7 @@ export class PickUI {
       this.#turn(b, turn);
       return;
     }
-    if (this.#guarded) return;
+    if (this.#guarded || !hit(this.#area(b, bg), x, y)) return;
     this.#cursor = { x, y };
     this.#choose(engine, b, x, y, bg);
   }
@@ -114,11 +133,12 @@ export class PickUI {
       drawPeople(p, b, sc, this.person, plainText(b.prompt) || labels.nominateHint, blinkOn);
       return;
     }
+    const UI = this.#L.ui;
     const key = b.images[this.image];
     if (key !== undefined) {
-      p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
+      p.rect(0, 0, this.#L.w, this.#L.h, '#000000');
       const img = p.assets.background?.(key);
-      if (img) p.ctx.drawImage(img, 0, 0, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H);
+      if (img) p.ctx.drawImage(img, 0, 0, SCREEN_W, SCREEN_H, this.#L.ox, 0, SCREEN_W, SCREEN_H);
     }
     const origin = this.#origin(b, bg);
     if (markers) {
@@ -129,7 +149,7 @@ export class PickUI {
     W.textbox(p, null);
     const t = p.fonts.text;
     const prompt = plainText(b.prompt) || labels.pickHint;
-    t.draw(t.wrap(prompt, SCREEN_W - 16)[0] ?? '', 8, W.textTop(p), { color: '#ffffff' });
+    t.draw(t.wrap(prompt, this.#L.w - 16)[0] ?? '', 8, W.textTop(p), { color: '#ffffff' });
     if (b.quit) p.tab(UI.invBack, 'tr', labels.giveUp);
     if (b.images.length > 1) {
       p.tab(UI.pickPrev, 'tl', '', { enabled: this.image > 0 });

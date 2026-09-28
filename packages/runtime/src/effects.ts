@@ -2,7 +2,6 @@
 //   揺れ: 毎フレーム ±1 / ±3 / ±7 ドット（強さ 0 / 1 / 2）の乱数でずらす
 //   白いフラッシュ: 明るさを白へ寄せる。既定の 3 フレームは「真っ白 2 フレーム → 半分 1 フレーム」
 import type { FadeColor, FlashColor, Pose } from '@gyakusai/core';
-import { SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
 const SHAKE_AMPLITUDE = [1, 3, 7];
@@ -59,12 +58,7 @@ export class ScreenEffects {
     if (!color) return;
     const t = f ? f.elapsed / f.frames : 1;
     const alpha = f ? (f.dir === 'out' ? t : 1 - t) : 1;
-    if (alpha > 0)
-      p.dim(
-        { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
-        color === 'white' ? '#ffffff' : '#000000',
-        Math.min(1, alpha),
-      );
+    if (alpha > 0) p.dim(p.screen, color === 'white' ? '#ffffff' : '#000000', Math.min(1, alpha));
   }
 
   /** 揺れの分だけ描く位置をずらす（ctx.save() の後に呼ぶ） */
@@ -78,10 +72,6 @@ export class ScreenEffects {
   drawFlash(p: Painter): void {
     if (this.#flash <= 0) return;
     const alpha = this.#flashColor === 'red' ? 0.45 : this.#flash > 1 ? 1 : 0.5;
-    p.dim(
-      { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
-      this.#flashColor === 'red' ? '#ff2020' : '#ffffff',
-      alpha,
-    );
+    p.dim(p.screen, this.#flashColor === 'red' ? '#ff2020' : '#ffffff', alpha);
   }
 }
