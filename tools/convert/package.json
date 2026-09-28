@@ -1,0 +1,10 @@
+{
+  "name": "@gyakusai/convert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@gyakusai/script": "workspace:*",
+    "yaml": "^2.9.1"
+  }
+}

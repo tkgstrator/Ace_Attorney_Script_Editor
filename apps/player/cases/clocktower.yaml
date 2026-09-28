@@ -1,0 +1,314 @@
+# yaml-language-server: $schema=../../../schema/scenario.schema.json
+#
+# サンプル事件「時計塔の鐘」
+# フレームワークの主な機能（探索編の調べる・移動する・話す・つきつける、証言・尋問・ゆさぶり・
+# つきつけ・隠し証言・選択肢・フラグ・証拠品の追加・ライフとゲームオーバー・BGM・効果音・画面の演出）を一通り使っている。
+
+id: clocktower
+title: 時計塔の鐘
+player: naruse
+life: 5
+
+defaults:
+  penalty: 1
+  autoPause: true   # 句読点のあとで少し待つ（手書きのシナリオ向け。元のゲームにはない）
+  wrongPresent:
+    - judge: その「{evidence}」が、この証言とどう関係するのですか？
+    - penalty: true
+    - naruse: （うっ……。的外れだったか）
+
+characters:
+  naruse:
+    name: ナルセ
+    stand: defense
+    profile: { name: 成瀬 真一, age: 24, description: 新米の弁護士。今回が初めての法廷。 }
+  himuro:
+    name: ヒムロ
+    stand: prosecution
+    profile: { name: 氷室 冬馬, age: 32, description: 担当検事。証拠と論理しか信じない、冷たい男。 }
+  torii:
+    name: トリイ
+    stand: witness
+    profile: { name: 鳥居 守, age: 58, description: 事件の目撃者。広場の向かいに住んでいる。 }
+  judge: { name: サイバンチョ, stand: judge }
+
+evidence:
+  badge:
+    name: 弁護士バッジ
+    description: 弁護士である証。いつも胸につけている。
+  autopsy:
+    name: 解剖記録
+    description: 死亡推定時刻は午後8時半から9時半。死因は後頭部の打撲。
+  photo:
+    name: 広場の写真
+    description: 事件の翌朝に撮影された広場。奥に時計塔が写っている。
+  repair:
+    name: 修理票
+    description: 時計塔の修理票。事件の3日前から修理中で、鐘は鳴らなかった。
+  clock:
+    name: 置時計
+    description: 被害者の部屋の置時計。9時15分で止まっている。毎正時に鐘が鳴る。
+  keys:
+    name: 鍵束
+    description: 被害者のポケットにあった鍵。1本だけ真新しい。
+
+flags:
+  asked_bell: false   # 証言2をゆさぶって、鐘の回数を聞き出したか
+  hint_bell: false    # 早すぎるつきつけでヒントを聞いたか
+  mistakes: 0         # 選択肢やつきつけの間違いの回数
+
+start:
+  scene: prologue
+  evidence: [badge, autopsy, photo]
+
+gameover: verdict_guilty
+
+parts:
+  - id: investigation
+    kind: investigation
+    title: 探偵パート（9月26日）
+    scenes:
+      prologue:
+        - card: "9月26日 午後2時\n時計塔の広場"
+        - bgm: investigation
+          frames: 30
+        - naruse: （明日は、初めての法廷だ）
+        - naruse: （事件の現場の近くを、自分の目で調べておこう）
+        - investigate: plaza
+    places:
+      plaza:
+        name: 時計塔の広場
+        person: torii
+        enter:
+          - if: not visited(plaza)
+            then:
+              - torii: おや、あなたが時田さんの弁護士さんですかな。
+        examine:
+          - id: tower
+            name: 時計塔
+            area: [96, 8, 64, 88]
+            then:
+              - naruse: （広場の時計塔だ。……扉に紙が貼ってある）
+              - if: not has(repair)
+                then:
+                  - se: discover
+                  - naruse: （「修理中」……。事件の3日前から、鐘を止めて修理しているらしい）
+                  - give: repair
+                  - narrate: 修理票を法廷記録にファイルした。
+          - id: bench
+            name: ベンチ
+            area: [16, 120, 80, 40]
+            then:
+              - naruse: （証人が座っていたというベンチだ。時計塔がよく見える）
+        talk:
+          - id: night
+            topic: 事件の夜のこと
+            then:
+              - torii: あの夜は、このベンチで休んでおりましてな。
+              - torii: 9時の鐘が鳴って、顔を上げたら男が走っていくのが見えたんですよ。
+              - naruse: （鐘……？）
+          - id: tower_talk
+            topic: 時計塔の鐘
+            when: seen(night)
+            then:
+              - torii: 毎正時に鳴るんですよ。正確でしてな、町の自慢です。
+              - if: has(repair)
+                then:
+                  - naruse: （修理中のはずの鐘が、鳴った……？）
+        present:
+          repair:
+            - torii: 修理票？　はて、そんなものが。
+            - torii: ……まあ、私は確かに聞きましたがね。
+          photo:
+            - torii: ああ、この広場ですな。事件の翌朝の写真ですか。
+        move:
+          - shop
+          - to: court_gate
+            when: has(repair) and has(clock)
+      shop:
+        name: 時計店
+        enter:
+          - if: not visited(shop)
+            then:
+              - naruse: （被害者の時計店だ。店の奥が、被害者の部屋になっている）
+        examine:
+          - id: mantel_clock
+            name: 置時計
+            area: [150, 60, 60, 60]
+            then:
+              - naruse: （置時計だ。9時15分で止まっている）
+              - if: not has(clock)
+                then:
+                  - naruse: （毎正時に鐘が鳴る仕掛けがついている。……念のため、預かっておこう）
+                  - give: clock
+                  - narrate: 置時計を法廷記録にファイルした。
+          - id: counter
+            name: 作業台
+            area: [16, 110, 120, 50]
+            then:
+              - naruse: （修理中の時計が並んでいる。几帳面な人だったんだな）
+        move: [plaza]
+      court_gate:
+        name: 地方裁判所
+        enter:
+          - naruse: （証拠品はそろった。……明日に備えよう）
+          - bgm: null
+            frames: 60
+          - fade: out
+            frames: 48
+          - goto: opening
+
+  - id: trial
+    kind: trial
+    title: 法廷パート（9月27日）
+    scenes:
+      opening:
+        - card: "9月27日 午前10時\n地方裁判所 第2法廷"
+        - fade: in
+        - se: gavel
+        - wait: 18
+        - bgm: trial
+        - judge: これより、被告人・時田 進の審理を開廷します。
+        - naruse: 弁護側、準備は完了しています。
+        - naruse: （……たぶん）
+        - himuro: 検察側も、とうに。
+        - himuro: 被害者は時計店の店主。自宅で後頭部を殴られて亡くなっていた。
+        - himuro: 事件の夜、現場の近くで被告人を見たという証人がいる。……もっとも、弁護側がどう足掻こうと、結論は変わらんがね。
+        - himuro: 入廷したまえ、証人。
+        - show: torii
+        - torii: 鳥居 守。広場の向かいに住んでおります。
+        - judge: では証人。事件の夜に見たことを証言してください。
+
+      t1:
+        testimony: 事件の夜に見たこと
+        witness: torii
+        statements:
+          - id: bench
+            text: あの夜、私は広場のベンチで休んでいました。
+            press:
+              - naruse: なぜ、その時間に広場にいたんですか？
+              - torii: 散歩ですよ。医者に歩けと言われていましてね。
+
+          - id: bell
+            text: ちょうど夜の9時、時計塔の鐘が鳴ったんです。
+            press:
+              - naruse: 鐘の音を、はっきり聞いたんですね？
+              - torii: ええ、もちろん。
+              - if: not asked_bell
+                then:
+                  - naruse: 何回鳴ったか、覚えていますか？
+                  - torii: ゴーン、ゴーンと9回。数えましたとも。
+                  - judge: 今の話を、証言に加えてください。
+                  - set: { asked_bell: true }
+                  - naruse: （9回……。本当に鳴ったのか？）
+            present:
+              repair:
+                - if: asked_bell
+                  then:
+                    - naruse: （いや、証人が鐘の回数まで言い切ったのは、次の証言だ）
+                  else:
+                    - naruse: 時計塔の鐘は、修理中で止まっていたはずです！
+                    - torii: おや、そうでしたか。ではきっと、聞き違いでしょうな。
+                    - naruse: （……かわされた。先に、鐘のことをもっと詳しく聞き出すべきだ）
+                    - set: { hint_bell: true }
+
+          # ゆさぶって鐘の回数を聞き出すと現れる証言
+          - id: bell_count
+            when: asked_bell
+            text: 鐘は9回。この耳で数えました。
+            press:
+              - naruse: 間違いありませんか？
+              - torii: しつこいですな。9回と言ったら9回です。
+            present:
+              repair:
+                - goto: contradiction
+
+          - id: runner
+            text: 鐘の音で顔を上げると、男が走り去るのが見えました。
+            press:
+              - naruse: その男の顔は見ましたか？
+              - torii: 暗くて顔までは……。でも、背の高い男でした。
+
+          - id: sure
+            text: 間違いありません。時刻は9時ちょうどでした。
+            press:
+              - naruse: なぜ9時ちょうどだと言い切れるんですか？
+              - torii: だから鐘ですよ！　時計塔の鐘は正確ですからな。
+
+        after:
+          - judge: では弁護人、尋問をお願いします。
+
+        loop:
+          - if: hint_bell and not asked_bell
+            then:
+              - naruse: （鐘の話が怪しい。証言2を、もう一度ゆさぶってみよう）
+            else:
+              - naruse: （どこかに矛盾があるはずだ。もう一度聞いてみよう）
+
+      contradiction:
+        - naruse: 証人は、鐘が9回鳴ったと言いました。しかし、それはありえません！
+        - showEvidence: repair
+        - naruse: この修理票を見てください。事件の3日前から、時計塔の鐘は止まっていたんです！
+        - showEvidence: null
+        - torii: "な、[wait 8]なんですとォ[se damage][shake 30 1]……！"
+        - himuro: ……フン。証人の勘違いだろう。鐘の件など、事件の本筋とは関係ない。
+        - himuro: 検察側は、新たな証拠品を提出する。被害者のポケットにあった鍵束だ。
+        - give: keys
+        - narrate: 鍵束を法廷記録にファイルした。
+        - judge: 弁護人。証人が聞いたという鐘について、弁護側はどう考えますか？
+        - goto: bell_choice
+
+      bell_choice:
+        - choice:
+            - text: 鐘の音など聞いていない
+              then:
+                - naruse: 証人は、鐘の音など聞いていないんです！
+                - torii: いいえ、確かに聞きました！　9回、はっきりと！
+                - judge: 証人の態度は、嘘をついているようには見えませんが……。
+                - penalty: true
+                - add: { mistakes: 1 }
+                - goto: bell_choice
+            - text: 時計塔ではない鐘を聞いた
+              then:
+                - naruse: 証人は確かに鐘を聞いた。ただしそれは、時計塔の鐘ではなかった！
+                - himuro: ほう。では、何の鐘だというのだ。
+        - demand: 証人が聞いた「9回の鐘」。その正体を示す証拠品は？
+          present:
+            clock:
+              - showEvidence: clock
+              - naruse: 被害者の部屋にあった、この置時計です！
+              - naruse: 毎正時に鐘を鳴らす仕掛けつき。9時なら、9回鳴ります。
+              - naruse: そして、この鐘の音は、部屋の外までは聞こえない。
+              - showEvidence: null
+              - naruse: つまり証人は、事件の夜の9時に、被害者の部屋にいたんです！
+              - shout: objection
+                by: himuro
+              - himuro: ……バカな。
+              - torii: "[flash][shake 40 2][speed 2]う……[wait 10]うおおおおおおッ！"
+              - goto: ending
+          wrong:
+            - himuro: その「{evidence}」が鐘を鳴らすとでも？
+            - penalty: true
+            - add: { mistakes: 1 }
+
+      ending:
+        - judge: 証人・鳥居 守を、この事件の重要参考人として取り調べることとします。
+        - judge: 被告人・時田 進に、判決を言い渡します。
+        - bgm: null
+        - banner: 無罪
+        - se: gavel
+        - bgm: verdict
+        - if: mistakes == 0
+          then:
+            - naruse: （一度も間違えずにたどり着けた。……今日は、冴えていたな）
+          else:
+            - naruse: （危ないところもあったけど、なんとか真実にたどり着けた）
+        - end: true
+
+      verdict_guilty:
+        - judge: 弁護側の主張には、もはや耳を傾ける価値がありません。
+        - judge: 被告人・時田 進に、判決を言い渡します。
+        - bgm: null
+        - banner: 有罪
+        - se: gavel
+        - gameover: true
