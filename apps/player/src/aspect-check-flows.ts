@@ -8,7 +8,9 @@ type Op =
   | ['key', string]
   | ['snap', string]
   /** その種類の Beat まで進める */
-  | ['until', Beat['kind']];
+  | ['until', Beat['kind']]
+  /** エンジンを直接動かす（つきつけるなど。互換性の比較画像 compat-doc.ts で使う） */
+  | ['call', (e: Engine) => void];
 
 export interface Flow {
   /** 章（cases.ts の id） */
@@ -141,6 +143,7 @@ export function runFlow(
     if (op[0] === 'pump') io.pump(op[1]);
     else if (op[0] === 'key') io.key(op[1]);
     else if (op[0] === 'snap') io.shot(op[1]);
+    else if (op[0] === 'call') op[1](engine);
     else {
       for (let i = 0; i < 400 && engine.beat.kind !== op[1]; i++) {
         try {
