@@ -54,6 +54,8 @@ export const FIRST_PERSON: [string, RegExp][] = [
   ['私', /私(?!立|服|物|用|的|達)/g],
   ['わたくし', /わたくし/g],
   ['ワタクシ', kataWord('ワタクシ')],
+  ['あたくし', hiraWord('あたくし')],
+  ['アタクシ', kataWord('アタクシ')],
   ['あたし', hiraWord('あたし')],
   ['アタシ', kataWord('アタシ')],
   ['あたい', hiraWord('あたい')],
@@ -65,8 +67,9 @@ export const FIRST_PERSON: [string, RegExp][] = [
   ['おれ', hiraWord('おれ(?!い|た|る|な|ま)')],
   ['俺', /俺/g],
   ['オイラ', kataWord('オイラ')],
+  ['ウチ', kataWord('ウチ')],
   ['ワシ', kataWord('ワシ')],
-  ['わし', hiraWord('わし(?!ょ|づ|ゃ)')],
+  ['わし', /(?<![ぁ-ゟ一-鿿々])わし(?!ょ|づ|ゃ|い|く|か)/g],
   ['自分', /自分/g],
   ['ジブン', kataWord('ジブン')],
   ['本官', /本官/g],
@@ -80,6 +83,8 @@ export const SECOND_PERSON: [string, RegExp][] = [
   ['あなた', /あなた/g],
   ['アナタ', kataWord('アナタ')],
   ['あんた', hiraWord('あんた')],
+  ['ああた', hiraWord('ああた')],
+  ['貴方', /貴方/g],
   ['アンタ', kataWord('アンタ')],
   ['きみ', hiraWord('きみ(?!ょう|ょ|ど)')],
   ['キミ', kataWord('キミ')],
@@ -95,9 +100,12 @@ export const SECOND_PERSON: [string, RegExp][] = [
 
 /** 名前＋敬称など（人の呼び方） */
 const HONORIFIC = new RegExp(
-  `((?<![${HIRA}])[${HIRA}]{2,5}|[\\u4e00-\\u9fff々]{1,4}|[${KATA}]{2,7})(さん|くん|クン|君|ちゃん|チャン|さま|様|サマ|どの|殿|ドノ|先生|センセイ|センセ|刑事|検事|弁護士|氏|ちゃま)`,
+  `((?<![${HIRA}])[${HIRA}]{2,5}|(?<![${KATA}\\u4e00-\\u9fff々])[${KATA}\\u4e00-\\u9fff々]{1,7})(さん|くん|クン|君|ちゃん|チャン|さま|様|サマ|どの|殿|ドノ|先生|センセイ|センセ|刑事|検事|弁護士|氏|ちゃま)(?![${KATA}])`,
   'g',
 );
+/** 主な人物の、敬称を付けない名前（呼びかけ以外の言及も含む） */
+const PLAIN_NAMES =
+  /(成歩堂|御剣|真宵|千尋|春美|糸鋸|狩魔|矢張)(?![さくちどせ殿様君先刑検弁氏ク一-鿿])/g;
 const TITLES = /裁判長|弁護人|証人|被告人|センパイ|先輩|ボス|ダンナ|アニキ|ママ|パパ/g;
 
 export interface CharStats {
@@ -250,6 +258,7 @@ function addLine(s: CharStats, l: Line, ep: Episode) {
     for (const [k, re] of SECOND_PERSON) s.second.add(k, countMatches(flat, re));
     for (const m of flat.matchAll(HONORIFIC)) s.names.add(m[0]);
     for (const m of flat.matchAll(TITLES)) s.names.add(m[0]);
+    for (const m of flat.matchAll(PLAIN_NAMES)) s.names.add(`${m[0]}（敬称なし）`);
   }
   // 文末（「。！？‥」の前か、ページの終わり）
   const body = flat.replace(/[（）“”「」]/g, '').replace(/[　 ]/g, '');
