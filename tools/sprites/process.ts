@@ -1,13 +1,23 @@
 // 生成した元画像（1000px 前後）を、画面（256×192 ドット）用のドット絵に縮めてサンプルに取り込む。
-//   bun tools/sprites/process.ts
+//   bun tools/sprites/process.ts                  # すべて
+//   bun tools/sprites/process.ts character        # 種類を指定
+//   --out <フォルダ>  書き出し先（既定 apps/player/src/art。試すときは一時フォルダに）
+//   --no-check        終わったあとの立ち絵のチェック（check.ts）をしない
+// 人物は、口パクの絵を口のまわりだけ差し替える前のものも <書き出し先の横>/unpatched/character/ に残し、
+// 最後に両方を check.ts で確かめる（差し替える前の結果は、モデルが口以外も描き直していないかの参考）。
 // 縮小は面積平均（ぼかさずに色を混ぜる）、そのあと色数を減らし、透明度を 0 か 255 にそろえる。
-import { existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { ITEMS, type Item, rawPath } from './manifest.ts';
+import { ITEMS, type Item, type Kind, rawPath } from './manifest.ts';
 import { fixTalkFrame } from './mouth.ts';
 
 const ROOT = resolve(import.meta.dir, '../..');
-const OUT = 'apps/player/src/art';
+const argv = process.argv.slice(2);
+const outArg = argv.indexOf('--out');
+const OUT = outArg >= 0 ? argv.splice(outArg, 2)[1]! : 'apps/player/src/art';
+/** 口のまわりを差し替える前の口パクの絵（とベース）の置き場所 */
+const UNPATCHED = outArg >= 0 ? `${OUT}/unpatched` : 'assets/generated/unpatched';
+const kinds = argv.filter((a) => !a.startsWith('--')) as Kind[];
 const COLORS = '64';
 /** 人物の立ち絵の最大の大きさ（ドット）。下端を画面の下端に合わせて描く（腰から下は机に隠れる） */
 const CHAR_MAX = { w: 240, h: 180 };
@@ -85,6 +95,9 @@ function character(item: Item) {
     baseOut,
     talkOut,
   );
+  const keep = out(`${UNPATCHED}/character/${item.id}.png`);
+  copyFileSync(resolve(ROOT, baseOut), resolve(ROOT, keep));
+  copyFileSync(resolve(ROOT, talkOut), resolve(ROOT, `${UNPATCHED}/character/${item.id}-talk.png`));
   fixTalkFrame(
     (...a) => magickBytes(a),
     baseOut,
@@ -179,6 +192,7 @@ function evidence(item: Item) {
 const handlers = { character, background, foreground, evidence };
 let done = 0;
 for (const item of ITEMS) {
+  if (kinds.length && !kinds.includes(item.kind)) continue;
   if (!existsSync(resolve(ROOT, rawPath(item)))) {
     console.log(`未生成のため飛ばします: ${rawPath(item)}`);
     continue;
@@ -187,3 +201,21 @@ for (const item of ITEMS) {
   done++;
 }
 console.log(`加工しました: ${done} 件 → ${OUT}`);
+
+// 立ち絵を SPEC.md の決まりで確かめる（失敗があれば終了コード 1）
+if (!argv.includes('--no-check') && (!kinds.length || kinds.includes('character'))) {
+  const check = (dir: string, out: string) =>
+    Bun.spawnSync(['bun', resolve(import.meta.dir, 'check.ts'), '--dir', dir, '--out', out], {
+      cwd: ROOT,
+      stdout: 'inherit',
+      stderr: 'inherit',
+    }).exitCode;
+  if (existsSync(resolve(ROOT, UNPATCHED, 'character'))) {
+    console.log('\n==== 差し替える前の口パクの絵（参考。モデルが口以外を描き直していないか） ====');
+    check(`${UNPATCHED}/character`, `${UNPATCHED}/check`);
+  }
+  console.log('\n==== 取り込んだ立ち絵 ====');
+  process.exit(
+    check(`${OUT}/character`, `${OUT === 'apps/player/src/art' ? 'assets/generated' : OUT}/check`),
+  );
+}
