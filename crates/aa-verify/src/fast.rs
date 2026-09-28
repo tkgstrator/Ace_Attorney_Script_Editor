@@ -96,7 +96,7 @@ pub fn prepare(m: &mut Model) {
         for ins in &mut sc.program {
             match ins {
                 Op::JumpUnless(e, _) => compile(e, &bool_flags, &snapshot),
-                Op::Choice(opts) => opts.iter_mut().for_each(|o| c(&mut o.when)),
+                Op::Choice(opts) | Op::Pick(opts) => opts.iter_mut().for_each(|o| c(&mut o.when)),
                 _ => {}
             }
         }

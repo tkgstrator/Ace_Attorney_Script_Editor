@@ -2,6 +2,9 @@
 // 表示・音は扱わない（人物ファイルは証拠品と同じく持つ）。命令の意味・エラーの文は core に合わせる。
 use crate::{expr::{test, Env}, model::*, state::{Mode, Phase, State}};
 
+#[path = "engine_choose.rs"]
+mod choose;
+
 const STEP_LIMIT: usize = 100_000;
 
 pub type Res<T = ()> = Result<T, String>;
@@ -9,14 +12,14 @@ pub type Res<T = ()> = Result<T, String>;
 /// 今の表示単位（Beat）の種類
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BeatKind {
-    Line, Shout, Banner, Card, Fade, Wait, Choice, Demand, Statement { cross: bool }, Investigate, End, Gameover,
+    Line, Shout, Banner, Card, Fade, Wait, Choice, Pick, Demand, Statement { cross: bool }, Investigate, End, Gameover,
 }
 
 impl BeatKind {
     pub fn name(self) -> &'static str {
         match self {
             BeatKind::Line => "line", BeatKind::Shout => "shout", BeatKind::Banner => "banner", BeatKind::Card => "card",
-            BeatKind::Fade => "fade", BeatKind::Wait => "wait", BeatKind::Choice => "choice", BeatKind::Demand => "demand",
+            BeatKind::Fade => "fade", BeatKind::Wait => "wait", BeatKind::Choice => "choice", BeatKind::Pick => "pick", BeatKind::Demand => "demand",
             BeatKind::Statement { .. } => "statement", BeatKind::Investigate => "investigate", BeatKind::End => "end",
             BeatKind::Gameover => "gameover",
         }
@@ -96,6 +99,7 @@ impl<'m> Engine<'m> {
                     StopKind::Card => BeatKind::Card, StopKind::Wait => BeatKind::Wait, StopKind::Fade => BeatKind::Fade,
                 },
                 Op::Choice(_) => BeatKind::Choice,
+                Op::Pick(_) => BeatKind::Pick,
                 Op::Demand { .. } => BeatKind::Demand,
                 Op::End => BeatKind::End,
                 Op::Gameover => BeatKind::Gameover,
@@ -254,7 +258,7 @@ impl<'m> Engine<'m> {
                     n += (to - self.s.pc) as usize - 1;
                     self.s.pc = to;
                 }
-                Op::Stop(_) | Op::Choice(_) | Op::Demand { .. } | Op::End | Op::Gameover => return Ok(()),
+                Op::Stop(_) | Op::Choice(_) | Op::Pick(_) | Op::Demand { .. } | Op::End | Op::Gameover => return Ok(()),
                 Op::Jump(to) => self.s.pc = *to,
                 // 乱数の行き先がないときは次へ（行き先があるものは、読み込むときに選択肢にしている）
                 Op::Random(_) => self.s.pc += 1,
@@ -316,7 +320,7 @@ impl<'m> Engine<'m> {
             }
         } else if self.s.mode == Mode::Run {
             match self.instr()? {
-                op @ (Op::Choice(_) | Op::Demand { .. }) => return Err(format!("{} では advance できません", op.name())),
+                op @ (Op::Choice(_) | Op::Pick(_) | Op::Demand { .. }) => return Err(format!("{} では advance できません", op.name())),
                 Op::End | Op::Gameover => return Ok(()),
                 _ => self.s.pc += 1,
             }
@@ -373,26 +377,4 @@ impl<'m> Engine<'m> {
         }
         self.settle()
     }
-
-    /// サイコ・ロックのつきつけをやめる（つきつけの要求に give_up があるときだけ）
-    pub fn give_up(&mut self) -> Res {
-        let ins = if self.s.mode == Mode::Run { Some(self.instr()?) } else { None };
-        let Some(Op::Demand { give_up: Some(to), .. }) = ins else { return Err("今はやめられません".into()) };
-        self.s.pc = *to;
-        self.settle()
-    }
-
-    /// 表示される選択肢の index 番目を選ぶ
-    pub fn choose(&mut self, index: usize) -> Res {
-        let ins = if self.s.mode == Mode::Run { Some(self.instr()?) } else { None };
-        let Some(Op::Choice(opts)) = ins else { return Err("選択肢は表示されていません".into()) };
-        let mut shown = vec![];
-        for o in opts {
-            if self.test(o.when.as_ref())? { shown.push(o.to); }
-        }
-        let to = *shown.get(index).ok_or_else(|| format!("選択肢の番号が範囲外です: {index}"))?;
-        self.s.pc = to;
-        self.settle()
-    }
-
 }

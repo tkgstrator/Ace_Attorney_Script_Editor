@@ -65,6 +65,45 @@ export function makeCommands<S extends z.ZodType>(steps: S) {
           ),
       })
       .describe('証拠品のつきつけを求める'),
+    pick: z
+      .strictObject({
+        pick: z.string().describe('案内の文（テキストの枠に出す。空なら既定の案内）'),
+        images: z
+          .union([Id, z.array(Id).min(1)])
+          .optional()
+          .describe(
+            '選ぶ絵（背景のキー）。複数なら早送り・早戻しで切り替える。省略すると今の背景（調べると同じ座標）',
+          ),
+        areas: z
+          .array(
+            z.strictObject({
+              name: z.string().optional().describe('エディタ・報告での表示名'),
+              area: z
+                .tuple([z.number(), z.number(), z.number().positive(), z.number().positive()])
+                .describe('絵の上の範囲 [x, y, 幅, 高さ]（ドット。絵・背景の座標）'),
+              image: z
+                .number()
+                .int()
+                .nonnegative()
+                .optional()
+                .describe('images のどの絵の上か（番号。省略するとどの絵でも）'),
+              when: Cond.optional(),
+              // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+              then: steps.optional(),
+            }),
+          )
+          .min(1)
+          .describe('選べる範囲。重なっていれば先に書いたもの。選んだ then の後、次のステップへ'),
+        miss: steps
+          .optional()
+          .describe(
+            '範囲の外を選んだとき。実行後にもう一度選ばせる（省略すると範囲の外は選べない）',
+          ),
+        quit: steps
+          .optional()
+          .describe('「やめる」を出す。選んだら実行して次のステップへ（省略すると出さない）'),
+      })
+      .describe('絵の上の範囲を選ぶ（DS 版の指紋・映像などの遊び。探索編の「調べる」と同じ操作）'),
     goto: z.strictObject({ goto: Id }).describe('別のシーンへ移る'),
     penalty: z
       .strictObject({

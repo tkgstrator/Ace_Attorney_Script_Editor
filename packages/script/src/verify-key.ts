@@ -83,7 +83,7 @@ export function flagBounds(sc: CompiledScenario): Bounds {
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'jumpUnless') walk(ins.cond, true);
-      if (ins.op === 'choice') for (const o of ins.options) walk(o.when, true);
+      if (ins.op === 'choice' || ins.op === 'pick') for (const o of ins.options) walk(o.when, true);
       if (ins.op === 'add') (ins.amount >= 0 ? up : down).add(ins.flag);
     }
     if (scene.kind === 'testimony') for (const st of scene.statements) walk(st.when, true);

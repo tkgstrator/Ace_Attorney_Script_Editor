@@ -13,6 +13,8 @@ pub enum Act {
     Press,
     /// 表示される選択肢の番号
     Choose(usize),
+    /// pick で今選べるもの（範囲・範囲の外・やめる）の番号
+    Pick(usize),
     Present(u32),
     Examine(i64, i64),
     Move(u32),
@@ -30,6 +32,7 @@ impl Act {
             Act::Advance => e.advance(),
             Act::Press => e.press(),
             Act::Choose(i) => e.choose(i),
+            Act::Pick(i) => e.pick(i),
             Act::Present(ev) => e.present(ev),
             Act::Examine(x, y) => e.examine(x, y),
             Act::Move(p) => e.move_to(p),
@@ -48,6 +51,7 @@ impl Act {
             Act::Advance => "a".into(),
             Act::Press => "p".into(),
             Act::Choose(i) => format!("c{i}"),
+            Act::Pick(i) => format!("k{i}"),
             Act::Present(ev) => format!("{}{}", if m.is_profile(ev) { 'r' } else { 'v' }, m.evidence[ev as usize].id),
             Act::Examine(x, y) => format!("e{x},{y}"),
             Act::Move(p) => format!("m{}", m.scene_name(p)),
@@ -147,6 +151,12 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
             let mut n = 0;
             for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Choose(n)); n += 1; } }
             out.append(&mut inspect);
+        }
+        // 範囲を選ぶ間は法廷記録を開けない（詳しく調べない）
+        BeatKind::Pick => {
+            let Op::Pick(opts) = e.instr()? else { unreachable!() };
+            let mut n = 0;
+            for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Pick(n)); n += 1; } }
         }
         BeatKind::Demand => {
             let Op::Demand { options, profiles, give_up, .. } = e.instr()? else { unreachable!() };

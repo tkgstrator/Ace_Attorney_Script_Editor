@@ -6,6 +6,7 @@ import type { ScreenEffects } from './effects.ts';
 import type { InvestigationUI } from './investigation.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
+import type { PickUI } from './pick.ts';
 import type { CourtRecord } from './record.ts';
 import type { LineResume } from './resume.ts';
 import type { SceneViews } from './scene.ts';
@@ -29,6 +30,7 @@ export interface PlayerHost {
   readonly record: CourtRecord;
   readonly resume: LineResume;
   readonly inv: InvestigationUI;
+  readonly pick: PickUI;
   readonly fx: ScreenEffects;
   readonly views: SceneViews;
   /** 今の文の文字送り（文のない Beat では null） */

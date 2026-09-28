@@ -19,7 +19,7 @@ const SMALL_FRAMES = 20;
  */
 export function drawExamineMarkers(
   p: Painter,
-  spots: readonly ExamineSpot[],
+  spots: readonly Pick<ExamineSpot, 'point' | 'seen'>[],
   frame: number,
   reduceMotion = false,
   origin: readonly [number, number] = [0, 0],

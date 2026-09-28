@@ -2,9 +2,7 @@
 // 当たり判定は examineAt（investigation.ts）と同じ: when が真のもののうち、先に並んだものが優先。
 import { evalExpr } from './expr.ts';
 import { stateEnv } from './state.ts';
-import type { CompiledScenario, Expr, GameState } from './types.ts';
-
-type Area = [number, number, number, number];
+import type { Area, CompiledScenario, Expr, GameState } from './types.ts';
 
 export interface ExamineSpot {
   /** 調べた印の ID（seen() で使うもの） */

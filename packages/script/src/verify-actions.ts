@@ -98,6 +98,11 @@ export function actions(sc: CompiledScenario, e: Engine, passed?: Set<string>): 
         ...b.options.map((_, i) => ({ d: `c${i}`, f: (x: Engine) => x.choose(i) })),
         ...inspect,
       ];
+    case 'pick': {
+      // 範囲・範囲の外・やめるの順（Engine.pick の番号）。pick の間は法廷記録を開けない
+      const n = b.areas.length + (b.miss ? 1 : 0) + (b.quit ? 1 : 0);
+      return Array.from({ length: n }, (_, i) => ({ d: `k${i}`, f: (x: Engine) => x.pick(i) }));
+    }
     case 'demand': {
       const ins = scene?.program[s.pc];
       if (ins?.op !== 'demand') return inspect;

@@ -79,7 +79,7 @@ pub fn build(m: &Model) -> Built {
             for ins in &sc.program {
                 match ins {
                     Op::JumpUnless(e, _) => c(Some(e)),
-                    Op::Choice(o) => o.iter().for_each(|o| c(o.when.as_ref())),
+                    Op::Choice(o) | Op::Pick(o) => o.iter().for_each(|o| c(o.when.as_ref())),
                     _ => {}
                 }
             }
@@ -189,6 +189,10 @@ pub fn build(m: &Model) -> Built {
                 Op::Choice(opts) => {
                     for o in opts { uses(&mut gen, &mut ev_gen, node, o.when.as_ref()); edge(&mut succ, node, Some(b + o.to), -1); }
                     anywhere(&mut succ, &mut ev_gen, node);
+                }
+                // 範囲を選ぶ間は法廷記録を開けない（詳しく調べられない）
+                Op::Pick(opts) => {
+                    for o in opts { uses(&mut gen, &mut ev_gen, node, o.when.as_ref()); edge(&mut succ, node, Some(b + o.to), -1); }
                 }
                 Op::Stop(_) if record_stop(ins) => { edge(&mut succ, node, next, -1); anywhere(&mut succ, &mut ev_gen, node); }
                 Op::Demand { options, profiles, wrong, give_up, .. } => {

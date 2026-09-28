@@ -178,6 +178,7 @@ export class Machine {
         case 'banner':
         case 'card':
         case 'choice':
+        case 'pick':
         case 'demand':
         case 'end':
         case 'gameover':

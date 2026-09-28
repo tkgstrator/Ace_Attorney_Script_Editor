@@ -14,6 +14,13 @@ export function instrKey(ins: Instr): string {
       return JSON.stringify([ins.op, ins.cond]);
     case 'choice':
       return JSON.stringify([ins.op, ins.options.map((o) => [o.text, o.when ?? null])]);
+    case 'pick':
+      return JSON.stringify([
+        ins.op,
+        ins.prompt,
+        ins.images,
+        ins.options.map(({ to: _, ...o }) => o),
+      ]);
     case 'demand':
       return JSON.stringify([
         ins.op,

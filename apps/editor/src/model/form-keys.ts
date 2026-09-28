@@ -9,6 +9,7 @@ export const YAML_ONLY = new Set<CommandName>([
   'pan',
   'overlay',
   'random',
+  'pick',
   'heal',
   'lifeRisk',
   'psycheLock',

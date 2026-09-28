@@ -27,6 +27,7 @@ const TEXT_KEYS = new Set([
   'banner',
   'card',
   'demand',
+  'pick',
   'testimony',
   'topic',
   'name',

@@ -10,6 +10,7 @@ import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
 import { OverlayView } from './overlays.ts';
 import { Painter } from './painter.ts';
 import { PanView } from './pan.ts';
+import { PickUI } from './pick.ts';
 import type { LastLine, PlayerHost } from './player-host.ts';
 import { click, key } from './player-input.ts';
 import { renderScreen } from './player-render.ts';
@@ -35,6 +36,7 @@ export class Player {
   readonly #record = new CourtRecord();
   readonly #resume = new LineResume();
   readonly #inv = new InvestigationUI();
+  readonly #pick = new PickUI();
   readonly #audio: AudioOut | undefined;
   /** 「調べる」で選べる所に目印を出すか（元のゲームにはない手助け。途中で切り替えてよい） */
   examineMarkers: boolean;
@@ -82,6 +84,7 @@ export class Player {
       record: this.#record,
       resume: this.#resume,
       inv: this.#inv,
+      pick: this.#pick,
       fx: this.#fx,
       views: this.#views,
       get tw() {
@@ -273,6 +276,7 @@ export class Player {
     this.#age = 0;
     this.#choiceSel = 0;
     this.#inv.reset();
+    this.#pick.reset();
     if (!this.engine.canPresent) this.#record.open = false;
     const text =
       beat.kind === 'line' || beat.kind === 'statement' || beat.kind === 'card'
