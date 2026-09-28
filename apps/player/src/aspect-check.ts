@@ -2,7 +2,8 @@
 // 4:3 の画素のハッシュを、このブラウザに保存した基準と比べる。16:9 の絵も並べて出す（見た目の確かめ用）。
 import { type Assets, loadFonts } from '@gyakusai/runtime';
 import { loadScenario } from '@gyakusai/script';
-import { type Aspect, playShots, type Shot } from './aspect-check-play.ts';
+import { FLOWS } from './aspect-check-flows.ts';
+import { type Aspect, flowShots, playShots, type Shot } from './aspect-check-play.ts';
 import { CASES } from './cases.ts';
 import { loadDsFont } from './ds-font.ts';
 import { withOfficialAnims } from './official-anims.ts';
@@ -64,19 +65,10 @@ const figure = (s: Shot, caption: string) => {
   return f;
 };
 
-for (const id of caseIds) {
-  const entry = CASES.find((c) => c.id === id);
-  if (!entry) continue;
-  const { scenario } = loadScenario(await entry.load());
-  if (!scenario) continue;
-  const assets = await assetsFor(entry.game);
-  // 画像は非同期に読み込まれるものがあるので、少し待ってから撮る
-  await new Promise((r) => setTimeout(r, 500));
-  const run = (aspect: Aspect) => playShots(scenario, assets, fonts, aspect, max);
-  const narrow = run('4:3');
-  const wide = showWide ? run('16:9') : [];
+/** 撮った場面を表に加え、基準と比べる。16:9 の絵も並べる */
+function addRows(prefix: string, narrow: Shot[], wide: Shot[]) {
   narrow.forEach((s, i) => {
-    const k = `${id}#${i} ${s.label}`;
+    const k = `${prefix}#${i} ${s.label}`;
     result[k] = s.hash;
     const base = baseline[k];
     const bad = base !== undefined && base !== s.hash;
@@ -93,13 +85,47 @@ for (const id of caseIds) {
   });
 }
 
+async function load(id: string) {
+  const entry = CASES.find((c) => c.id === id);
+  if (!entry) return null;
+  const { scenario } = loadScenario(await entry.load());
+  if (!scenario) return null;
+  const assets = await assetsFor(entry.game);
+  // 画像は非同期に読み込まれるものがあるので、少し待ってから撮る
+  await new Promise((r) => setTimeout(r, 500));
+  return { scenario, assets };
+}
+
+for (const id of caseIds) {
+  const c = await load(id);
+  if (!c) continue;
+  const run = (aspect: Aspect) => playShots(c.scenario, c.assets, fonts, aspect, max);
+  addRows(id, run('4:3'), showWide ? run('16:9') : []);
+}
+// 決まった手順の場面（?flows=0 で飛ばす）
+if (params.get('flows') !== '0') {
+  for (const [i, flow] of FLOWS.entries()) {
+    const c = await load(flow.case);
+    if (!c) continue;
+    const run = (aspect: Aspect) => flowShots(c.scenario, c.assets, fonts, aspect, flow);
+    // 絵を読み込むために 1 度進めてから撮る
+    run('4:3');
+    await new Promise((r) => setTimeout(r, 500));
+    addRows(`手順${i} ${flow.case}`, run('4:3'), showWide ? run('16:9') : []);
+  }
+}
+
 $('status').innerHTML =
   ng > 0
     ? `<b class="ng">基準と違う場面が ${ng} 件</b>（全 ${n} 場面）`
     : missing === n
       ? `基準がありません（全 ${n} 場面）。「今の結果を基準として保存」を押してください`
       : `<b class="ok">4:3 は基準と同じ</b>（全 ${n} 場面、基準のない場面 ${missing}）`;
-Object.assign(window, { __aspectCheck: { result, n, ng, missing } });
+// コンソールから別の版の Player と比べるときに使う
+Object.assign(window, {
+  __aspectCheck: { result, n, ng, missing },
+  __aspectTools: { FLOWS, flowShots, load, fonts },
+});
 const save = $<HTMLButtonElement>('save');
 save.disabled = false;
 save.addEventListener('click', () => {
