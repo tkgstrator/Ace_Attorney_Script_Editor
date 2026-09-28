@@ -34,18 +34,37 @@ export interface Episode {
   blockOf: string[];
 }
 
+/**
+ * 変換済みのファイルの切れ目が話の切れ目と合わない所（part の ID → 本当の話）。
+ * 蘇る逆転の ep4.yaml の part9・part10 は、第3話（逆転のトノサマン）の最後の探偵・法廷で、第4話の人物が出てこない。
+ */
+const MOVE_PARTS: Partial<Record<Game, Record<string, { from: number; to: number }>>> = {
+  aa1: { part9: { from: 4, to: 3 }, part10: { from: 4, to: 3 } },
+};
+
 /** 手元にある話をすべて読む（無い話は飛ばす） */
 export async function loadEpisodes(): Promise<Episode[]> {
   const out: Episode[] = [];
   for (const game of GAMES) {
     const { dir, eps } = DIRS[game];
+    const loaded = new Map<number, Y>();
     for (let ep = 1; ep <= eps; ep++) {
       const path = join(ROOT, dir, `ep${ep}.yaml`);
       if (!existsSync(path)) {
         console.error(`見つからないので飛ばす: ${path}`);
         continue;
       }
-      const data: Y = Bun.YAML.parse(await Bun.file(path).text());
+      loaded.set(ep, Bun.YAML.parse(await Bun.file(path).text()));
+    }
+    for (const [partId, { from, to }] of Object.entries(MOVE_PARTS[game] ?? {})) {
+      const src = loaded.get(from);
+      const dst = loaded.get(to);
+      const i = src?.parts?.findIndex((p: Y) => p.id === partId) ?? -1;
+      if (!src || !dst || i < 0) continue;
+      dst.parts.push(...src.parts.splice(i, 1));
+      dst.characters = { ...src.characters, ...dst.characters };
+    }
+    for (const [ep, data] of loaded) {
       const blockOf: string[] = [];
       const counter = { investigation: 0, trial: 0 };
       let prev = '';
