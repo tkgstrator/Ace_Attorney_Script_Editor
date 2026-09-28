@@ -87,7 +87,12 @@ export function talkAdds23(ctx: Context, table: number): { t: Row; cond: string 
   return (TALK_ADD_108[ctx.inv!.part as number] ?? [])
     .filter((a) => a.table === table)
     .map((a) => ({
-      t: { topic: a.topic, read_flag: a.read, section: { section: a.section, script: 'story' } },
+      t: {
+        topic: a.topic,
+        name_ocr: ctx.inv!.topic_names?.[a.topic] ?? null,
+        read_flag: a.read,
+        section: { section: a.section, script: 'story' },
+      },
       cond: talkAddFlag(ctx, a.at),
     }));
 }
