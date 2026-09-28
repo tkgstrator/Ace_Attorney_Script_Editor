@@ -3,6 +3,25 @@
 逆転裁判風の法廷アドベンチャーを作るための TypeScript フレームワーク。
 シナリオは YAML で書き、ブラウザで遊べる。
 
+画面は DS 版の上画面と同じ 4:3（256×192 ドット）。16:9 は将来の対応予定（試験的な実装がある。[docs/screen.md](docs/screen.md)）。
+
+![DS 版（左）とこのプレイヤー（中）の比較。右は違う所](docs/images/compat/talk.png)
+
+左が DS 版、中がこのプレイヤー、右は違う画素を赤で塗ったもの。ほかの場面と一致率は
+[docs/compatibility.md](docs/compatibility.md)。画像の絵は「逆転裁判」シリーズ（© CAPCOM）のもの。
+
+## 主な機能
+
+- 会話・文中の演出（色・速さ・待ち・揺れ・フラッシュ・効果音）、日時・場所の表示、選択肢
+- 証言・尋問（ゆさぶる・つきつける）、法廷記録（証拠品・人物ファイル）、ライフのゲージ、サイコ・ロック
+- 探偵パート（調べる・移動・話す・つきつける）、横長の背景のスクロール、人物の指名・範囲を選ぶ遊び
+- BGM・効果音・文字の音、セーブ・ロード
+- エディタ AAEditor（フォームでの編集・検索・プレビュー・ここから再生・整合性チェック）
+- 整合性チェック（TS 版と Rust 版の aa-verify）、元の台本の変換器、調べる所の目印
+
+元のゲームの機能ごとの対応状況（対応・近似・未対応）は [docs/compatibility.md](docs/compatibility.md#機能の対応状況)。
+3D で調べる・指紋などの遊びは形を変えた近似で、マイクの「異議あり！」は無い。
+
 ## 使い方
 
 パッケージ管理と実行には [Bun](https://bun.sh) を使う。
@@ -27,7 +46,7 @@ packages/
   core/      状態（フラグ・証拠品・ライフ）と、証言・尋問のステートマシン。描画を知らない
   script/    YAML → 中間表現のコンパイラ。zod スキーマ・参照チェック・行番号付きエラー
   runtime/   canvas への描画と入力。Engine の Beat を画面にする
-             画面は DS 版のメイン画面と同じ 256×192 ドット（1 ドット = 2px で描く）
+             画面は DS 版の上画面と同じ 4:3、256×192 ドット（1 ドット = 2px で描く）
              文字は同梱の PixelMplus12/10（M+ FONT LICENSE）で、ドット絵と同じ粗さで描く
 apps/
   player/    サンプル事件とデバッグパネル（フラグの書き換え、シーン移動、セーブ/ロード）
@@ -36,7 +55,7 @@ apps/
 crates/
   aa-verify/ 整合性チェックの Rust 版（既定は軽いチェック、--complete で網羅的な探索）
 schema/      scenario.schema.json（bun run schema で生成）
-docs/        シナリオの書き方
+docs/        シナリオの書き方・画面・互換性
 ```
 
 データの流れ:
@@ -52,7 +71,9 @@ YAML ─(script: 検証・コンパイル)→ CompiledScenario ─(core: Engine)
 - エンジンの状態（`GameState`）はそのまま JSON にでき、セーブデータになる。
 - 文字送りや演出の状態は runtime だけが持ち、エンジンには入れない。
 
-シナリオの書き方は [docs/scenario.md](docs/scenario.md)、台詞の文体（カタカナ表記）は [docs/katakana.md](docs/katakana.md) を参照。
+シナリオの書き方は [docs/scenario.md](docs/scenario.md)、台詞の文体（カタカナ表記）は [docs/katakana.md](docs/katakana.md)、
+書き方の型と人物の話し方は [docs/writing/](docs/writing/README.md)・[docs/characters/](docs/characters/README.md)、
+画面は [docs/screen.md](docs/screen.md)、DS 版との互換性は [docs/compatibility.md](docs/compatibility.md) を参照。
 
 ## コード規約
 
@@ -95,6 +116,15 @@ bun tools/sprites/sheet.ts cut naruse <生成されたシート.png>   # 切り�
 uv run python tools/sprites/measure_official.py   # 仕様の根拠（DS 版のコマの統計）を測り直す（手元のデータが要る）
 ```
 - まだ画像が無いものは、プレイヤーではコードで描いた仮の絵（`apps/player/src/placeholder-art.ts`）を使う。
+
+## 公式の章と素材（手元用・配布しない）
+
+元のゲームの台本・絵・音・フォントは、利用者が自分で吸い出した ROM から取り出して、手元でだけ使う。
+取り出したものは `assets/extracted/`（`.gitignore` 済み）に置く。このリポジトリは公式の素材を配布しない。
+
+- 変換の対象は 3 作の全 14 話（逆転裁判 蘇る逆転 5 話・逆転裁判2 4 話・逆転裁判3 5 話）。
+  `bun tools/convert/index.ts --episode N [--game aa2|aa3]` で YAML にし、プレイヤーの章の一覧（`?case=ep1` など）で遊べる。
+- 背景・人物・机・吹き出し・音は `tools/rom/` のスクリプトで取り出す（下の「DS 版から取り出したフォント」と最後の項目）。
 
 ## DS 版から取り出したフォント（手元用・配布しない）
 
