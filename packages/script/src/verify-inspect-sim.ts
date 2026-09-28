@@ -11,11 +11,11 @@
 // 2. 調べても状態が変わらない（すでに調べ終えている）。実際に試して確かめ、結果は読み書きする変数の値ごとに覚える
 // どちらも近似ではない（試さない調べ方の結果は、試す所の結果か今の状態と同じ）。
 import {
-  Engine,
-  heldProfiles,
   type CompiledScenario,
+  Engine,
   type Expr,
   type GameState,
+  heldProfiles,
   type Instr,
 } from '@gyakusai/core';
 import { analyzeFlow, type Flow } from './verify-flow.ts';
@@ -56,7 +56,7 @@ function refs(e: Expr | undefined, out: Set<string>): void {
 function quiet(sc: CompiledScenario, ins: Instr): boolean {
   return (
     DISPLAY.has(ins.op) ||
-    ['say', 'shout', 'banner', 'card', 'wait', 'fade', 'penalty'].includes(ins.op) ||
+    ['say', 'shout', 'banner', 'card', 'wait', 'fade', 'penalty', 'heal'].includes(ins.op) ||
     (ins.op === 'ui' && ins.record === undefined) ||
     ((ins.op === 'giveProfile' || ins.op === 'takeProfile') &&
       !sc.characters[ins.character]?.profile)

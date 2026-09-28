@@ -1,12 +1,18 @@
-// 「調べる」範囲の編集。背景（256×192 ドット）を 2 倍で表示し、ドラッグで範囲を描く・動かす・大きさを変える。
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+// 「調べる」範囲の編集。背景の全体（横長なら 512×192 ドットなど）を欄の幅に合わせて（縮めて、最大 2 倍で）表示し、
+// ドラッグで範囲を描く・動かす・大きさを変える。範囲は背景の座標で持つ（ゲームでは背景をスクロールして調べる）。
+// ポインターの位置は、実際に表示している大きさから換算する
+import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useScreenWidth } from '@/preview/aspect.ts';
 import { getAssets } from '@/preview/assets.ts';
 
 export type Area = [number, number, number, number];
-const W = 256;
-const H = 192;
-const SCALE = 2;
+/** 4:3 の画面（背景の見える窓）の大きさ。絵が無いときの背景の大きさにも使う */
+const SCREEN_W = 256;
+const SCREEN_H = 192;
+/** いちばん大きく表示するときの倍率（横長の背景は、欄の幅に収まるよう縮める） */
+const MAX_SCALE = 2;
+type Size = { w: number; h: number };
 
 export interface AreaItem {
   area: Area;
@@ -29,8 +35,8 @@ type Drag =
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** 範囲を画面の中に収め、整数にする */
-function normalize([x, y, w, h]: Area): Area {
+/** 範囲を背景の中に収め、整数にする */
+export function normalize([x, y, w, h]: Area, { w: W, h: H }: Size): Area {
   const nx = clamp(Math.round(w < 0 ? x + w : x), 0, W - 1);
   const ny = clamp(Math.round(h < 0 ? y + h : y), 0, H - 1);
   return [
@@ -41,31 +47,65 @@ function normalize([x, y, w, h]: Area): Area {
   ];
 }
 
+/**
+ * 画面より大きい背景で、スクロールの端で見える窓（左端・右端など）の境目の線の位置。
+ * screenW はプレビューの画面の幅（4:3 なら 256、16:9 なら 342。16:9 では見える窓が広い）
+ */
+export function screenEdges({ w, h }: Size, screenW = SCREEN_W): { x: number[]; y: number[] } {
+  const cut = (size: number, screen: number) =>
+    size > screen ? [...new Set([screen, size - screen])].filter((v) => v > 0 && v < size) : [];
+  return { x: cut(w, screenW), y: cut(h, SCREEN_H) };
+}
+
 export function AreaCanvas({ background, items, selected, onSelect, onChange, onCreate }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const screenW = useScreenWidth();
   const [drag, setDrag] = useState<Drag | null>(null);
   const [hasImage, setHasImage] = useState(true);
+  const [image, setImage] = useState<CanvasImageSource | null>(null);
+  // 背景の大きさ（絵の大きさ。絵が無ければ画面の大きさ）
+  const size = imageSize(image);
+  const { w: W, h: H } = size;
 
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     void getAssets().then((a) => {
-      const ctx = canvas.current?.getContext('2d');
-      if (!alive || !ctx) return;
-      ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#9ca3af';
-      ctx.fillRect(0, 0, W, H);
-      const img = a.background?.(background);
-      setHasImage(img !== undefined);
-      if (img) ctx.drawImage(img, 0, 0, W, H);
+      // 番号の背景（bg12 など）は読み込み中は undefined なので、少しの間は待ち直す
+      const load = (tries: number) => {
+        if (!alive) return;
+        const img = a.background?.(background);
+        if (img === undefined && tries > 0) {
+          timer = setTimeout(() => load(tries - 1), 150);
+          return;
+        }
+        setHasImage(img !== undefined);
+        setImage(img ?? null);
+      };
+      load(20);
     });
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [background]);
 
+  // 大きさが変わるとキャンバスが作り直されるので、描くのは大きさが決まった後
+  useEffect(() => {
+    const ctx = canvas.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillRect(0, 0, W, H);
+    if (image) ctx.drawImage(image, 0, 0, W, H);
+  }, [image, W, H]);
+
   const point = (e: PointerEvent): [number, number] => {
     const r = e.currentTarget.getBoundingClientRect();
-    return [clamp((e.clientX - r.left) / SCALE, 0, W), clamp((e.clientY - r.top) / SCALE, 0, H)];
+    return [
+      clamp(((e.clientX - r.left) / r.width) * W, 0, W),
+      clamp(((e.clientY - r.top) / r.height) * H, 0, H),
+    ];
   };
 
   const onDown = (e: PointerEvent<SVGSVGElement>) => {
@@ -106,7 +146,7 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
 
   const onUp = () => {
     if (!drag) return;
-    const area = normalize(drag.area);
+    const area = normalize(drag.area, size);
     if (drag.mode === 'draw') {
       if (area[2] >= 4 && area[3] >= 4) onCreate(area);
     } else if (area.some((v, k) => v !== drag.origin[k])) {
@@ -115,14 +155,18 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
     setDrag(null);
   };
 
+  const edges = screenEdges(size, screenW);
   const shown = items.map((it, i) =>
-    drag && drag.mode !== 'draw' && drag.index === i ? { ...it, area: normalize(drag.area) } : it,
+    drag && drag.mode !== 'draw' && drag.index === i
+      ? { ...it, area: normalize(drag.area, size) }
+      : it,
   );
 
   return (
     <div
-      className="relative w-fit select-none rounded border bg-muted"
-      style={{ width: W * SCALE, height: H * SCALE }}
+      className="relative w-full select-none rounded border bg-muted"
+      style={{ maxWidth: W * MAX_SCALE, aspectRatio: `${W} / ${H}` }}
+      data-size={`${W}x${H}`}
     >
       <canvas
         ref={canvas}
@@ -138,15 +182,43 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
       <svg
         className="absolute inset-0 size-full cursor-crosshair"
         viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`調べる範囲（背景 ${W}×${H} ドットの座標。ドラッグで描く・動かす。下の一覧でも数値で変えられます）`}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={() => setDrag(null)}
       >
+        {/* 画面より大きい背景: スクロールの端で見える窓の境目 */}
+        {edges.x.map((x) => (
+          <line
+            key={`x${x}`}
+            x1={x}
+            x2={x}
+            y1={0}
+            y2={H}
+            className="pointer-events-none stroke-white/70"
+            strokeWidth={0.75}
+            strokeDasharray="3 2"
+          />
+        ))}
+        {edges.y.map((y) => (
+          <line
+            key={`y${y}`}
+            x1={0}
+            x2={W}
+            y1={y}
+            y2={y}
+            className="pointer-events-none stroke-white/70"
+            strokeWidth={0.75}
+            strokeDasharray="3 2"
+          />
+        ))}
         {shown.map((it, i) => {
           const [x, y, w, h] = it.area;
           const on = i === selected;
           return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 範囲は一覧の順番そのもの（data-area と同じ）
             <g key={i} data-area={i} className="cursor-move">
               <rect
                 x={x}
@@ -181,7 +253,7 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
         })}
         {drag?.mode === 'draw' &&
           (() => {
-            const [x, y, w, h] = normalize(drag.area);
+            const [x, y, w, h] = normalize(drag.area, size);
             return (
               <rect
                 x={x}
@@ -197,4 +269,9 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
       </svg>
     </div>
   );
+}
+
+function imageSize(img: CanvasImageSource | null): Size {
+  const i = img as { width?: number; height?: number } | null;
+  return i?.width && i.height ? { w: i.width, h: i.height } : { w: SCREEN_W, h: SCREEN_H };
 }

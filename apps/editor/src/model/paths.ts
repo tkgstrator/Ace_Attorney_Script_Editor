@@ -176,3 +176,29 @@ export function selectionForNodeIn(parts: PartInfo[], id: string): Selection | n
   }
   return null;
 }
+
+/** 選択の短い名前（通知などに出す） */
+export function selectionLabel(sel: Selection): string {
+  switch (sel.kind) {
+    case 'meta':
+      return '基本情報';
+    case 'characters':
+      return '人物';
+    case 'evidence':
+      return '証拠品';
+    case 'flags':
+      return 'フラグ';
+    case 'yaml':
+      return 'YAML';
+    case 'part':
+      return `編 ${sel.part + 1}`;
+    case 'scene':
+      return `シーン ${sel.id}`;
+    case 'place':
+      return `場所 ${sel.id}`;
+  }
+}
+
+/** 同じ項目を指しているか */
+export const sameSelection = (a: Selection, b: Selection) =>
+  JSON.stringify(a) === JSON.stringify(b);

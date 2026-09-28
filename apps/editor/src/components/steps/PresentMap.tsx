@@ -1,7 +1,9 @@
 // 「証拠品 ID（か人物 ID）→ ステップ列」のマップ（つきつけ）の編集。demand・証言・場所で使う。
 // profiles: 人物ファイルも選べる表（demand・場所。証言では証拠品だけ）
 import { Trash2 } from 'lucide-react';
+import { useMemo } from 'react';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { pathKey } from '@/model/paths.ts';
 import { presentKeyOptions, profileIds } from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useActions, useEditorState, useIds } from '@/state/editor-store.tsx';
@@ -30,9 +32,24 @@ export function PresentMap({
       ? (value as Record<string, unknown>)
       : {};
   const keys = Object.keys(map);
-  const all = presentKeyOptions(ids.evidence, profileIds(characters), profiles);
+  const all = useMemo(
+    () => presentKeyOptions(ids.evidence, profileIds(characters), profiles),
+    [ids.evidence, characters, profiles],
+  );
   const unused = all.filter((k) => !keys.includes(k.id));
-  const labels = { ...characterLabels, ...evidenceLabels };
+  // 種類と表示名を一緒に出す（人物ファイルは「人物: 名前」）
+  const labels = useMemo(
+    () =>
+      Object.fromEntries(
+        all.map((o) => [
+          o.id,
+          o.kind === 'profile'
+            ? `人物: ${characterLabels[o.id] ?? o.id}`
+            : `証拠品: ${evidenceLabels[o.id] ?? o.id}`,
+        ]),
+      ),
+    [all, characterLabels, evidenceLabels],
+  );
   const kindOf = (id: string) => all.find((k) => k.id === id)?.kind;
   return (
     <div className="space-y-2">
@@ -40,7 +57,7 @@ export function PresentMap({
         <div
           key={k}
           className="rounded-md border border-dashed border-amber-400/70 p-2"
-          data-path={JSON.stringify([...path, k])}
+          data-path={pathKey([...path, k])}
         >
           <div className="mb-1 flex items-center gap-1">
             <span className="text-xs text-muted-foreground">
@@ -51,13 +68,13 @@ export function PresentMap({
               value={k}
               options={all.map((o) => o.id)}
               labels={labels}
-              aria-label="証拠品・人物"
+              aria-label={profiles ? `${label}の証拠品・人物` : `${label}の証拠品`}
               onChange={(to) => {
                 if (to && to !== k) edit([{ op: 'renameKey', path, from: k, to }]);
               }}
             />
             <IconButton
-              title="消す"
+              title={`${labels[k] ?? k} を消す`}
               className="ml-auto hover:text-destructive"
               onClick={() => edit([{ op: 'delete', path: [...path, k] }])}
             >
@@ -82,7 +99,6 @@ export function PresentMap({
           </NativeSelectOption>
           {unused.map((o) => (
             <NativeSelectOption key={o.id} value={o.id}>
-              {o.kind === 'profile' ? '人物: ' : ''}
               {labels[o.id] ?? o.id}（{o.id}）
             </NativeSelectOption>
           ))}

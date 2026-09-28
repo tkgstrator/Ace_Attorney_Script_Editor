@@ -3,8 +3,11 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { extraRecordKeys } from '@/model/form-keys.ts';
+import { pathKey } from '@/model/paths.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useActions, useIds } from '@/state/editor-store.tsx';
+import { ExtraFields } from '../ExtraFields.tsx';
 import {
   CondInput,
   Field,
@@ -17,7 +20,8 @@ import {
 import { OptionalSteps } from '../steps/flow-fields.tsx';
 import { PresentMap } from '../steps/PresentMap.tsx';
 import { IconButton } from '../steps/StepCard.tsx';
-import { AreaCanvas, type Area } from './AreaCanvas.tsx';
+import { useRows } from '../use-rows.ts';
+import { type Area, AreaCanvas } from './AreaCanvas.tsx';
 import { asArea, ExamineList, MoveList, TalkList } from './place-lists.tsx';
 
 type Rec = Record<string, unknown>;
@@ -37,6 +41,7 @@ export function PlaceEditor({ path, id, place }: { path: Path; id: string; place
       {
         op: 'insert',
         path: [...path, 'examine'],
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         value: { name: `範囲 ${examine.length + 1}`, area, then: [] },
       },
     ]);
@@ -52,6 +57,7 @@ export function PlaceEditor({ path, id, place }: { path: Path; id: string; place
         <Field label="背景のキー（省略すると場所の ID）">
           <Input
             className="h-8 font-mono text-xs"
+            data-path={pathKey([...path, 'background'])}
             value={typeof place.background === 'string' ? place.background : ''}
             placeholder={id}
             onChange={(e) => setOptional([...path, 'background'], e.target.value, true)}
@@ -74,7 +80,7 @@ export function PlaceEditor({ path, id, place }: { path: Path; id: string; place
 
       <Section title={`調べる（${examine.length}）`}>
         <p className="text-xs text-muted-foreground">
-          背景の上をドラッグすると新しい範囲を描きます。範囲はドラッグで移動、右下の角で大きさを変えられます。重なっているときは先に書いたものが優先です。
+          背景の上をドラッグすると新しい範囲を描きます。範囲はドラッグで移動、右下の角で大きさを変えられます。重なっているときは先に書いたものが優先です。座標は背景の座標で、横長の背景は全体を縮めて表示します（点線は画面の幅。ゲームでは調べる間に背景をスクロールします）。
         </p>
         <AreaCanvas
           background={background}
@@ -133,6 +139,22 @@ export function PlaceEditor({ path, id, place }: { path: Path; id: string; place
       <Section title="移動する">
         <MoveList path={[...path, 'move']} items={move} self={id} />
       </Section>
+      <ExtraFields
+        path={path}
+        value={place}
+        keys={extraRecordKeys(place, [
+          'name',
+          'background',
+          'person',
+          'enter',
+          'examine',
+          'examineDefault',
+          'talk',
+          'present',
+          'presentWrong',
+          'move',
+        ])}
+      />
     </div>
   );
 }
@@ -169,27 +191,40 @@ function PersonEditor({ path, value }: { path: Path; value: unknown }) {
       </div>
     );
   }
-  const rows = value as Rec[];
+  return <PersonRows path={path} rows={value as Rec[]} />;
+}
+
+function PersonRows({ path, rows }: { path: Path; rows: Rec[] }) {
+  const ids = useIds();
+  const { edit } = useActions();
+  const { set, setOptional } = useSetter();
+  const labels = useCharacterLabels();
+  const keyed = useRows(rows);
   return (
     <div className="space-y-1">
-      {rows.map((r, i) => (
-        <div key={i} className="flex items-center gap-1">
+      {keyed.items.map((r, i) => (
+        <div
+          key={keyed.keys[i]}
+          className="flex items-center gap-1"
+          data-path={pathKey([...path, i])}
+        >
           <IdSelect
+            path={[...path, i, 'id']}
             value={r.id}
             options={ids.characters}
             labels={labels}
             onChange={(v) => v && set([...path, i, 'id'], v)}
-            aria-label="人物"
+            aria-label={`いる人物 ${i + 1}`}
           />
           <CondInput
             path={[...path, i, 'when']}
             value={r.when}
             optional
             placeholder="いる条件（省略すると常に）"
-            aria-label="条件"
+            aria-label={`いる人物 ${i + 1} の条件`}
           />
           <IconButton
-            title="消す"
+            title={`いる人物 ${i + 1} を消す`}
             className="hover:text-destructive"
             onClick={() => edit([{ op: 'delete', path: [...path, i] }])}
           >

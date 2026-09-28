@@ -38,6 +38,11 @@ export type Instr =
   /** 画面の色の変え方（grayscale: 白黒の回想） */
   | { op: 'palette'; palette: 'normal' | 'grayscale' }
   | { op: 'choice'; options: { text: string; when?: Expr; to: number }[] }
+  /**
+   * 絵の上の範囲を選ぶ（元のゲームの DS 版だけの遊び: 指紋・映像など）。images が空なら今の背景（調べると同じ座標）。
+   * options は選べるもの（範囲・範囲の外・やめる）の並び。選ぶと to へ。範囲の外（miss）のブロックの後は、もう一度選ぶ
+   */
+  | { op: 'pick'; prompt: string; images: string[]; options: PickOption[] }
   /** options: 証拠品 ID → 正解の pc。profiles: 人物 ID → 正解の pc（あれば人物ファイルもつきつけられる） */
   | {
       op: 'demand';
@@ -46,6 +51,8 @@ export type Instr =
       profiles?: Record<string, number>;
       wrong: number;
       speaker?: string;
+      /** サイコ・ロックの「やめる」の行き先（あれば、つきつけずにやめられる） */
+      giveUp?: number;
     }
   | { op: 'set'; flag: string; value: Value }
   | { op: 'add'; flag: string; amount: number }
@@ -69,7 +76,14 @@ export type Instr =
   | { op: 'jump'; to: number }
   | { op: 'jumpUnless'; cond: Expr; to: number }
   | { op: 'goto'; scene: string }
-  | { op: 'penalty'; amount: number }
+  /** risk: 減る量は lifeRisk で予告した量（元のゲームのゲージの点滅した部分） */
+  | { op: 'penalty'; amount: number; risk?: boolean }
+  /** ライフを回復する（full は最大まで）。最大は超えない */
+  | { op: 'heal'; amount: number | 'full' }
+  /** 見当違いのときに減るライフの量を予告する（ゲージの点滅。0 で消す） */
+  | { op: 'lifeRisk'; amount: number }
+  /** サイコ・ロックの錠の表示（数 = 出す、true = 出し直す、false = 隠す、break = 1 つ壊す、unlock = 解除） */
+  | { op: 'locks'; show: number | boolean | 'break' | 'unlock' }
   /** frames があれば、人物をだんだん出す（消すときはだんだん消す） */
   | { op: 'show'; character: string | null; pose: Pose | null; frames?: number }
   | { op: 'location'; location: string | null }
@@ -91,6 +105,25 @@ export type Instr =
   | { op: 'end' }
   | { op: 'gameover' };
 
+/** 範囲 [x, y, 幅, 高さ]（背景・絵の座標） */
+export type Area = [number, number, number, number];
+
+/**
+ * pick の選べるもの。kind: area（範囲。image は複数の絵のどれの上か、無ければどの絵でも）・miss（範囲の外）・quit（やめる）。
+ * when は範囲だけ（偽なら選べない）
+ */
+export interface PickOption {
+  kind: 'area' | 'miss' | 'quit';
+  to: number;
+  when?: Expr;
+  area?: Area;
+  image?: number;
+  /** エディタ・報告での表示名 */
+  name?: string;
+  /** 人物を選ぶ（nominate）ときの、この範囲に顔を出す人物 ID（表示側は絵の代わりに顔を並べる） */
+  person?: string;
+}
+
 export interface Statement {
   id: string;
   text: string;
@@ -99,6 +132,8 @@ export interface Statement {
   press?: number;
   /** 証拠品 ID → つきつけたときに実行するブロックの先頭 pc */
   present: Record<string, number>;
+  /** 人物 ID → その人物ファイルをつきつけたときのブロック（あれば、この証言では人物ファイルもつきつけられる） */
+  presentProfile?: Record<string, number>;
   /** 尋問でこの証言を出す前に実行する、止まらない命令のブロック（人物の動き・背景など） */
   before?: number;
 }
@@ -138,15 +173,22 @@ export interface PlaceScene {
   program: Instr[];
   /** 来たときのブロック */
   enter?: number;
+  /**
+   * 「調べる」の間に背景をスクロールできるか（背景が画面より大きいときだけ効く）。無ければできる。
+   * 元のゲームでは横長の背景で、下の画面のボタン（L ボタン）を押すと左端と右端の間を動く
+   */
+  examineScroll?: Expr;
   examine: {
     id: string;
     name?: string;
+    /** 範囲 [x, y, 幅, 高さ]（背景の座標。横長の背景なら 0〜512 など） */
     area: [number, number, number, number];
     when?: Expr;
     pc: number;
   }[];
   examineDefault: number;
-  talk: { id: string; topic: string; when?: Expr; pc: number }[];
+  /** locked: 真ならサイコ・ロックの印を出す（表示だけ） */
+  talk: { id: string; topic: string; when?: Expr; locked?: Expr; pc: number }[];
   present: Record<string, number>;
   /** 人物 ID → 人物ファイルをつきつけたときのブロック（無い人物は presentWrong） */
   presentProfile?: Record<string, number>;
@@ -210,6 +252,8 @@ export interface CompiledScenario {
   /** 最初に人物ファイルに載っている人物（null なら profile のある全員） */
   startProfiles: string[] | null;
   gameoverScene: string | null;
+  /** ライフが尽きたときにだけ入るシーン（サイコ・ロックの挑戦中にライフが尽きたとき。整合性チェックでは調べない） */
+  lifeOutScenes?: string[];
   /** 句読点のあとで自動的に少し待つか（元のゲームにはない。既定 false） */
   autoPause: boolean;
   /** 台詞の話し手を自動で表示するか（元のゲームは false 相当） */
@@ -261,6 +305,10 @@ export interface GameState {
     /** 法廷記録を開けなくする / ライフの表示（null は既定） */
     recordLocked: boolean;
     lifeGauge: boolean | null;
+    /** 見当違いのときに減るライフの予告（0 なら無し） */
+    lifeRisk: number;
+    /** サイコ・ロックの錠の表示（null は出していない） */
+    locks: { total: number; left: number; hidden: boolean } | null;
   };
   /** 文中の {evidence} などに差し込む一時的な値 */
   vars: Record<string, string>;
@@ -268,79 +316,19 @@ export interface GameState {
   inspectFrom?: InspectFrame | null;
 }
 
+/** エディタの「ここから再生」で遊び始める位置（restoreEngine の at） */
+export type PlayTarget =
+  /** 命令の位置から。証言のシーンのブロック（ゆさぶり・つきつけなど）なら、どの証言の中か */
+  | { kind: 'pc'; scene: string; pc: number; statement?: number }
+  /** 尋問の、その証言から */
+  | { kind: 'statement'; scene: string; statement: number }
+  /** シーンの頭から（場所なら、来たときのブロックか探偵メニューから） */
+  | { kind: 'scene'; scene: string };
+
 export interface Snapshot {
   version: 1;
   scenario: string;
   state: GameState;
 }
 
-export type Beat =
-  /** inspect: 法廷記録から詳しく調べられる証拠品（あるときだけ。choice・card・statement も同じ） */
-  | {
-      kind: 'line';
-      speaker: string | null;
-      name: string | null;
-      text: string;
-      color: TextColor;
-      auto?: boolean;
-      inspect?: string[];
-    }
-  | { kind: 'shout'; shout: ShoutKind; by: string | null }
-  /** sub: 証言・尋問の開始のとき、テキストウィンドウに出す証言のタイトル */
-  | { kind: 'banner'; text: string; sub?: string; testimony?: 'reading' | 'cross' }
-  /** 日時・場所の表示など、テキストウィンドウに中央寄せで出す文 */
-  | { kind: 'card'; text: string; inspect?: string[] }
-  | { kind: 'choice'; options: string[]; inspect?: string[] }
-  /** inspect: 詳しく調べられる証拠品（あるときだけ）。profiles: 人物ファイルもつきつけられるか */
-  | { kind: 'demand'; prompt: string; name: string | null; inspect?: string[]; profiles?: boolean }
-  | {
-      kind: 'statement';
-      cross: boolean;
-      witness: string;
-      name: string;
-      title: string;
-      text: string;
-      /** 表示中の証言のうち何番目か（0 始まり）と、表示中の証言の数 */
-      index: number;
-      count: number;
-      canPress: boolean;
-      inspect?: string[];
-    }
-  | {
-      /** 探索編の探偵メニュー */
-      kind: 'investigate';
-      place: string;
-      name: string;
-      person: string | null;
-      examine: boolean;
-      move: { id: string; name: string }[];
-      talk: { id: string; topic: string; seen: boolean }[];
-      /** 証拠品・人物ファイルをつきつけられるか（人物がいるとき） */
-      present: boolean;
-      /** 詳しく調べられる証拠品（あるときだけ） */
-      inspect?: string[];
-    }
-  /** 画面のフェード。ms の間、表示側で覆いを動かしてから次へ進む */
-  | { kind: 'fade'; dir: 'out' | 'in'; color: FadeColor; frames: number }
-  | { kind: 'wait'; frames: number }
-  | { kind: 'end' }
-  | { kind: 'gameover' };
-
-export type EngineEvent =
-  | { type: 'penalty'; amount: number; life: number }
-  | { type: 'evidence'; id: string; added: boolean }
-  /** 音と画面の演出（表示側が音を鳴らし、画面を揺らす・光らせる） */
-  | { type: 'bgm'; id: string | null; frames: number }
-  | { type: 'se'; id: string }
-  | { type: 'shake'; frames: number; strength: number }
-  | { type: 'flash'; color: FlashColor; frames: number }
-  | { type: 'fade'; dir: 'out' | 'in'; color: FadeColor; frames: number }
-  | { type: 'bgmPause'; pause: boolean; frames: number }
-  /** 人物をだんだん出す（in）・消す（out）。out のときの character / pose は消える人物 */
-  | {
-      type: 'charFade';
-      dir: 'in' | 'out';
-      frames: number;
-      character: string | null;
-      pose: Pose | null;
-    };
+export * from './types-beat.ts';

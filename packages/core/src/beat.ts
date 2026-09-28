@@ -23,7 +23,7 @@ export function interpolate(text: string, s: GameState): string {
   });
 }
 
-export const visibleOptions = (ins: Extract<Instr, { op: 'choice' }>, test: Test) =>
+export const visibleOptions = <O extends { when?: Expr }>(ins: { options: O[] }, test: Test): O[] =>
   ins.options.filter((o) => test(o.when));
 
 /** 条件（when）が真の証言の番号 */
@@ -116,6 +116,21 @@ export function instrBeat(scenario: CompiledScenario, ins: Instr, s: GameState, 
         options: visibleOptions(ins, test).map((o) => interpolate(o.text, s)),
         ...inspectField(scenario, s, 'choice'),
       };
+    case 'pick': {
+      const shown = visibleOptions(ins, test);
+      return {
+        kind: 'pick',
+        prompt: interpolate(ins.prompt, s),
+        images: ins.images,
+        areas: shown.flatMap((o) =>
+          o.kind === 'area' && o.area
+            ? [{ area: o.area, image: o.image ?? null, ...(o.person ? { person: o.person } : {}) }]
+            : [],
+        ),
+        miss: shown.some((o) => o.kind === 'miss'),
+        quit: shown.some((o) => o.kind === 'quit'),
+      };
+    }
     case 'demand':
       return {
         kind: 'demand',
@@ -123,6 +138,7 @@ export function instrBeat(scenario: CompiledScenario, ins: Instr, s: GameState, 
         name: ins.speaker ? (scenario.characters[ins.speaker]?.name ?? ins.speaker) : null,
         ...inspectField(scenario, s, 'demand'),
         ...(ins.profiles ? { profiles: true } : {}),
+        ...(ins.giveUp !== undefined ? { giveUp: true } : {}),
       };
     case 'fade':
       return { kind: 'fade', dir: ins.dir, color: ins.color, frames: ins.frames };

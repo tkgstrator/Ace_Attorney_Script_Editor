@@ -20,13 +20,21 @@ const STAND_BG: Record<number, string> = {
   5: 'witness',
   8: 'judge',
 };
+/** 逆転裁判2・3 の立ち位置の背景（番号が蘇る逆転より 1 つずれている。8 は助手の席） */
+const STAND_BG_23: Record<number, string> = {
+  4: 'defense',
+  5: 'prosecution',
+  6: 'witness',
+  7: 'judge',
+};
 export const BG_NONE = 4095;
 
 /** 27 bg の引数 → location の鍵。4095（背景なし）は black。0x8000 は別の表示の仕方（flag） */
-export function bgKey(arg: number): { key: string; alt: boolean } {
+export function bgKey(arg: number, game = 'aa1'): { key: string; alt: boolean } {
   if (arg === BG_NONE) return { key: 'black', alt: false };
   const n = arg & 0x7fff;
-  return { key: STAND_BG[n] ?? `bg${n}`, alt: (arg & 0x8000) !== 0 };
+  const stands = game === 'aa1' ? STAND_BG : STAND_BG_23;
+  return { key: stands[n] ?? `bg${n}`, alt: (arg & 0x8000) !== 0 };
 }
 
 /** 立ち位置の鍵か（人物の stand の推定に使う） */

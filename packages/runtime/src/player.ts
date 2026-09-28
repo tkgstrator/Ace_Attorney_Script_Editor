@@ -1,39 +1,28 @@
-import type { Beat, Engine } from '@gyakusai/core';
-import { createFonts } from './fonts.ts';
-import {
-  DOT,
-  FRAME_MS,
-  HEIGHT,
-  SCREEN_H,
-  SCREEN_W,
-  TEXT_COLORS,
-  TIMING,
-  TOP,
-  UI,
-  WIDTH,
-  hit,
-} from './layout.ts';
-import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
-import { Painter } from './painter.ts';
+import type { Beat, Engine, InlineCommand } from '@gyakusai/core';
 import type { AudioOut } from './audio.ts';
+import { BackgroundView } from './background.ts';
 import { Blip, blipKindOf } from './blip.ts';
 import { ScreenEffects } from './effects.ts';
-import { BackgroundView } from './background.ts';
-import { OverlayView } from './overlays.ts';
-import { PanView } from './pan.ts';
-import { drawScene } from './scene.ts';
+import { createFonts } from './fonts.ts';
 import { InvestigationUI } from './investigation.ts';
+import { DOT, FRAME_MS, TEXT_COLORS, TIMING } from './layout.ts';
+import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
+import { OverlayView } from './overlays.ts';
+import { Painter } from './painter.ts';
+import { PanView } from './pan.ts';
+import { PickUI } from './pick.ts';
+import type { LastLine, PlayerHost } from './player-host.ts';
+import { click, key } from './player-input.ts';
+import { renderFrame } from './player-render.ts';
 import { CourtRecord } from './record.ts';
 import { LineResume } from './resume.ts';
-import { drawTopButton, lifeTop, topButtonRect } from './top-buttons.ts';
-import { TextRenderer } from './text.ts';
-import { Typewriter, type Glyph } from './typewriter.ts';
-import type { InlineCommand } from '@gyakusai/core';
-import * as W from './widgets.ts';
+import { layoutFor, screenWidth } from './screen.ts';
+import { Typewriter } from './typewriter.ts';
 
 /**
  * エンジンの Beat を DS 版のメイン画面風に描き、キーボード・マウス入力をエンジンの操作に変換する。
  * 文字送り・ページ送り・演出・法廷記録の開閉などの表示の状態はここだけで持ち、エンジンには入れない。
+ * 入力の処理は player-input.ts、上の画面の描画は player-render.ts に分けてある。
  */
 export class Player {
   engine: Engine;
@@ -47,8 +36,11 @@ export class Player {
   readonly #reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   readonly #record = new CourtRecord();
   readonly #resume = new LineResume();
-  readonly #inv = new InvestigationUI();
+  readonly #inv: InvestigationUI;
+  readonly #pick: PickUI;
   readonly #audio: AudioOut | undefined;
+  /** 「調べる」で選べる所に目印を出すか（元のゲームにはない手助け。途中で切り替えてよい） */
+  examineMarkers: boolean;
 
   #serial = -1;
   #beat: Beat = { kind: 'end' };
@@ -58,12 +50,12 @@ export class Player {
   #timer = 0;
   #age = 0;
   #choiceSel = 0;
-  #lastLine: { name: string | null; lines: Glyph[][]; color: string } | null = null;
+  #lastLine: LastLine | null = null;
   /** 証拠品を入手した直後の台詞の間だけ、詳細の窓を出す */
   #added: string | null = null;
   readonly #fx = new ScreenEffects(this.#reduceMotion);
   readonly #blip = new Blip();
-  readonly #views = { bg: new BackgroundView(), overlays: new OverlayView(), pan: new PanView() };
+  readonly #views: { bg: BackgroundView; overlays: OverlayView; pan: PanView };
   #lifeShow = 0;
   #frame = 0;
   #blink = 0;
@@ -72,28 +64,103 @@ export class Player {
   #last = 0;
   #cleanup: (() => void)[] = [];
 
+  /** 入力・描画のモジュール（player-input.ts・player-render.ts）に見せる、この Player の状態 */
+  readonly #host: PlayerHost;
+
+  /** #host を作る。定まった部品はそのまま、変わる値は getter で渡す（コンストラクタで部品がそろってから呼ぶ） */
+  #makeHost(): PlayerHost {
+    const self = this;
+    return {
+      get engine() {
+        return self.engine;
+      },
+      get beat() {
+        return self.#beat;
+      },
+      p: this.#p,
+      labels: this.#labels,
+      audio: this.#audio,
+      onRestart: this.#onRestart,
+      reduceMotion: this.#reduceMotion,
+      record: this.#record,
+      resume: this.#resume,
+      inv: this.#inv,
+      pick: this.#pick,
+      fx: this.#fx,
+      views: this.#views,
+      get tw() {
+        return self.#tw;
+      },
+      get typing() {
+        return self.#typing;
+      },
+      get lastPage() {
+        return self.#lastPage;
+      },
+      get timer() {
+        return self.#timer;
+      },
+      get age() {
+        return self.#age;
+      },
+      get choiceSel() {
+        return self.#choiceSel;
+      },
+      set choiceSel(v: number) {
+        self.#choiceSel = v;
+      },
+      get lastLine() {
+        return self.#lastLine;
+      },
+      get added() {
+        return self.#added;
+      },
+      get lifeShow() {
+        return self.#lifeShow;
+      },
+      get frame() {
+        return self.#frame;
+      },
+      get blink() {
+        return self.#blink;
+      },
+      get markers() {
+        return self.examineMarkers
+          ? { engine: self.engine, reduceMotion: self.#reduceMotion }
+          : null;
+      },
+    };
+  }
+
   constructor(opts: PlayerOptions) {
     this.engine = opts.engine;
     this.#canvas = opts.canvas;
-    this.#canvas.width = WIDTH * DOT;
-    this.#canvas.height = HEIGHT * DOT;
+    const L = layoutFor(screenWidth(opts.aspect));
+    this.#canvas.width = L.w * DOT;
+    this.#canvas.height = L.h * DOT;
     this.#ctx = this.#canvas.getContext('2d')!;
-    this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {});
+    this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {}, L);
+    this.#inv = new InvestigationUI(L);
+    this.#pick = new PickUI(L);
+    this.#views = { bg: new BackgroundView(L), overlays: new OverlayView(), pan: new PanView() };
     const text = this.#p.fonts.text;
     this.#textWidth = (opts.charsPerLine ?? 16) * text.em - (text.em - text.font.size);
     this.#linesPerPage = opts.linesPerPage ?? 2;
     this.#labels = { ...DEFAULT_LABELS, ...opts.labels };
     this.#onRestart = opts.onRestart;
     this.#audio = opts.audio;
+    this.#host = this.#makeHost();
+    this.examineMarkers = opts.examineMarkers ?? true;
     this.#syncBgm();
 
     const onClick = (e: MouseEvent) => {
       this.#canvas.focus({ preventScroll: true });
       const b = this.#canvas.getBoundingClientRect();
       this.#syncBeat(); // 前のフレームの後にエンジンが進んでいても、最新の Beat に対して操作する
-      this.#click(
-        Math.floor(((e.clientX - b.left) / b.width) * WIDTH),
-        Math.floor(((e.clientY - b.top) / b.height) * HEIGHT),
+      click(
+        this.#host,
+        Math.floor(((e.clientX - b.left) / b.width) * L.w),
+        Math.floor(((e.clientY - b.top) / b.height) * L.h),
       );
     };
     const onKey = (e: KeyboardEvent) => {
@@ -110,7 +177,7 @@ export class Player {
         return;
       } // 押しっぱなしで決定し続けない
       this.#syncBeat();
-      if (this.#key(e.key)) e.preventDefault();
+      if (key(this.#host, e.key)) e.preventDefault();
     };
     this.#canvas.addEventListener('click', onClick);
     window.addEventListener('keydown', onKey);
@@ -214,6 +281,7 @@ export class Player {
     this.#age = 0;
     this.#choiceSel = 0;
     this.#inv.reset();
+    this.#pick.reset();
     if (!this.engine.canPresent) this.#record.open = false;
     const text =
       beat.kind === 'line' || beat.kind === 'statement' || beat.kind === 'card'
@@ -241,6 +309,15 @@ export class Player {
           this.#effect({ cmd: 'flash', color: 'red', frames: 8 });
           this.#effect({ cmd: 'shake', frames: 16, strength: 0 });
           this.#lifeShow = TIMING.lifeShowFrames;
+          break;
+        case 'heal':
+          this.#audio?.se('heal');
+          this.#lifeShow = TIMING.lifeShowFrames;
+          break;
+        case 'locks':
+          // 錠の演出の音（ID は lock_show / lock_break / lock_unlock。用意されていなければ鳴らない）
+          if (ev.fx !== 'hide') this.#audio?.se(`lock_${ev.fx}`);
+          if (ev.fx === 'break') this.#effect({ cmd: 'flash', color: 'white', frames: 4 });
           break;
         case 'evidence':
           if (ev.added) this.#added = ev.id;
@@ -303,261 +380,12 @@ export class Player {
     if (b.kind === 'line' && b.auto && !this.#typing && this.#lastPage) this.engine.advance();
   }
 
-  // ---- 入力 ------------------------------------------------------------------------
-
-  #confirm() {
-    const b = this.#beat;
-    if (this.#typing) {
-      this.#tw?.finish();
-      return;
-    }
-    // ページ送り・選択肢の決定の音（元のゲームの SE 0x2f / 0x2b。ID は ui_page / ui_decide）
-    if (!this.#lastPage) {
-      this.#audio?.se('ui_page');
-      this.#tw?.nextPage();
-      return;
-    }
-    switch (b.kind) {
-      case 'line':
-      case 'statement':
-      case 'card':
-        this.#audio?.se('ui_page');
-        this.engine.advance();
-        break;
-      case 'banner':
-        this.engine.advance();
-        break;
-      case 'demand':
-        this.#record.show(this.engine, 'evidence');
-        break;
-      case 'choice':
-        if (this.#age >= TIMING.choiceGuardMs) {
-          this.#audio?.se('ui_decide');
-          this.engine.choose(this.#choiceSel);
-        }
-        break;
-      case 'end':
-      case 'gameover':
-        if (this.#age >= TIMING.endGuardMs) this.#onRestart?.();
-        break;
-      case 'shout':
-      case 'investigate':
-      case 'fade':
-      case 'wait':
-        break;
-    }
-  }
-
-  get #onCross(): boolean {
-    const b = this.#beat;
-    return b.kind === 'statement' && b.cross;
-  }
-
-  /** 法廷記録を開けるか */
-  get #canOpenRecord(): boolean {
-    const k = this.#beat.kind;
-    if (this.engine.state.stage.recordLocked) return false;
-    if (k === 'investigate') return this.#inv.view === 'menu';
-    return k === 'line' || k === 'statement' || k === 'choice' || k === 'demand' || k === 'card';
-  }
-
-  /** 法廷記録の操作。台詞の途中で詳しく調べ始めたら、戻ったときに続きから見せるため覚える */
-  #onRecord<T>(fn: () => T): T {
-    const [before, page] = [this.#beat, this.#tw?.page ?? 0];
-    const out = fn();
-    this.#resume.remember(this.engine, before, page);
-    return out;
-  }
-
-  #pressStatement() {
-    const b = this.#beat;
-    if (b.kind === 'statement' && b.canPress) this.engine.press();
-  }
-
-  #key(key: string): boolean {
-    if (this.#record.open) return this.#onRecord(() => this.#record.key(this.engine, key));
-    const b = this.#beat;
-    if (b.kind === 'investigate')
-      return this.#inv.key(this.engine, b, key, () => this.#record.show(this.engine, 'evidence'));
-    if (b.kind === 'choice' && !this.#typing) {
-      const n = b.options.length;
-      if (key === 'ArrowUp') {
-        this.#choiceSel = (this.#choiceSel + n - 1) % n;
-        this.#audio?.se('ui_select');
-        return true;
-      }
-      if (key === 'ArrowDown') {
-        this.#choiceSel = (this.#choiceSel + 1) % n;
-        this.#audio?.se('ui_select');
-        return true;
-      }
-    }
-    if (key === 'Enter' || key === ' ') this.#confirm();
-    else if ((key === 'x' || key === 'X') && this.#canOpenRecord) this.#record.show(this.engine);
-    else if (this.#onCross && (key === 'z' || key === 'Z')) this.#pressStatement();
-    else if (this.#onCross && key === 'ArrowRight') this.#confirm();
-    else if (this.#onCross && key === 'ArrowLeft') this.engine.back();
-    else return false;
-    return true;
-  }
-
-  #click(x: number, y: number) {
-    if (this.#record.open) {
-      this.#onRecord(() => this.#record.click(this.engine, x, y));
-      return;
-    }
-    const b = this.#beat;
-    const recordAt = topButtonRect(this.#p, 'record');
-    if (b.kind === 'investigate' && !(this.#canOpenRecord && hit(recordAt, x, y))) {
-      this.#inv.click(this.engine, b, x, y, () => this.#record.show(this.engine, 'evidence'));
-      return;
-    }
-    if (this.#canOpenRecord && hit(recordAt, x, y)) {
-      this.#record.show(this.engine, 'evidence');
-      return;
-    }
-    if (this.#onCross) {
-      if (hit(topButtonRect(this.#p, 'press'), x, y)) {
-        this.#pressStatement();
-        return;
-      }
-      if (hit(topButtonRect(this.#p, 'present'), x, y)) {
-        this.#record.show(this.engine, 'evidence');
-        return;
-      }
-    }
-    if (b.kind === 'choice') {
-      if (this.#typing) {
-        this.#confirm();
-        return;
-      }
-      const i = b.options.findIndex((_, j) => hit(UI.choice(j, b.options.length), x, y));
-      if (i >= 0 && this.#age >= TIMING.choiceGuardMs) {
-        this.#audio?.se('ui_decide');
-        this.engine.choose(i);
-      }
-      return;
-    }
-    this.#confirm();
-  }
-
   // ---- 描画 ------------------------------------------------------------------------
 
   #render() {
     const ctx = this.#ctx;
     ctx.setTransform(DOT, 0, 0, DOT, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
-    ctx.save();
-    this.#fx.applyShake(ctx);
-
-    this.#renderScreen();
-    ctx.restore();
-    this.#fx.drawFlash(this.#p);
-    if (this.#record.open) this.#record.render(this.#p, this.engine, this.#labels, this.#frame);
-  }
-
-  #renderScreen() {
-    const p = this.#p;
-    const b = this.#beat;
-    const blinkOn = (this.#frame >> 4) % 2 === 0;
-    const arrow = () => {
-      if (!this.#typing) W.nextArrow(p, this.#frame);
-    };
-    const typed = () => this.#tw?.visible ?? [];
-    const full = () => this.#tw?.full ?? [];
-
-    if (b.kind === 'card') {
-      p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
-      W.textbox(p, null);
-      W.centeredGlyphs(p, typed(), full(), TEXT_COLORS.green, W.textTop(p));
-      arrow();
-      return;
-    }
-
-    drawScene(
-      this.#p,
-      this.engine,
-      b,
-      { typing: this.#typing, frame: this.#frame, blink: this.#blink > 0 },
-      this.#fx,
-      this.#views,
-    );
-
-    if (b.kind === 'choice') {
-      p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, '#000000', 0.45);
-      const last = this.#lastLine;
-      W.textbox(p, last?.name ?? null, TOP.choiceBox);
-      if (last) W.bodyText(p, last.lines, last.color, TOP.choiceBox);
-      W.choiceBand(p, this.#labels.choicePrompt);
-      W.choiceButtons(p, b.options, this.#choiceSel, blinkOn);
-      return;
-    }
-
-    const stage = this.engine.state.stage;
-    if (stage.evidence && b.kind !== 'banner' && b.kind !== 'shout')
-      W.thumbnail(
-        p,
-        stage.evidence,
-        this.engine.scenario.evidence[stage.evidence],
-        stage.evidenceRight,
-      );
-    const added = this.#added ? this.engine.scenario.evidence[this.#added] : undefined;
-    if (this.#added && added) W.addedWindow(p, this.#added, added);
-    if (b.kind === 'statement' && !b.cross)
-      p.fonts.text.draw(this.#labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
-    const gauge = stage.lifeGauge ?? (this.#onCross || b.kind === 'demand');
-    if (gauge || this.#lifeShow > 0)
-      W.lifeMarks(p, this.engine.state.life, this.engine.scenario.maxLife, lifeTop(p));
-    if (this.#canOpenRecord) drawTopButton(p, 'record', this.#labels);
-    if (b.kind === 'statement' && b.cross) {
-      drawTopButton(p, 'press', this.#labels, b.canPress);
-      drawTopButton(p, 'present', this.#labels);
-    }
-
-    switch (b.kind) {
-      case 'line':
-      case 'statement':
-      case 'demand': {
-        const color =
-          b.kind === 'line'
-            ? TEXT_COLORS[b.color]
-            : b.kind === 'statement'
-              ? TEXT_COLORS.green
-              : TEXT_COLORS.white;
-        if (stage.textbox !== false) W.textbox(p, b.name);
-        W.bodyText(p, typed(), color);
-        arrow();
-        break;
-      }
-      case 'wait':
-      case 'fade':
-        if (stage.textbox === true) W.textbox(p, null); // 枠を出したまま待つ（元のゲームの box 0 の後の待ち）
-        break;
-      case 'banner': {
-        const slide = this.#reduceMotion ? 1 : Math.min(1, this.#timer / 200);
-        if (b.sub) {
-          W.textbox(p, null);
-          W.centeredText(p, [b.sub], [b.sub], TEXT_COLORS.orange, W.textTop(p) + TOP.lineH / 2);
-        }
-        W.bigText(p, b.text, b.sub ? 56 : 72, slide);
-        break;
-      }
-      case 'shout': {
-        const img = p.assets.shout?.(b.shout);
-        if (img) p.ctx.drawImage(img, 0, 0, SCREEN_W, SCREEN_H);
-        else W.bubble(p, b.shout, this.#reduceMotion ? 1 : Math.min(1, this.#timer / 120));
-        break;
-      }
-      case 'investigate':
-        this.#inv.render(p, b, this.#labels, this.#frame);
-        break;
-      case 'end':
-        W.endScreen(p, this.#labels.end);
-        break;
-      case 'gameover':
-        W.endScreen(p, this.#labels.gameover);
-        break;
-    }
+    renderFrame(this.#host);
   }
 }

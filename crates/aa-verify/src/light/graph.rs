@@ -124,11 +124,13 @@ pub fn build(m: &Model) -> LGraph<'_> {
                     out.extend(opts.iter().map(|o| LEdge { cond: o.when.as_ref(), site: Site::Choice, ..plain(b + o.to) }));
                     inspect_edges(&g, &mut out);
                 }
+                Op::Pick(opts) => out.extend(opts.iter().map(|o| LEdge { cond: o.when.as_ref(), site: Site::Choice, ..plain(b + o.to) })),
                 Op::Stop(StopKind::Line | StopKind::Card) => { out.extend(next.map(plain)); inspect_edges(&g, &mut out); }
-                Op::Demand { options, profiles, wrong, .. } => {
+                Op::Demand { options, profiles, wrong, give_up, .. } => {
                     let all = options.iter().chain(profiles.iter().flatten());
                     out.extend(all.map(|(x, t)| LEdge { site: Site::Present, ev: Some(*x), ..plain(b + t) }));
                     out.push(plain(b + wrong));
+                    if let Some(g) = give_up { out.push(plain(b + g)); }
                     inspect_edges(&g, &mut out);
                 }
                 Op::Goto(s) | Op::Investigate(s) => out.extend(g.entry(m, *s).map(plain)),
@@ -151,7 +153,7 @@ pub fn build(m: &Model) -> LGraph<'_> {
                 for st in &t.statements {
                     let w = st.when.as_ref();
                     for pc in st.press.iter().chain(st.before.iter()) { out.push(LEdge { cond: w, site: Site::Statement, ..plain(b + pc) }); }
-                    out.extend(st.present.iter().map(|(x, pc)| LEdge { cond: w, site: Site::Present, ev: Some(*x), ..plain(b + pc) }));
+                    out.extend(st.present.iter().chain(st.present_profile.iter().flatten()).map(|(x, pc)| LEdge { cond: w, site: Site::Present, ev: Some(*x), ..plain(b + pc) }));
                 }
                 out.extend([Some(t.wrong), t.after, t.reading, t.looping].into_iter().flatten().map(|pc| plain(b + pc)));
                 inspect_edges(&g, &mut out);

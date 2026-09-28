@@ -1,20 +1,23 @@
 // 流れを変えない命令（演出・人物・背景・音・法廷記録など）の変換。
 import type { Context } from './context.ts';
+import { frameReact } from './invest23.ts';
 import {
   BG_NONE,
-  DEFAULT_FLASH,
-  SHOUT_FRAMES,
   bgKey,
   charArg,
-  dsFx,
+  DEFAULT_FLASH,
   fadeOf,
   flagArg,
   isStandKey,
   nameArg,
   native,
   recordArg,
+  SHOUT_FRAMES,
   shoutKind,
 } from './mapping.ts';
+import { dsEffect } from './ops-ds.ts';
+import { op23 } from './ops23.ts';
+import { pointFlag, pointKs } from './section-branch.ts';
 import type { How } from './stats.ts';
 import type { CmdOp, Step } from './types.ts';
 import type { Writer } from './writer.ts';
@@ -42,6 +45,10 @@ export interface Memory {
   overlays: Map<number, number>;
   /** 62 で決めた、写真の一点を指す問題の番号 */
   point: number | null;
+  /** サイコ・ロックのつきつけを許した（82）。次の 21 がつきつけの要求になる */
+  lockPresent: boolean;
+  /** サイコ・ロックのつきつけの正解（96 / 97）と外れの区画 */
+  answers: { list: { item: number; goto: number }[]; wrong: number } | null;
 }
 export const newMemory = (): Memory => ({
   bgm: null,
@@ -49,6 +56,8 @@ export const newMemory = (): Memory => ({
   ds107: [0, 0, 0],
   overlays: new Map(),
   point: null,
+  lockPresent: false,
+  answers: null,
 });
 
 /** 背景を替える前に、そこで自分で消える重ね絵を消す */
@@ -65,6 +74,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
   const { w } = h;
   const a = o.args;
   const st = ctx.stats;
+  if (op23(o, ctx, h, mem, section)) return;
   if (IGNORED.has(o.op)) {
     st.hit(o.name, 'ignored');
     return;
@@ -108,6 +118,9 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     case 62:
       mem.point = a[0]!;
       st.hit(o.name, 'structure');
+      // 2・3: 区画の中で 62 がフラグで分かれる（53）なら、どの問題かを数のフラグで覚える（63 で分ける）
+      if (ctx.t.game !== 'aa1' && pointKs(ctx, section).length > 1)
+        h.put({ set: { [pointFlag(ctx)]: a[0]! } });
       return;
     case 48:
       w.blip(a[0]!);
@@ -214,7 +227,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     }
     case 27: {
       expireOverlays(h, mem);
-      const b = bgKey(a[0]!);
+      const b = bgKey(a[0]!, ctx.t.game);
       h.put({ location: b.key });
       if (mem.char && a[0] !== BG_NONE && isStandKey(b.key)) ctx.voteStand(mem.char.id, b.key);
       if (b.alt) h.put(native('bg_alt', [a[0]!]), 'native');
@@ -223,7 +236,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     case 77: {
       // 背景 + 手前の層（面会室のガラス）
       expireOverlays(h, mem);
-      const b = bgKey(a[0]!);
+      const b = bgKey(a[0]!, ctx.t.game);
       h.put({ location: b.key }, 'approx');
       h.put(native(o.name, a), 'native');
       return;
@@ -290,7 +303,10 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     }
     case 16: {
       const f = flagArg(a[0]!);
-      h.put({ set: { [ctx.fname(f.group, f.index)]: f.value } });
+      const name = ctx.fname(f.group, f.index);
+      h.put({ set: { [name]: f.value } });
+      // 2・3: 毎フレームの処理は台本の途中でも動くので、そのフラグで決まる行をすぐに調べる（invest23.ts）
+      for (const s of frameReact(ctx, name)) h.put(s);
       return;
     }
     case 43:
@@ -315,10 +331,7 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
       }
       h.put({
         set: {
-          [ctx.flag(
-            `${ctx.gpfx}talk_${a[0]}`,
-            !!ctx.inv.talk.find((t: { id: number }) => t.id === a[0])?.active,
-          )]: a[1] === 1,
+          [ctx.talkFlag(a[0]!)]: a[1] === 1,
         },
       });
       return;
@@ -364,40 +377,4 @@ export function simpleOp(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section:
     default:
       h.put(native(o.name, a));
   }
-}
-
-/** 105 ds_fx（107 の引数と組）。木槌は効果音と揺れで近づけ、証拠品の小窓を消すものは showEvidence: null */
-function dsEffect(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section: number) {
-  const [a0, a1 = 0] = o.args;
-  const { stage, effect } = dsFx(a1);
-  const args = [a0!, a1, ...mem.ds107];
-  if (a0 !== 98) {
-    h.put(native(o.name, args));
-    return;
-  }
-  // 木槌: 22 フレーム後に SE 0x3a（107 の a ≠ 0 なら 0x6f）と揺れ（10 フレーム・強さ 1）。19 は 3 回（22, 32, 44）
-  if (effect === 17 || effect === 19) {
-    const se = ctx.sound(mem.ds107[0] ? 0x6f : 0x3a);
-    const hits = effect === 17 ? [22] : [22, 32, 44];
-    let t = 0;
-    for (const at of hits) {
-      h.put({ wait: at - t }, 'approx');
-      h.put({ se }, 'approx');
-      h.put({ shake: 10, strength: 1 }, 'approx');
-      t = at;
-    }
-    ctx.stats.gap('DS の木槌の演出（105 の効果 17/19）を待ち・効果音・揺れにした', section);
-    return;
-  }
-  if (effect === 67) {
-    h.put({ showEvidence: null }, 'approx');
-    return;
-  }
-  // 下画面だけの演出（選択肢の見出し・下画面の背景と明るさ）は上画面に影響しないので捨てる
-  if ([101, 113, 114, 115].includes(effect)) {
-    ctx.stats.hit(o.name, 'ignored');
-    return;
-  }
-  void stage;
-  h.put(native(o.name, args));
 }

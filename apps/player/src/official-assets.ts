@@ -4,7 +4,11 @@
 // 背景は DS 版の画面と点の単位で一致したものを立ち位置に当てる（検察側は弁護側の左右反転）。
 // 人物は anim.tsv の原点（キャラクターの基準点）を画面の中央 (128, 96) に合わせると DS 版と一致する。
 // そのため、各コマを 256×192 の画面の大きさのキャンバスに置き直して返す（Player は下端・中央に合わせて描く）。
+//
+// 逆転裁判2・3（game が aa2 / aa3）は assets/extracted/aa2/・aa3/ から、法廷の背景（official-game.ts の番号）・机・
+// 「異議あり!」などの吹き出し（47 anim の 1・2・4 番）を取る。人物は動きの番号で official-anims.ts が出す。
 import type { Assets, ShoutKind } from '@gyakusai/runtime';
+import { COURT_BACKGROUNDS, GAME_ROOT, inGame, type OfficialGame } from './official-game.ts';
 
 const ROOT = '../../../assets/extracted/data/tail';
 const bgUrls = import.meta.glob('../../../assets/extracted/data/tail/bg/bg00[3458]_*.png', {
@@ -13,23 +17,46 @@ const bgUrls = import.meta.glob('../../../assets/extracted/data/tail/bg/bg00[345
   import: 'default',
 }) as Record<string, string>;
 // 法廷の 4 立ち位置以外の背景（面会室・事務所など）。DS 版の背景の番号（bgKey が作る「bgNN」）で引く
-const anyBgUrls = import.meta.glob('../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png', {
+const anyBgUrls = import.meta.glob(
+  [
+    '../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png',
+    '../../../assets/extracted/{aa2,aa3}/data/tail/{bg,bg_fixed}/*.png',
+  ],
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>;
+// 動画の場面（第 5 話の防犯カメラの映像。pick の絵のキー movie2_0494 など。tools/rom/tbl_minigames.py が書き出す）
+const movieUrls = import.meta.glob('../../../assets/extracted/data/movie/clip*/*.png', {
   eager: true,
   query: '?url',
   import: 'default',
 }) as Record<string, string>;
-const bgTableGlob = import.meta.glob('../../../assets/extracted/tables/bg_render.json', {
-  import: 'default',
-});
+const bgTableGlob = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/bg_render.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/bg_render.json',
+  ],
+  { import: 'default' },
+);
 const frameUrls = import.meta.glob(
   '../../../assets/extracted/data/tail/chars/2202220/{000,018,019,053,157,159,163}/f*.png',
   { eager: true, query: '?url', import: 'default' },
 ) as Record<string, string>;
-const deskUrls = import.meta.glob('../../../assets/extracted/data/desks/*.png', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-}) as Record<string, string>;
+const deskUrls = import.meta.glob(
+  [
+    '../../../assets/extracted/data/desks/*.png',
+    '../../../assets/extracted/{aa2,aa3}/data/desks/*.png',
+  ],
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>;
+// 2・3 の吹き出し（47 anim の 1 待った! / 2 異議あり! / 4 くらえ!。画面の大きさの 1 コマ）
+const shoutUrls23 = import.meta.glob(
+  '../../../assets/extracted/{aa2,aa3}/anims47/00[124]/f00.png',
+  {
+    eager: true,
+    query: '?url',
+    import: 'default',
+  },
+) as Record<string, string>;
 const animTsv = import.meta.glob(
   '../../../assets/extracted/data/tail/chars/2202220/{000,018,019,053}/anim.tsv',
   { eager: true, query: '?raw', import: 'default' },
@@ -57,10 +84,16 @@ const SHOUTS: Record<ShoutKind, string> = {
   takethat: '163',
 };
 
+/** 2・3 の吹き出し → 47 anim の番号 */
+const SHOUTS_23: Record<ShoutKind, string> = { hold: '001', objection: '002', takethat: '004' };
+
 const SCREEN = { w: 256, h: 192, cx: 128, cy: 96 };
 
-export const isOfficialAvailable = () =>
-  Object.keys(bgUrls).length > 0 && Object.keys(animTsv).length > 0;
+/** DS 版の絵を取り出してあるか（2・3 は背景の画像があるか） */
+export const isOfficialAvailable = (game: OfficialGame = 'aa1') =>
+  game === 'aa1'
+    ? Object.keys(bgUrls).length > 0 && Object.keys(animTsv).length > 0
+    : Object.keys(anyBgUrls).some((k) => inGame(game, k));
 
 interface Anim {
   frames: HTMLCanvasElement[];
@@ -137,63 +170,105 @@ interface BgRow {
   png: string | null;
   png_fixed?: string;
 }
-let bgTable: Promise<Map<number, string>> | null = null;
+const bgTables = new Map<OfficialGame, Promise<Map<number, string>>>();
 
 /** tables/bg_render.json から「背景の番号 → 画像 URL」を作る（面会室など、立ち位置に無い背景用） */
-function loadBgTable(): Promise<Map<number, string>> {
-  return (bgTable ??= (async () => {
-    const get = Object.values(bgTableGlob)[0];
-    const rows = get ? ((await get()) as { backgrounds: BgRow[] }).backgrounds : [];
-    const map = new Map<number, string>();
-    for (const r of rows) {
-      const rel = r.png_fixed ?? r.png;
-      const url = rel ? Object.entries(anyBgUrls).find(([p]) => p.endsWith(rel))?.[1] : undefined;
-      if (url) map.set(r.id, url);
-    }
-    return map;
-  })());
+function loadBgTable(game: OfficialGame): Promise<Map<number, string>> {
+  let t = bgTables.get(game);
+  if (!t) {
+    t = (async () => {
+      const root = GAME_ROOT[game];
+      const get = bgTableGlob[`${root}/tables/bg_render.json`];
+      const rows = get ? ((await get()) as { backgrounds: BgRow[] }).backgrounds : [];
+      const map = new Map<number, string>();
+      for (const r of rows) {
+        const rel = r.png_fixed ?? r.png;
+        const url = rel ? anyBgUrls[`${root}/${rel}`] : undefined;
+        if (url) map.set(r.id, url);
+      }
+      return map;
+    })();
+    bgTables.set(game, t);
+  }
+  return t;
 }
 
 const numberedBg = new Map<string, HTMLImageElement | null>();
 /** 'bgNN'（bgKey が番号だけの背景に作るキー）を遅延読み込みで解決する。読み込み中は undefined を返し、次の描画で拾う */
-function numberedBackground(key: string): HTMLImageElement | undefined {
+function numberedBackground(key: string, game: OfficialGame): HTMLImageElement | undefined {
   const m = /^bg(\d+)$/.exec(key);
   if (!m) return undefined;
-  if (numberedBg.has(key)) return numberedBg.get(key) ?? undefined;
-  numberedBg.set(key, null);
+  const k = `${game}:${key}`;
+  if (numberedBg.has(k)) return numberedBg.get(k) ?? undefined;
+  numberedBg.set(k, null);
   void (async () => {
-    const url = (await loadBgTable()).get(Number(m[1]));
-    if (url) numberedBg.set(key, await load(url));
+    const url = (await loadBgTable(game)).get(Number(m[1]));
+    if (url) numberedBg.set(k, await load(url));
   })();
   return undefined;
 }
 
-export async function loadOfficialAssets(fallback: Assets): Promise<Assets> {
+const movieFrames = new Map<string, HTMLImageElement | null>();
+/** 'movie2_0494'（動画 2 の 494 コマ目）を遅延読み込みで解決する（蘇る逆転だけ） */
+function movieFrame(key: string, game: OfficialGame): HTMLImageElement | undefined {
+  const m = /^movie(\d+)_(\d+)$/.exec(key);
+  if (!m || game !== 'aa1') return undefined;
+  if (movieFrames.has(key)) return movieFrames.get(key) ?? undefined;
+  movieFrames.set(key, null);
+  const url = movieUrls[`../../../assets/extracted/data/movie/clip${m[1]}/${m[2]}.png`];
+  if (url) void load(url).then((img) => movieFrames.set(key, img));
+  return undefined;
+}
+
+/** 立ち位置 → 背景の画像の URL（蘇る逆転は data/tail/bg の bgNNN_、2・3 は背景の番号の画像） */
+function standUrls(game: OfficialGame): [string, string][] {
+  if (game === 'aa1')
+    return Object.entries(BACKGROUNDS).flatMap(([stand, num]) => {
+      const url = Object.entries(bgUrls).find(([p]) => p.includes(`/${num}_`))?.[1];
+      return url ? [[stand, url] as [string, string]] : [];
+    });
+  const dir = `${GAME_ROOT[game]}/data/tail/bg/`;
+  return Object.entries(COURT_BACKGROUNDS[game]).flatMap(([stand, id]) => {
+    const head = `${dir}bg${String(id).padStart(3, '0')}_`;
+    const url = Object.entries(anyBgUrls).find(([p]) => p.startsWith(head))?.[1];
+    return url ? [[stand, url] as [string, string]] : [];
+  });
+}
+
+export async function loadOfficialAssets(
+  fallback: Assets,
+  game: OfficialGame = 'aa1',
+): Promise<Assets> {
   const backgrounds = new Map<string, CanvasImageSource>();
   await Promise.all(
-    Object.entries(BACKGROUNDS).map(async ([stand, num]) => {
-      const url = Object.entries(bgUrls).find(([p]) => p.includes(`/${num}_`))?.[1];
-      if (url) backgrounds.set(stand, await load(url));
+    standUrls(game).map(async ([stand, url]) => {
+      backgrounds.set(stand, await load(url));
     }),
   );
   // 机（256×192 の画面上の位置に置いた透明 PNG。tools/rom/ex_desks.py が作る）
   const desks = new Map<string, HTMLImageElement>();
   await Promise.all(
-    Object.entries(deskUrls).map(async ([path, url]) => {
-      desks.set(path.replace(/^.*\//, '').replace(/\.png$/, ''), await load(url));
-    }),
+    Object.entries(deskUrls)
+      .filter(([path]) => inGame(game, path))
+      .map(async ([path, url]) => {
+        desks.set(path.replace(/^.*\//, '').replace(/\.png$/, ''), await load(url));
+      }),
   );
+  // サンプルの人物（蘇る逆転の絵だけ。2・3 の章は動きの番号で出す）
   const anims = new Map<string, Anim>();
   await Promise.all(
-    Object.entries(CHARACTERS).map(async ([who, id]) => {
+    Object.entries(game === 'aa1' ? CHARACTERS : {}).map(async ([who, id]) => {
       const a = await loadAnim(id);
       if (a) anims.set(who, a);
     }),
   );
   const shouts = new Map<string, HTMLImageElement>();
   await Promise.all(
-    Object.entries(SHOUTS).map(async ([kind, id]) => {
-      const url = frameUrls[`${ROOT}/chars/2202220/${id}/f00.png`];
+    Object.entries(game === 'aa1' ? SHOUTS : SHOUTS_23).map(async ([kind, id]) => {
+      const url =
+        game === 'aa1'
+          ? frameUrls[`${ROOT}/chars/2202220/${id}/f00.png`]
+          : shoutUrls23[`${GAME_ROOT[game]}/anims47/${id}/f00.png`];
       if (url) shouts.set(kind, await load(url));
     }),
   );
@@ -201,7 +276,10 @@ export async function loadOfficialAssets(fallback: Assets): Promise<Assets> {
     ...fallback,
     shout: (kind) => shouts.get(kind) ?? fallback.shout?.(kind),
     background: (key) =>
-      backgrounds.get(key) ?? numberedBackground(key) ?? fallback.background?.(key),
+      backgrounds.get(key) ??
+      numberedBackground(key, game) ??
+      movieFrame(key, game) ??
+      fallback.background?.(key),
     foreground: (key) => desks.get(key),
     portrait: (id, frame) => {
       const a = anims.get(id);

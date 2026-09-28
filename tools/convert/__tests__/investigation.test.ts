@@ -2,6 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { collectGives } from '../chapter.ts';
 import { Context } from '../context.ts';
+import { markNoScroll } from '../examine-area.ts';
 import { localClosure, staticTargets } from '../flow.ts';
 import { areaOf, buildPlaces, condOf, stripMenuReturn, whenOf } from '../investigation.ts';
 import { isStorySection } from '../tables.ts';
@@ -18,8 +19,12 @@ const tables = {
   court: { common_wrong: [], common_item: 72, parts: [] },
 } as Tables;
 let at = 0;
-const c = (op: number, ...args: number[]): Op => ({ at: (at += 2), op, name: `op${op}`, args });
-const t = (text: string): Op => ({ at: (at += 2), op: 'text', text });
+const nextAt = () => {
+  at += 2;
+  return at;
+};
+const c = (op: number, ...args: number[]): Op => ({ at: nextAt(), op, name: `op${op}`, args });
+const t = (text: string): Op => ({ at: nextAt(), op: 'text', text });
 const entry = (body: Op[][]): Entry => ({
   entry: 2,
   lang: 'ja',
@@ -37,7 +42,7 @@ describe('探偵パート', () => {
     expect(condOf(ctx, 'flag 0x49 == 1')).toBe('f_0_73');
   });
 
-  test('調べる場所: 軸に沿った四角形はそのまま、斜めは内側、横長の背景は縮める、画面の外は null', () => {
+  test('調べる場所: 軸に沿った四角形はそのまま、斜めは内側、横長の背景は背景の座標のまま、背景の外は null', () => {
     expect(
       areaOf([
         [10, 20],
@@ -62,9 +67,21 @@ describe('探偵パート', () => {
           [340, 50],
           [300, 50],
         ],
-        0.5,
+        { w: 512, h: 192 },
       ),
-    ).toEqual([150, 10, 20, 40]);
+    ).toEqual([300, 10, 40, 40]);
+    // 背景の端で切る
+    expect(
+      areaOf(
+        [
+          [500, 10],
+          [540, 10],
+          [540, 50],
+          [500, 50],
+        ],
+        { w: 512, h: 192 },
+      ),
+    ).toEqual([500, 10, 12, 40]);
     expect(
       areaOf([
         [300, 10],
@@ -79,7 +96,9 @@ describe('探偵パート', () => {
     const back = ctx.menuReturn();
     expect(stripMenuReturn(ctx, [{ narrate: 'a' }, ...back])).toEqual([{ narrate: 'a' }]);
     expect(
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       stripMenuReturn(ctx, [{ if: 'x', then: [{ narrate: 'b' }, ...back], else: [...back] }]),
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
     ).toEqual([{ if: 'x', then: [{ narrate: 'b' }], else: [] }]);
   });
 });
@@ -233,7 +252,44 @@ describe('人物ファイルのつきつけ（探偵パート）', () => {
   test('法廷記録に入る証拠品（give）を集める（入れ子・同じオブジェクトの共有も）', () => {
     const shared = { give: ['e1', 'e2'] };
     const out = new Set<string>();
+    // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
     collectGives([{ then: [shared, { give: 'e3' }] }, { else: [shared] }, { take: 'e9' }], out);
     expect([...out].sort()).toEqual(['e1', 'e2', 'e3']);
+  });
+});
+
+describe('調べる間に背景を動かせない場所', () => {
+  test('パート 0x12 の背景 0x73 の場所に、編とフラグ 0x45 の条件を付ける（同じ組のほかの編の場所にも）', () => {
+    const ctx = (part: number, places: { id: number; bg: number }[]) => ({
+      part,
+      inv: { places },
+      placeId: (n: number) => `p17_place${n}`,
+      fname: (g: number, n: number) => `f_${g}_${n}`,
+    });
+    const head = {
+      ctx: ctx(0x11, [{ id: 22, bg: 0x73 }]),
+      part: {
+        places: {
+          p17_place22: { name: '駐車場', background: 'bg115', enter: [] },
+          p17_place6: { name: '留置所', background: 'bg30' },
+        } as Record<string, Record<string, unknown>>,
+      },
+    };
+    const next = {
+      ctx: ctx(0x12, [
+        { id: 22, bg: 0x73 },
+        { id: 6, bg: 30 },
+      ]),
+      part: {},
+    };
+    markNoScroll([head, next], 'part');
+    expect(Object.keys(head.part.places.p17_place22!)).toEqual([
+      'name',
+      'background',
+      'examineScroll',
+      'enter',
+    ]);
+    expect(head.part.places.p17_place22!.examineScroll).toBe('not (part == 1 and f_0_69)');
+    expect(head.part.places.p17_place6!.examineScroll).toBeUndefined();
   });
 });

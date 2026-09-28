@@ -1,6 +1,7 @@
 import type { Engine } from '@gyakusai/core';
 import type { AudioOut } from './audio.ts';
 import type { ShoutKind } from './layout.ts';
+import type { Aspect } from './screen.ts';
 import type { FontSpec } from './text.ts';
 
 /**
@@ -81,11 +82,13 @@ export const DEFAULT_LABELS = {
   back: 'もどる',
   press: 'ゆさぶる',
   present: 'つきつける',
+  giveUp: 'やめる',
   examine: '調べる',
   move: '移動する',
   talk: '話す',
   examineHint: 'どこを調べる？',
-  choicePrompt: 'ぼくのコタエを示そう',
+  pickHint: 'どこを選ぶ？',
+  nominateHint: 'だれを選ぶ？',
   testifying: '証言中',
   end: 'おしまい',
   gameover: 'ゲームオーバー',
@@ -112,12 +115,22 @@ export interface PlayerOptions {
   recordTitleFont?: FontSpec;
   /** 長くて収まらない選択肢のフォント（本文の字を詰めて並べたもの）。既定は descriptionFont */
   condensedFont?: FontSpec;
+  /**
+   * 画面の横幅。'4:3' は DS 版と同じ 256×192 ドット、'16:9' は 342×192 ドット。既定 '4:3'。
+   * 16:9 では、部品を画面の左・右・中央に寄せ、背景・立ち絵・法廷記録は 4:3 の枠（256 幅）を中央に置いて描く
+   */
+  aspect?: Aspect;
   /** テキストウィンドウの 1 行の文字数（全角）。既定 16 */
   charsPerLine?: number;
   /** テキストウィンドウの行数。収まらない文は、この行数ごとにページを分ける。既定 2 */
   linesPerPage?: number;
   /** 画面に出す文言（「法廷記録」「ゆさぶる」など） */
   labels?: Partial<Labels>;
+  /**
+   * 探偵パートの「調べる」で、今調べられる所に目印を出す（元のゲームにはない手助け）。
+   * まだ調べていない所はひし形、調べた所はチェックの印。既定 true。Player.examineMarkers で途中から切り替えられる
+   */
+  examineMarkers?: boolean;
   /** エンディング・ゲームオーバー画面でクリックされたとき */
   onRestart?: () => void;
 }

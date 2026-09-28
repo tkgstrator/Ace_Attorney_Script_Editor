@@ -1,7 +1,7 @@
 // 変換中に共有するもの（表・集計・ID の割り当て・参照の記録）。
-import { RESERVED_KEYS } from '../../packages/script/src/schema.ts';
-import { isStorySection, parseProfileName, slug, soundId } from './tables.ts';
+import { characterId, profileId, speakerId } from './people.ts';
 import { Stats } from './stats.ts';
+import { isStorySection, soundId } from './tables.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
 export interface Character {
@@ -16,10 +16,22 @@ export class Shared {
   readonly characters = new Map<string, Character>();
   readonly evidence = new Set<number>();
   readonly standVotes = new Map<string, Map<string, number>>();
-  /** 名前の番号 → 人物 ID（使った順に決める。英語の名札が重なれば 2 つ目から _番号） */
+  /** 名前の番号 → 人物 ID（対応表から。表が無ければ使った順に決め、英語の名札が重なれば 2 つ目から _番号） */
   readonly nameIds = new Map<number, string>();
+  /** 2・3: 話し手に結び付かない人物ファイルの、英語の名前の絵の番号 → 人物 ID（表が無いときに英語の名前から作る） */
+  readonly profileIds = new Map<number, string>();
+  /** 人物 ID → 元の ROM の番号（name:名前の番号 / char:人物の番号 / profile:法廷記録の番号。対応表の手入れ用） */
+  readonly idSources = new Map<string, Set<string>>();
+  /** 人物 ID の対応表に無い番号の警告 */
+  readonly idWarnings = new Set<string>();
   /** 人物ファイルとして使う法廷記録の番号（つきつけの表で証拠品と区別する） */
   readonly profileRecords = new Set<number>();
+  /** 章の中で法廷記録に入りうる番号（空なら調べない。単体の変換・テスト用） */
+  readonly chapterRecords = new Set<number>();
+  /** サイコ・ロック（79）を使ったか（章に psycheLock の keys を書く） */
+  lockKeys = false;
+  /** 章の中で人物ファイルとして使う法廷記録の番号（1 回目の変換で集めたもの。2・3 の見当違いの人物ファイル用） */
+  chapterProfiles: number[] = [];
 }
 
 /** 探偵パートの表（investigation.json の parts の 1 つ） */
@@ -50,9 +62,12 @@ export class Context {
   readonly pieces = new Set<string>();
   /** 21 player_turn の代わりに移る区画（ルミノールの説明の後など、ARM9 が決める行き先。examine3d.ts） */
   readonly turnGoto = new Map<number, number>();
+  /** 21 player_turn の代わりのステップ（遊びの結果の区画から遊びに戻るとき。minigames.ts） */
+  readonly turnSteps = new Map<number, Step[]>();
+  /** 区画のほかに出すシーン（遊びの画面など。minigames.ts） */
+  readonly extraScenes = new Map<string, Step[]>();
   /** 3D で詳しく調べた結果として証拠品の examine に取り込む区画 → ステップ列（examine3d.ts） */
   readonly examineSteps = new Map<number, Step[]>();
-  readonly #nameIds: Map<number, string>;
   readonly part: number;
   readonly t: Tables;
   readonly entry: Entry;
@@ -79,11 +94,11 @@ export class Context {
     entry: Entry,
     opts: { shared?: Shared; pfx?: string; gpfx?: string; inv?: InvPart | null } = {},
   ) {
-    this.t = t;
+    // ゲームの無い表（テストの小さな表など）は蘇る逆転
+    this.t = t.game ? t : { ...t, game: 'aa1' };
     this.entry = entry;
     this.part = entry.entry >> 1;
     this.shared = opts.shared ?? new Shared();
-    this.#nameIds = this.shared.nameIds;
     this.pfx = opts.pfx ?? '';
     this.gpfx = opts.gpfx ?? this.pfx;
     this.inv = opts.inv ?? null;
@@ -126,45 +141,18 @@ export class Context {
     return [{ set: { [this.returnFlag()]: true } }, { goto: this.menuScene() }];
   }
 
-  #idForName(n: number): string {
-    let id = this.#nameIds.get(n);
-    if (id) return id;
-    const base = slug(this.t.names.find((x) => x.id === n)?.text.en ?? '');
-    const taken = new Set(this.#nameIds.values());
-    id = !base ? `c${n}` : taken.has(base) || RESERVED_KEYS.has(base) ? `${base}_${n}` : base;
-    this.#nameIds.set(n, id);
-    return id;
-  }
-
   get court() {
     return this.t.court.parts.find((p) => p.part === this.part);
   }
 
-  /** 名前の番号（14）→ 人物 ID（0 = null） */
+  /** 名前の番号（14）→ 人物 ID（0 = null）。people.ts */
   speaker(n: number): string | null {
-    if (n === 0) return null;
-    const id = this.#idForName(n);
-    if (!this.characters.has(id)) {
-      const tag = this.t.names.find((x) => x.id === n)?.text[this.entry.lang] ?? '';
-      this.characters.set(id, { name: tag, blip: this.t.blipKinds[n] === 1 ? 'female' : 'male' });
-    }
-    return id;
+    return speakerId(this, n);
   }
 
-  /** 人物の番号（30）→ 人物 ID。名前の番号が同じなら、その名前の人物と同じ ID */
+  /** 人物の番号（30）→ 人物 ID。people.ts */
   character(k: number): string {
-    const c = this.t.chars[String(k)];
-    const n = c?.name_id ?? k;
-    if (
-      this.t.names.some((x) => x.id === n) &&
-      n !== 0 &&
-      (this.t.names.find((x) => x.id === n)?.text.ja ?? '') !== ''
-    ) {
-      return this.speaker(n)!;
-    }
-    const id = `c${k}`;
-    if (!this.characters.has(id)) this.characters.set(id, { name: c?.name ?? '' });
-    return id;
+    return characterId(this, k);
   }
 
   evidenceId(n: number): string {
@@ -181,6 +169,16 @@ export class Context {
   flag(name: string, init: boolean | number = false): string {
     if (!this.flags.has(name)) this.flags.set(name, init);
     return name;
+  }
+
+  /**
+   * 話題の項目 id を使うか（talk_項目）のフラグ。初期値は表の active（どこで最初に読んでも同じにする。
+   * 以前は着いたときの条件で先に読むと false になり、逆転裁判3 の第 5 話で春美のロックの話題 §111 を飛ばして
+   * 解除の後の話題 §117 が出ていた）
+   */
+  talkFlag(id: number): string {
+    const talk = (this.inv?.talk ?? []) as { id: number; active?: boolean }[];
+    return this.flag(`${this.gpfx}talk_${id}`, !!talk.find((t) => t.id === id)?.active);
   }
 
   /** 区画 → シーン ID */
@@ -201,7 +199,8 @@ export class Context {
   }
 
   /** 区画 → そこへの移動（どこから・何で）。1 回目の変換で集め、2 回目で取り込む区画を決める */
-  readonly refs = new Map<number, { from: number; kind: 'choice' | 'flow' }[]>();
+  /** 区画への参照（scene = シーンとして残す行き先。サイコ・ロックの start / quit / gaugeOut など） */
+  readonly refs = new Map<number, { from: number; kind: 'choice' | 'flow' | 'scene' }[]>();
   /** その場に取り込む区画（選択肢からだけ行く区画と、そこからだけ続く区画） */
   inline = new Set<number>();
   /** 区画をステップ列にする（scenario.ts が設定する） */
@@ -219,19 +218,19 @@ export class Context {
       for (const r of c.present_table) out.add(r.goto);
       for (const r of c.present_requests) {
         out.add(r.wrong);
-        r.correct.forEach((x) => out.add(x.goto));
+        for (const x of r.correct) out.add(x.goto);
       }
       for (const x of c.cross_examinations) {
-        [x.section, x.after_last, x.testimony ?? -1].forEach((v) => out.add(v));
+        for (const v of [x.section, x.after_last, x.testimony ?? -1]) out.add(v);
         for (const st of x.statements) {
           out.add(st.section);
           if (st.press !== null) out.add(st.press);
-          st.present.forEach((p) => out.add(p.goto));
+          for (const p of st.present) out.add(p.goto);
         }
       }
       for (const t of c.testimonies) {
         out.add(t.section);
-        t.statements.forEach((v) => out.add(v));
+        for (const v of t.statements) out.add(v);
       }
     }
     const walk = (x: unknown): void => {
@@ -254,7 +253,7 @@ export class Context {
   convertCommon: ((section: number) => Step[]) | null = null;
 
   /** 区画への移動のステップ。取り込む区画なら、その区画のステップ列そのもの */
-  jump(target: number, from: number, kind: 'choice' | 'flow' = 'flow'): Step[] {
+  jump(target: number, from: number, kind: 'choice' | 'flow' | 'scene' = 'flow'): Step[] {
     // 値が 0x80 未満（区画の番号が負）なら共通の台本の区画（日時・編の表示など）
     if (target < 0 && this.convertCommon) return this.convertCommon(target + 128);
     const list = this.refs.get(target) ?? [];
@@ -287,24 +286,8 @@ export class Context {
     );
   }
 
-  /** 法廷記録の人物ファイル → 人物（氏名が chars.json と一致すればその人物、なければ r番号） */
+  /** 法廷記録の人物ファイル → 人物 ID（人物の profile も書く）。people.ts */
   profile(rec: number): string {
-    const text = this.recordText(rec);
-    const p = text ? parseProfileName(text.name) : { name: `人物ファイル ${rec}` };
-    const bare = (x: string) => x.replace(/\s/g, '');
-    const k = Object.entries(this.t.chars).find(
-      ([, c]) => c.name && bare(c.name) === bare(p.name),
-    )?.[0];
-    const id = k !== undefined ? this.character(Number(k)) : `r${rec}`;
-    const ch = this.characters.get(id) ?? { name: p.name };
-    const name = k !== undefined ? this.t.chars[k]!.name! : p.name;
-    ch.profile = {
-      name,
-      ...(p.age !== undefined ? { age: p.age } : {}),
-      description: text?.desc ?? '',
-      icon: `r${rec}`,
-    };
-    this.characters.set(id, ch);
-    return id;
+    return profileId(this, rec);
   }
 }

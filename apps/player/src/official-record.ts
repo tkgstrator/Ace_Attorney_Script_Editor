@@ -2,21 +2,30 @@
 // 名前・説明文は、元のゲームでは文字を描き込んだ絵だが、ここではフォントで描く（その絵から作った小さい字のフォント）。
 // 絵のキーが「r<記録の番号>」か、変換した証拠品の ID「e<記録の番号>」なら、tables/evidence.json の番号の
 // アイコン（record/icon/ja/NNN.png、64×64）を使う。証拠品と人物ファイルは同じ表の番号を使う。
+// 逆転裁判2・3 の章（game = aa2 / aa3）は assets/extracted/aa2/・aa3/ の tables/evidence.json と record/icon/ja/ を使う。
+// 記録の後ろの絵は、どのゲームでも蘇る逆転の bg056 から作る（2・3 は取り出した絵の色の対応を調べていない）。
 import type { Assets } from '@gyakusai/runtime';
+import { GAME_ROOT, type OfficialGame } from './official-game.ts';
 
 interface RecordItem {
   id: number;
   image?: { icon?: { ja?: string } };
 }
 
-const X = '../../../assets/extracted';
-const table = import.meta.glob('../../../assets/extracted/tables/evidence.json', {
-  import: 'default',
-});
-const images = import.meta.glob('../../../assets/extracted/record/icon/ja/*.png', {
-  query: '?url',
-  import: 'default',
-});
+const table = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/evidence.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/evidence.json',
+  ],
+  { import: 'default' },
+);
+const images = import.meta.glob(
+  [
+    '../../../assets/extracted/record/icon/ja/*.png',
+    '../../../assets/extracted/{aa2,aa3}/record/icon/ja/*.png',
+  ],
+  { query: '?url', import: 'default' },
+);
 /** 法廷の絵（bg056）。DS 版の法廷記録の下画面の後ろにある絵と同じ構図（色は違う） */
 const courtBg = import.meta.glob('../../../assets/extracted/data/tail/bg/bg056_*.png', {
   query: '?url',
@@ -79,8 +88,12 @@ async function recordBackground(): Promise<HTMLCanvasElement | undefined> {
   return c;
 }
 
-export async function withOfficialRecord(base: Assets): Promise<Assets> {
-  const loader = Object.values(table)[0];
+export async function withOfficialRecord(
+  base: Assets,
+  game: OfficialGame = 'aa1',
+): Promise<Assets> {
+  const X = GAME_ROOT[game];
+  const loader = table[`${X}/tables/evidence.json`];
   if (!loader) return base;
   const items = ((await loader()) as { items: RecordItem[] }).items;
   const cache = new Map<string, CanvasImageSource | null>();

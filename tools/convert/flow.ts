@@ -1,5 +1,5 @@
 // 台本の区画の間の移動を、変換の前に静的に調べる（どの区画からどの区画へ行けるか）。
-import type { CmdOp, Entry } from './types.ts';
+import type { CmdOp, Entry, Op } from './types.ts';
 
 /** 区画 → そこから行ける区画（選択肢・飛ぶ・次の区画・ラベル・フラグ分岐） */
 export function staticTargets(entry: Entry, section: number): number[] {
@@ -182,4 +182,19 @@ export function nominationResults(entry: Entry, section: number): number[] {
   )
     end++;
   return entry.body[end + 1] ? [wrong, end + 1] : [wrong];
+}
+
+/**
+ * i の 53 から先の位置（ops[j]）への飛び越しを、ブロックにしてよいか:
+ * 間にある 53 のバイト位置の飛び先が、すべて at 以下で前向き
+ */
+export function nested(ops: Op[], i: number, j: number, at: number): boolean {
+  for (let k = i + 1; k < j; k++) {
+    const o = ops[k]!;
+    if (o.op !== 53) continue;
+    const t = o.target;
+    if (!t || t.section !== null) continue;
+    if (t.offset > at || t.offset <= o.at) return false;
+  }
+  return true;
 }

@@ -73,11 +73,27 @@ JSON を実行時に読み込む箇所（`verify-font.ts` が読む `katakana-st
 ```bash
 bun tools/sprites/generate.ts            # まだ無い元画像を生成（種類ごとに並列）→ assets/generated/raw/
 bun tools/sprites/generate.ts evidence   # 種類を指定（character / background / foreground / evidence）
-bun tools/sprites/process.ts             # 画面用のドット絵に縮めて apps/player/src/art/ に取り込む
+bun tools/sprites/process.ts             # 画面用のドット絵に縮め、DS の色の決まり（15 色・15 ビット色）に減色して apps/player/src/art/ に取り込む
 ```
 
 - 画像生成は Codex の利用枠を消費する（画像のあるやり取りは通常の 3〜5 倍の速さで減る）。
 - 人物は口パク用に、口を開けた絵（`<ID>-talk.png`）も作る。
+- 減色は人物・背景・机・証拠品とも 1 枚 15 色 + 透明、15 ビット色、ディザなし。人物は 1 人の全コマで 1 枚のパレットを共有し、
+  差分コマはベースで使った色だけで描く（方法は `tools/sprites/SPEC.md` §2「取り込むときの減色」）。
+- 立ち絵の決まり（キャンバス・色数・輪郭・動き・差分コマ・スプライトシート）は `tools/sprites/SPEC.md`、
+  立ち位置ごとの置き方は `tools/sprites/STAND_SPEC.md`。
+- 公式（DS 版）の画像の仕様（背景・机・吹き出し・証拠品・フォントなどの大きさ・色数・形式・置き方）は
+  [docs/official-assets.md](docs/official-assets.md)。数値は `uv run python tools/assets/measure.py` で測り直せる（手元のデータが要る）。
+
+生成した立ち絵は、決まりを守っているかを機械で確かめる（`process.ts` の最後にも自動で走る）。
+
+```bash
+bun tools/sprites/check.ts               # 色数・透過・アンチエイリアス・差分コマの範囲の外の変化・ずれ → assets/generated/check/
+bun tools/sprites/check.ts naruse --fix  # だめな差分コマを直したものも書き出す（元は残す）
+bun tools/sprites/sheet.ts make naruse   # 差分コマをまとめて描かせるスプライトシートと指示文
+bun tools/sprites/sheet.ts cut naruse <生成されたシート.png>   # 切り分けて位置を合わせ、確かめる
+uv run python tools/sprites/measure_official.py   # 仕様の根拠（DS 版のコマの統計）を測り直す（手元のデータが要る）
+```
 - まだ画像が無いものは、プレイヤーではコードで描いた仮の絵（`apps/player/src/placeholder-art.ts`）を使う。
 
 ## DS 版から取り出したフォント（手元用・配布しない）

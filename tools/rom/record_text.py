@@ -5,6 +5,9 @@
 """法廷記録（証拠品・人物ファイル）の名前と説明文を、画像（record/name, record/desc）から読む。
 
     uv run tools/rom/record_text.py [出力（assets/extracted/tables/record_text.json）]
+    uv run tools/rom/record_text.py --game aa2|aa3 [出力（<ゲームの置き場所>/tables/record_text.json）] [--reocr]
+
+--game を付けると逆転裁判2・3 の絵を読む（record_text23.py。蘇る逆転の字形で引き、無い字形は文字認識）。
 
 読み方: 絵を 1 字ずつの字形に切り分け（small_font_seg.py）、小さいフォントを作ったときの全字形の一覧
 （font/small/glyphs.json。small_font.py が書き出す）から、点の並びが完全に同じ字形を引いて文字にする。
@@ -61,6 +64,13 @@ def to_text(rows: list[list[str]], profile: bool = False) -> str:
 
 
 def main() -> None:
+    if '--game' in sys.argv:
+        from game import by_key
+        from record_text23 import run
+        k = sys.argv.index('--game')
+        args = [a for i, a in enumerate(sys.argv[1:], 1) if i not in (k, k + 1) and not a.startswith('--')]
+        run(by_key(sys.argv[k + 1]), args[0] if args else None, '--reocr' in sys.argv)
+        return
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(X, 'tables', 'record_text.json')
     fonts = load_fonts()
     lines = record_lines()

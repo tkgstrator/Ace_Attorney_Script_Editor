@@ -1,21 +1,37 @@
 // 元のゲームの重ね絵（47 anim）と、法廷の視点の流し（26）の絵と表（手元用・配布しない）。
 //   重ね絵: tables/anims47.json（画面上の原点 x, y と終わり方）＋ anims47/NNN/anim.tsv（コマと長さ、画像の中の原点）
 //   視点の流し: tables/bg_render.json の pan（全景の画像と、種類ごとの 1 フレームずつの表）
+// 逆転裁判2・3 の章（game = aa2 / aa3）は assets/extracted/aa2/・aa3/ の同じ名前の表と画像を使う（パンの絵の名前は
+// data.bin の位置で違うので、表の png_full に従う）。
 import type { Assets, PanFrame } from '@gyakusai/runtime';
+import { GAME_ROOT, type OfficialGame } from './official-game.ts';
 
-const X = '../../../assets/extracted';
-const animsTable = import.meta.glob('../../../assets/extracted/tables/anims47.json', {
-  import: 'default',
-});
-const renderTable = import.meta.glob('../../../assets/extracted/tables/bg_render.json', {
-  import: 'default',
-});
-const tsvs = import.meta.glob('../../../assets/extracted/anims47/*/anim.tsv', {
-  query: '?raw',
-  import: 'default',
-});
+const animsTable = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/anims47.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/anims47.json',
+  ],
+  { import: 'default' },
+);
+const renderTable = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/bg_render.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/bg_render.json',
+  ],
+  { import: 'default' },
+);
+const tsvs = import.meta.glob(
+  [
+    '../../../assets/extracted/anims47/*/anim.tsv',
+    '../../../assets/extracted/{aa2,aa3}/anims47/*/anim.tsv',
+  ],
+  { query: '?raw', import: 'default' },
+);
 const pngs = import.meta.glob(
-  '../../../assets/extracted/{anims47/*/*.png,data/tail/bg_fixed/court_pan_*.png}',
+  [
+    '../../../assets/extracted/{anims47/*/*.png,data/tail/bg_fixed/court_pan_*.png}',
+    '../../../assets/extracted/{aa2,aa3}/{anims47/*/*.png,data/tail/bg_fixed/court_pan_*.png}',
+  ],
   { query: '?url', import: 'default' },
 );
 
@@ -50,14 +66,16 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-export async function withOfficialStage(base: Assets): Promise<Assets> {
-  const a = Object.values(animsTable)[0],
-    r = Object.values(renderTable)[0];
+export async function withOfficialStage(base: Assets, game: OfficialGame = 'aa1'): Promise<Assets> {
+  const X = GAME_ROOT[game];
+  const a = animsTable[`${X}/tables/anims47.json`],
+    r = renderTable[`${X}/tables/bg_render.json`];
   if (!a || !r) return base;
   const defs = new Map(((await a()) as { anims: AnimDef[] }).anims.map((d) => [String(d.id), d]));
+  // パンが分かっていない表では null
   const pan = (
     (await r()) as {
-      pan: { image: { png_full: string }; types: Record<string, { frames: RawPanFrame[] }> };
+      pan: { image: { png_full: string }; types: Record<string, { frames: RawPanFrame[] }> } | null;
     }
   ).pan;
 
@@ -106,13 +124,14 @@ export async function withOfficialStage(base: Assets): Promise<Assets> {
 
   // 視点の流しの全景
   let panorama: HTMLImageElement | null = null;
-  void pngs[`${X}/${pan.image.png_full}`]?.()
-    .then((u) => loadImage(u as string))
-    .then((img) => {
-      panorama = img;
-    });
+  if (pan)
+    void pngs[`${X}/${pan.image.png_full}`]?.()
+      .then((u) => loadImage(u as string))
+      .then((img) => {
+        panorama = img;
+      });
   const panFrames = new Map<number, PanFrame[]>(
-    Object.entries(pan.types).map(([k, v]) => [
+    Object.entries(pan?.types ?? {}).map(([k, v]) => [
       Number(k),
       v.frames.map((f) => ({
         bgX: f.bg_x,

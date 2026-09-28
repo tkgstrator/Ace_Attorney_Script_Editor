@@ -1,6 +1,8 @@
 // ドット絵素材の一覧と、画像生成に渡す指示。
 // 人物・手前（机）・証拠品は透過、背景は不透明で作る。人物はすべてオリジナルのデザインにする。
 
+import type { Rect } from './checks.ts';
+
 export type Kind = 'character' | 'background' | 'foreground' | 'evidence';
 
 export interface Item {
@@ -10,6 +12,11 @@ export interface Item {
   subject: string;
   /** 参考として Codex に渡す画像（リポジトリのルートからのパス）。画角や画風をそろえるのに使う */
   refs?: string[];
+  /**
+   * 差分コマで変えてよい範囲（人物のみ）。キーはコマの名前の後ろ（'talk'・'blink2' など）か種類（'talk'・'blink'）、
+   * 値は加工後のコマの座標の矩形 [x, y, 幅, 高さ]。無ければチェッカーが違いの集まりから推定する（SPEC.md）
+   */
+  masks?: Record<string, Rect[]>;
 }
 
 export const STYLE = [
@@ -24,6 +31,7 @@ export const KIND_RULES: Record<Kind, string> = {
     'A three-quarter-length character sprite on a GENUINELY TRANSPARENT background (real alpha channel; no checkerboard, no solid color, no floor, no shadow).',
     'Portrait canvas. The head is near the top; the body continues BELOW THE WAIST AND HIPS and is cut off across the upper thighs at the bottom edge',
     '(the lower part will be hidden behind a desk in the game, so it must be fully drawn, not faded or cropped at the waist). Arms and hands inside the frame.',
+    'At most 15 colors for the whole character, a 1-dot outline in the darkest color (a dark tinted color, not pure black), 2 to 3 tone cel shading per material, light from the upper left, no semi-transparent pixels.',
     'Neutral expression, eyes open, mouth closed.',
     'If a reference screenshot is attached, match its camera angle and the size of the head and shoulders relative to the screen,',
     'but draw the character described here (not the one in the screenshot), ignore the text box, and do not stop the body where the desk hides it.',
@@ -61,6 +69,7 @@ export const ITEMS: Item[] = [
     subject:
       'a 24-year-old rookie male defense attorney with spiky dark navy hair, earnest determined eyes, blue suit, white shirt, red tie, a small golden sunflower badge on the lapel, body turned slightly to the right',
     refs: [FRAMING.defense!],
+    masks: { talk: [[89, 47, 16, 12]] },
   },
   {
     id: 'himuro',
@@ -68,6 +77,7 @@ export const ITEMS: Item[] = [
     subject:
       'a cool 32-year-old male prosecutor with neatly swept silver hair, thin rectangular glasses, sharp cold eyes, dark maroon three-piece suit with a white cravat, arms folded, body turned slightly to the left',
     refs: [FRAMING.prosecution!],
+    masks: { talk: [[54, 46, 16, 12]] },
   },
   {
     id: 'torii',
@@ -75,6 +85,7 @@ export const ITEMS: Item[] = [
     subject:
       'a 58-year-old male witness with short gray hair, a thick gray mustache, a shifty smug smile, brown jacket, cream shirt and green tie, hands clasped in front of his chest, facing the viewer',
     refs: [FRAMING.witness!],
+    masks: { talk: [[72, 52, 16, 12]] },
   },
   {
     id: 'judge',
@@ -82,6 +93,7 @@ export const ITEMS: Item[] = [
     subject:
       'an elderly bald male judge with a large bushy white beard and white side hair, kind but stern eyes, black judicial robe with white collar, facing the viewer',
     refs: [FRAMING.judge!],
+    masks: { talk: [[85, 46, 16, 12]] },
   },
   // 背景（立ち位置ごと）
   {

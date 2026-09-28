@@ -1,7 +1,8 @@
 // 項目（1 つの編の台本）を、シナリオの 1 つの編（part: シーンと場所）にする。章へのまとめは chapter.ts。
-import { Context, Shared, type InvPart } from './context.ts';
+import { Context, type InvPart, Shared } from './context.ts';
 import { convertExamine, prepareExamine } from './examine3d.ts';
 import { buildPlaces, initInvestigationFlags, prepareInvestigation } from './investigation.ts';
+import { prepareMinigames } from './minigames.ts';
 import { convertOps } from './section.ts';
 import { buildTestimonies } from './testimony.ts';
 import type { Entry, Op, Step, Tables } from './types.ts';
@@ -62,7 +63,7 @@ export function convertGroup(
   opts: { common: Entry | null; shared?: Shared; gpfx: string },
 ): PartResult[] {
   const probe = new Shared();
-  opts.shared?.profileRecords.forEach((r) => probe.profileRecords.add(r));
+  for (const r of opts.shared?.profileRecords ?? []) probe.profileRecords.add(r);
   const first = convertPass(
     t,
     members,
@@ -91,7 +92,7 @@ export function inlineSet(ctx: Context, entry: Entry): Set<number> {
     for (const [s, refs] of ctx.refs) {
       if (out.has(s) || refs.length !== 1 || !ok(s)) continue;
       const r = refs[0]!;
-      if (r.kind === 'choice' || out.has(r.from)) {
+      if (r.kind !== 'scene' && (r.kind === 'choice' || out.has(r.from))) {
         out.add(s);
         changed = true;
       }
@@ -138,9 +139,10 @@ function convertPass(
     setup(ctx, members[k]!, opts.common, inline[k]!);
     if (ctx.inv) {
       prepareInvestigation(ctx);
-      initInvestigationFlags(ctx);
+      if (t.game === 'aa1') initInvestigationFlags(ctx);
     }
     prepareExamine(ctx);
+    prepareMinigames(ctx);
   });
   const scenesOf = ctxs.map((ctx) => emitEntry(ctx, opts.common));
   ctxs.forEach(convertExamine);
@@ -154,6 +156,10 @@ function convertPass(
       if (emitRest(ctx, scenesOf[k]!)) changed = true;
     });
   }
+  // 遊びの画面など、区画のほかのシーン（場所のブロックに取り込んだ区画からも作るので最後に）
+  ctxs.forEach((ctx, k) => {
+    Object.assign(scenesOf[k]!, Object.fromEntries(ctx.extraScenes));
+  });
   return ctxs.map((ctx, k) => {
     const kind = ctx.inv ? 'investigation' : 'trial';
     const part: Record<string, unknown> = {

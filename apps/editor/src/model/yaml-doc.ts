@@ -7,7 +7,8 @@
 //   元の行と同じ内容の行だけ元に戻している（書き換えた行の揃えは崩れる）
 // - 新しく作ったノード（ステップの追加・複製など）は、この editor の決めた書式（短い値はフロー形式）で書かれる
 // - ステップの話し手を変えるなど、ノードごと置き換える操作では、そのノードの中のコメントは消える
-import { isCollection, isPair, isScalar, parseDocument, type Document, type Node } from 'yaml';
+import { type Document, isCollection, isPair, isScalar, type Node, parseDocument } from 'yaml';
+import type { RefTarget } from './refs.ts';
 
 export type Path = (string | number)[];
 
@@ -24,8 +25,8 @@ export type Op =
   | { op: 'renameKey'; path: Path; from: string; to: string }
   /** 値を丸ごと別の場所へ移す（ノードごと移すのでコメントも付いていく） */
   | { op: 'relocate'; from: Path; to: Path }
-  /** シーン・場所の ID を参照している所（goto・start.scene・investigate など）も書き換える */
-  | { op: 'renameRefs'; target: 'scene' | 'place'; from: string; to: string };
+  /** ID を参照している所（goto・start.scene・台詞の人物・条件式など）も書き換える（refs.ts） */
+  | { op: 'renameRefs'; target: RefTarget; from: string; to: string };
 
 export const STRINGIFY = { lineWidth: 0 } as const;
 

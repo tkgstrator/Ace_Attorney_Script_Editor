@@ -7,6 +7,8 @@
     uv run tools/rom/script_json.py <rom.nds または mes_all.bin> [項目の番号…] [--out assets/extracted/script/json] [--ocr]
     例: uv run tools/rom/script_json.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds 0 72 --ocr
 
+2・3 の ROM も読める（ゲームコードで見分ける。game.py）。出力先の既定は assets/extracted/aa2/script/json・aa3/script/json。
+
 --ocr: 選択肢の文（下画面のボタンの絵）を macOS の文字認識で読む（script_choices.py。ROM を渡したときだけ）。
 
 項目を省くと全部。出力は NNN.json（ROM の文を含むので、手元用・配布しない）:
@@ -39,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from charset import CODE_BASE  # noqa: E402
 from script_dump import entries, load_chars, read_mes  # noqa: E402
+from game import GAMES, detect_path  # noqa: E402
 from script_format import ARGC, OPCODES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,9 +55,9 @@ SECTION_ARGS: dict[int, tuple[int, ...]] = {
 LABEL_ARGS = {54: 0, 120: 0, 122: 0}
 
 
-def op_names() -> dict[int, str]:
+def op_names(tables: Path = TABLES) -> dict[int, str]:
     names = {k: v[0] for k, v in OPCODES.items()}
-    p = TABLES / 'opcodes.json'
+    p = tables / 'opcodes.json'
     if p.exists():
         names.update({int(k): v['name'] for k, v in json.loads(p.read_text(encoding='utf-8')).items()})
     return names
@@ -62,7 +65,10 @@ def op_names() -> dict[int, str]:
 
 def split_labels(entry: list[int]) -> tuple[list[list[int]], dict[str, dict]]:
     """区画とラベルに分ける（tbl_script.py の split_header と同じ判定）。
-    見出しのうち、位置が増えていき、そこの語が 0（nop）のものが区画。残りの末尾がラベル（区画 << 16 | バイト位置）"""
+    見出しのうち、位置が増えていき、そこの語が 0（nop）のものが区画。残りの末尾がラベル（区画 << 16 | バイト位置）。
+
+    3 の分割された項目（004 など）は見出しが前の項目の写しで、先頭の数個だけが本物の区画。
+    残りは古い値なので、区画の範囲に入らないものはラベルとしても捨てる（stale）"""
     n = entry[0] | entry[1] << 16
     heads = [entry[2 + 2 * i] | entry[3 + 2 * i] << 16 for i in range(n)]
     size = len(entry) * 2
@@ -72,12 +78,16 @@ def split_labels(entry: list[int]) -> tuple[list[list[int]], dict[str, dict]]:
     offs = [h // 2 for h in heads[:k]] + [len(entry)]
     secs = [entry[offs[i]:offs[i + 1]] for i in range(k)]
     labels = {str(i): {'section': heads[i] >> 16, 'offset': heads[i] & 0xFFFE} for i in range(k, n)}
-    assert all(v['section'] < k for v in labels.values()), 'ラベルの区画が範囲外'
+    bad = [i for i, v in labels.items() if v['section'] >= k or v['offset'] >= len(secs[v['section']]) * 2]
+    if bad and len(bad) < len(labels) // 2:
+        raise AssertionError(f'ラベルの区画が範囲外: {bad[:5]}')
+    for i in bad:
+        del labels[i]
     return secs, labels
 
 
 def decode_section(s: list[int], chars: dict[int, str], names: dict[int, str],
-                   labels: dict[str, dict]) -> list[dict]:
+                   labels: dict[str, dict], argc: dict[int, int] = ARGC) -> list[dict]:
     out: list[dict] = []
     i = 0
     while i < len(s):
@@ -90,7 +100,7 @@ def decode_section(s: list[int], chars: dict[int, str], names: dict[int, str],
             out.append({'at': i * 2, 'op': 'text', 'text': txt})
             i = j
             continue
-        n = ARGC.get(w, 0)
+        n = argc.get(w, 0)
         args = list(s[i + 1:i + 1 + n])
         o: dict = {'at': i * 2, 'op': w, 'name': names.get(w, f'op{w}'), 'args': args}
         if w in SECTION_ARGS:
@@ -107,9 +117,11 @@ def decode_section(s: list[int], chars: dict[int, str], names: dict[int, str],
     return out
 
 
-def export(entry: list[int], idx: int, chars: dict[int, str], names: dict[int, str], a9=None, use_ocr=False) -> dict:
+def export(entry: list[int], idx: int, chars: dict[int, str], names: dict[int, str], a9=None, use_ocr=False,
+           game=None) -> dict:
+    g = game or GAMES['AGYJ']
     secs, labels = split_labels(entry)
-    body = [{'section': k, 'ops': decode_section(s, chars, names, labels)} for k, s in enumerate(secs)]
+    body = [{'section': k, 'ops': decode_section(s, chars, names, labels, g.argc)} for k, s in enumerate(secs)]
     lang = 'en' if idx % 2 else 'ja'
     out = {'entry': idx, 'lang': lang, 'sections': len(secs), 'labels': labels, 'body': body}
     if a9 is not None:
@@ -123,7 +135,7 @@ def main() -> None:
     args = sys.argv[1:]
     if not args:
         sys.exit(__doc__)
-    out = ROOT / 'assets/extracted/script/json'
+    out = None
     if '--out' in args:
         k = args.index('--out')
         out = Path(args[k + 1])
@@ -131,15 +143,17 @@ def main() -> None:
     use_ocr = '--ocr' in args
     args = [a for a in args if a != '--ocr']
     src, picks = args[0], [int(a) for a in args[1:]]
+    g = detect_path(src)
+    out = out or g.script / 'json'
     a9 = None
     if src.endswith('.nds'):
         from arm9 import Arm9
         a9 = Arm9(open(src, 'rb').read())
     out.mkdir(parents=True, exist_ok=True)
-    chars, names = load_chars(), op_names()
+    chars, names = load_chars(g), op_names(g.tables)
     ents = entries(read_mes(src))
     for i in picks or range(len(ents)):
-        data = export(ents[i], i, chars, names, a9, use_ocr)
+        data = export(ents[i], i, chars, names, a9, use_ocr, g)
         (out / f'{i:03}.json').write_text(json.dumps(data, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     print(f'{len(picks) or len(ents)} 項目を {out} に書き出しました')
 

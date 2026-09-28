@@ -13,6 +13,12 @@
 - BGM と SE は同じ番号の空間（bgm で SE 名の曲、se で BGM 名の曲を鳴らす例もある）。
   名前（SYMB）は BGMnnn（10 進）と SE0xx（16 進、番号 - 0x2a）。どの PLAYER で鳴るかは INFO の playerNo が決める。
 - 書き出された .sseq のファイル名は同じ中身（fileId）の最初の名前になる（sound.py の命名に合わせる）。
+
+2・3 の ROM も読める（ゲームコードで見分ける。出力の既定は assets/extracted/aa2/tables/sound.json など）:
+  逆転裁判2: 名前 → 文字送りの音 0x0208c6d4（命令 14 の 0x0202b994）、文字送りの音の mov 0x02025570 / 0x02025578 / 0x02025594、
+             英語の速さの表 0x02095164（0x020256c4）。
+  逆転裁判3: 名前 → 文字送りの音 0x020a3b7c（0x0202caa0）、mov 0x0202532c / 0x02025320 / 0x0202530c、英語の速さ 0x020ae0b0（0x020251e4）。
+  英語の SE の置き換え（EN_REMAP）は 2・3 では調べていない（日本語だけを使うので空にする）。
 """
 import json
 import re
@@ -22,6 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from arm9 import Arm9  # noqa: E402
+from game import detect  # noqa: E402
 from nds import list_files  # noqa: E402
 
 # 英語（0x020ceda8+4 == 1）のときの se の置き換え（0x020258f8 の比較の並び。リテラル 0x02025988〜）
@@ -86,13 +93,22 @@ def players(sdat: bytes) -> list[dict]:
     return out
 
 
+#: ゲームごとの番地（文字送りの音の mov、名前 → 種類の表、英語の速さの表、英語の SE の置き換え）
+BY_GAME = {
+    'AGYJ': (BLIP_MOVS, NAME_KIND_TABLE, EN_SPEED_TABLE, EN_REMAP),
+    'A2GJ': ({0: 0x02025570, 1: 0x02025578, 2: 0x02025594}, 0x0208c6d4, 0x02095164, {}),
+    'YG3J': ({0: 0x0202532c, 1: 0x02025320, 2: 0x0202530c}, 0x020a3b7c, 0x020ae0b0, {}),
+}
+
+
 def build(rom: bytes) -> dict:
     a = Arm9(rom)
+    movs, kind_table, speed_table, remap = BY_GAME[detect(rom).code]
     f = next(f for f in list_files(rom) if f.path.endswith('sound_data.sdat'))
     seqs = sequences(rom[f.start:f.end])
-    blip_ids = {k: _mov_imm(a, ad) for k, ad in BLIP_MOVS.items()}
-    kinds = list(a.read(NAME_KIND_TABLE, NAME_KIND_COUNT))
-    en_speed = [a.u32(EN_SPEED_TABLE + 4 * i) for i in range(16)]
+    blip_ids = {k: _mov_imm(a, ad) for k, ad in movs.items()}
+    kinds = list(a.read(kind_table, NAME_KIND_COUNT))
+    en_speed = [a.u32(speed_table + 4 * i) for i in range(16)]
     by = lambda p: {str(i): v for i, v in seqs.items() if v['name'].startswith(p)}  # noqa: E731
     return {
         'note': '台本の番号 = SDAT のシーケンスの添字（表による変換なし）。bgm/se は同じ番号空間。'
@@ -101,7 +117,7 @@ def build(rom: bytes) -> dict:
         'bgm': by('BGM'),
         'se': by('SE'),
         'other': {str(i): v for i, v in seqs.items() if not v['name'].startswith(('BGM', 'SE'))},
-        'se_en_remap': {str(k): {'to': v, 'name': seqs[v]['name']} for k, v in EN_REMAP.items()},
+        'se_en_remap': {str(k): {'to': v, 'name': seqs[v]['name']} for k, v in remap.items()},
         'blip': {
             'kinds': {str(k): {'sseq': v, 'name': seqs[v]['name'], 'file': seqs[v]['file'],
                                'player': seqs[v]['player']} for k, v in blip_ids.items()},
@@ -137,7 +153,7 @@ def main() -> None:
     if not args:
         sys.exit(__doc__)
     rom = Path(args[0]).read_bytes()
-    out = Path(args[1] if len(args) > 1 else 'assets/extracted/tables/sound.json')
+    out = Path(args[1] if len(args) > 1 else detect(rom).tables / 'sound.json')
     table = build(rom)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(table, ensure_ascii=False, indent=1))
