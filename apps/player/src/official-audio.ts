@@ -1,7 +1,9 @@
 // ROM から取り出して WAV / Ogg に書き出した DS 版の BGM・効果音（assets/extracted/sound/rendered/、手元用・配布しない）。
 // tools/rom/sseq_render.py が作る。音の ID は SDAT の名前（BGM018、SE019 など）で、
 // 元の台本の [bgm N] / [se N] の N は SDAT のシーケンス番号（index.json の sdatIndex）に当たる。
+// 逆転裁判2・3 の章（game = aa2 / aa3）は assets/extracted/aa2/・aa3/sound/rendered/（同じ作り。台本の番号も SDAT の番号）。
 import type { AudioSource, AudioSources } from '@gyakusai/runtime';
+import { GAME_ROOT, type OfficialGame } from './official-game.ts';
 
 interface Item {
   name: string;
@@ -11,19 +13,27 @@ interface Item {
   loop?: { start: number; end: number };
 }
 
-const index = import.meta.glob('../../../assets/extracted/sound/rendered/index.json', {
-  eager: true,
-  import: 'default',
-}) as Record<string, { items: Item[] }>;
+const index = import.meta.glob(
+  [
+    '../../../assets/extracted/sound/rendered/index.json',
+    '../../../assets/extracted/{aa2,aa3}/sound/rendered/index.json',
+  ],
+  { eager: true, import: 'default' },
+) as Record<string, { items: Item[] }>;
 // Opus（.ogg）は音を削る圧縮と 48 kHz への変換で音色が少し変わるので、書き出したままの WAV（32,728 Hz）を鳴らす
-const wavs = import.meta.glob('../../../assets/extracted/sound/rendered/*/*.wav', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-}) as Record<string, string>;
+const wavs = import.meta.glob(
+  [
+    '../../../assets/extracted/sound/rendered/*/*.wav',
+    '../../../assets/extracted/{aa2,aa3}/sound/rendered/*/*.wav',
+  ],
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>;
+
+const rendered = (game: OfficialGame) => `${GAME_ROOT[game]}/sound/rendered`;
+const itemsOf = (game: OfficialGame) => index[`${rendered(game)}/index.json`]?.items ?? [];
 
 /**
- * サンプルのシナリオで使う意味の名前 → DS 版の音の名前。試聴ページ（assets/extracted/sound/rendered/index.html）で
+ * サンプルのシナリオで使う意味の名前 → DS 版の音の名前（2・3 も文字送りの音などは同じ名前: tables/sound.json の blip）。試聴ページ（assets/extracted/sound/rendered/index.html）で
  * 聞いて埋める。ここにない名前は、sounds.ts の合成した仮の音で鳴らす
  */
 const ALIASES: Record<string, string> = {
@@ -42,21 +52,21 @@ const ALIASES: Record<string, string> = {
 };
 
 /** 先に読み込んでおく効果音（文字送り・UI の音と、DS 版の全効果音） */
-export function soundIdsToPreload(): string[] {
-  const items = Object.values(index)[0]?.items ?? [];
+export function soundIdsToPreload(game: OfficialGame = 'aa1'): string[] {
+  const items = itemsOf(game);
   return [...Object.keys(ALIASES), ...items.filter((i) => i.category === 'se').map((i) => i.name)];
 }
 
-export function isOfficialAudioAvailable(): boolean {
-  return Object.keys(index).length > 0;
+export function isOfficialAudioAvailable(game: OfficialGame = 'aa1'): boolean {
+  return itemsOf(game).length > 0;
 }
 
 /** DS 版の音（名前か、ALIASES の意味の名前で引く）。なければ fallback で鳴らす */
-export function officialSounds(fallback: AudioSources): AudioSources {
-  const items = Object.values(index)[0]?.items ?? [];
+export function officialSounds(fallback: AudioSources, game: OfficialGame = 'aa1'): AudioSources {
+  const items = itemsOf(game);
   const byName = new Map<string, AudioSource>();
   for (const it of items) {
-    const url = Object.entries(wavs).find(([p]) => p.endsWith(`/${it.wav}`))?.[1];
+    const url = wavs[`${rendered(game)}/${it.wav}`];
     if (!url) continue;
     byName.set(
       it.name,

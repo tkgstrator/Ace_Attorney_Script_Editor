@@ -65,21 +65,27 @@ if (scenario) {
   }
 
   let engine = new Engine(scenario);
-  // 絵の切り替え。ROM から取り出した DS 版の絵（手元用）があれば、それを使う。?art=generated で生成したドット絵
+  // 絵の切り替え。ROM から取り出した DS 版の絵（手元用）があれば、それを使う。?art=generated で生成したドット絵。
+  // 逆転裁判2・3 から変換した章は、そのゲームの絵と音（chosen.game）
+  const game = chosen.game;
   const official =
-    new URLSearchParams(location.search).get('art') !== 'generated' && isOfficialAvailable();
+    new URLSearchParams(location.search).get('art') !== 'generated' && isOfficialAvailable(game);
   const generated = await loadImageAssets(createPlaceholderAssets());
   const assets = official
     ? await withOfficialUi(
         await withOfficialStage(
-          await withOfficialRecord(await withOfficialAnims(await loadOfficialAssets(generated))),
+          await withOfficialRecord(
+            await withOfficialAnims(await loadOfficialAssets(generated, game), game),
+            game,
+          ),
+          game,
         ),
       )
     : generated;
   const art = $<HTMLSelectElement>('art');
   art.value = official ? 'official' : 'generated';
   art.querySelector<HTMLOptionElement>('option[value="official"]')!.disabled =
-    !isOfficialAvailable();
+    !isOfficialAvailable(game);
   art.addEventListener('change', () => {
     const url = new URL(location.href);
     if (art.value === 'generated') url.searchParams.set('art', 'generated');
@@ -88,12 +94,12 @@ if (scenario) {
   });
   const fonts = await loadDsFont();
   // 音: DS 版の音を取り出してあれば、それ（名前で指定したもの・割り当てたもの）を優先し、なければ合成した仮の音
-  const officialAudio = official && isOfficialAudioAvailable();
-  const audio = createAudio(officialAudio ? officialSounds(sampleSounds()) : sampleSounds());
+  const officialAudio = official && isOfficialAudioAvailable(game);
+  const audio = createAudio(officialAudio ? officialSounds(sampleSounds(), game) : sampleSounds());
   // 効果音は先に読み込んでおく（初めて鳴らすときに遅れないように。待たずに進める）
   void audio.preload?.(
     officialAudio
-      ? soundIdsToPreload()
+      ? soundIdsToPreload(game)
       : [
           'blip_male',
           'blip_female',

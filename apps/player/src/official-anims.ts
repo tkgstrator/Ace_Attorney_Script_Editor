@@ -1,7 +1,9 @@
 // 元の台本から変換した章のための、DS 版の人物の動き（動きの番号）と背景（背景の番号）。手元用・配布しない。
 //   人物: tables/char_anims.json の動きの番号 → data/tail/chars/by_anim/NNN/fNN.png（使うときに読み込む）
 //   背景: location「bg<番号>」→ tables/bg_render.json（形を直した画像 png_fixed と、最初の表示位置 start）
+// 逆転裁判2・3 の章（game = aa2 / aa3）は assets/extracted/aa2/・aa3/ の同じ名前の表と画像を使う。
 import type { Assets } from '@gyakusai/runtime';
+import { GAME_ROOT, type OfficialGame } from './official-game.ts';
 
 interface AnimDef {
   origin: [number, number];
@@ -9,25 +11,38 @@ interface AnimDef {
   end: 'loop' | 'hold' | 'delete';
 }
 
-const X = '../../../assets/extracted';
-const animTable = import.meta.glob('../../../assets/extracted/tables/char_anims.json', {
-  import: 'default',
-});
-const animPngs = import.meta.glob('../../../assets/extracted/data/tail/chars/by_anim/*/f*.png', {
-  query: '?url',
-  import: 'default',
-});
-const bgRender = import.meta.glob('../../../assets/extracted/tables/bg_render.json', {
-  import: 'default',
-});
-const bgPngs = import.meta.glob('../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png', {
-  query: '?url',
-  import: 'default',
-});
+const animTable = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/char_anims.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/char_anims.json',
+  ],
+  { import: 'default' },
+);
+const animPngs = import.meta.glob(
+  [
+    '../../../assets/extracted/data/tail/chars/by_anim/*/f*.png',
+    '../../../assets/extracted/{aa2,aa3}/data/tail/chars/by_anim/*/f*.png',
+  ],
+  { query: '?url', import: 'default' },
+);
+const bgRender = import.meta.glob(
+  [
+    '../../../assets/extracted/tables/bg_render.json',
+    '../../../assets/extracted/{aa2,aa3}/tables/bg_render.json',
+  ],
+  { import: 'default' },
+);
+const bgPngs = import.meta.glob(
+  [
+    '../../../assets/extracted/data/tail/{bg,bg_fixed}/*.png',
+    '../../../assets/extracted/{aa2,aa3}/data/tail/{bg,bg_fixed}/*.png',
+  ],
+  { query: '?url', import: 'default' },
+);
 
 interface BgDef {
   id: number;
-  png: string;
+  png: string | null;
   png_fixed?: string;
   start: [number, number];
 }
@@ -49,9 +64,10 @@ interface Loaded {
 }
 
 /** 動きの番号と背景の番号で引ける Assets を、base に重ねて作る */
-export async function withOfficialAnims(base: Assets): Promise<Assets> {
-  const tableLoader = Object.values(animTable)[0];
-  const bgLoader = Object.values(bgRender)[0];
+export async function withOfficialAnims(base: Assets, game: OfficialGame = 'aa1'): Promise<Assets> {
+  const X = GAME_ROOT[game];
+  const tableLoader = animTable[`${X}/tables/char_anims.json`];
+  const bgLoader = bgRender[`${X}/tables/bg_render.json`];
   if (!tableLoader || !bgLoader) return base;
   const table = ((await tableLoader()) as { anims: Record<string, AnimDef> }).anims;
 
@@ -59,7 +75,8 @@ export async function withOfficialAnims(base: Assets): Promise<Assets> {
   const bgFile = new Map<string, string>();
   const bgStart = new Map<string, [number, number]>();
   for (const b of ((await bgLoader()) as { backgrounds: BgDef[] }).backgrounds) {
-    bgFile.set(`bg${b.id}`, `${X}/${b.png_fixed ?? b.png}`);
+    const png = b.png_fixed ?? b.png;
+    if (png) bgFile.set(`bg${b.id}`, `${X}/${png}`);
     bgStart.set(`bg${b.id}`, b.start);
   }
   const backgrounds = new Map<string, HTMLImageElement | null>();
