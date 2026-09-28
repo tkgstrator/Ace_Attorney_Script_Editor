@@ -3,11 +3,15 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { type ReactNode, useRef, useState, useSyncExternalStore } from 'react';
 import { pathKey } from '@/model/paths.ts';
+import { stepGroup } from '@/model/step-groups.ts';
 import { stepSummary } from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useRevealListener } from '../reveal.ts';
+import { useViewSettings } from './view-store.ts';
 
 let signal = { serial: 0, open: true };
+/** 「すべて折りたたむ」を押した回数（隠した種類の開いたかたまりも閉じ直す） */
+let closeSerial = 0;
 const listeners = new Set<() => void>();
 const subscribe = (fn: () => void) => {
   listeners.add(fn);
@@ -19,6 +23,7 @@ const subscribe = (fn: () => void) => {
 /** 入れ子の枠をすべて折りたたむ（open = false）・開く */
 export function foldAll(open: boolean): void {
   signal = { serial: signal.serial + 1, open };
+  if (!open) closeSerial++;
   for (const fn of listeners) fn();
 }
 
@@ -28,6 +33,11 @@ export function resetFold(): void {
 }
 
 export const foldState = () => signal.open;
+
+/** 「すべて折りたたむ」を押すたびに変わる数 */
+export function useFoldSerial(): number {
+  return useSyncExternalStore(subscribe, () => closeSerial);
+}
 
 function useFold(): [boolean, (o: boolean) => void] {
   const [open, setOpen] = useState(() => signal.open);
@@ -58,6 +68,14 @@ export function Nested({
   const [open, setOpen] = useFold();
   const box = useRevealListener<HTMLDivElement>(!open, () => setOpen(true));
   const list = Array.isArray(steps) ? steps : [];
+  // 折りたたんだときの要約には、隠した種類のステップを出さない
+  const { hidden } = useViewSettings();
+  const summary = open
+    ? []
+    : list.filter((s) => {
+        const g = stepGroup(s);
+        return g === null || !hidden.has(g);
+      });
   const Icon = open ? ChevronDown : ChevronRight;
   return (
     <div
@@ -85,13 +103,15 @@ export function Nested({
         children
       ) : (
         <ul className="mb-1 space-y-0.5 text-[11px] text-muted-foreground">
-          {list.slice(0, 3).map((s, i) => (
+          {summary.slice(0, 3).map((s, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: 並べ替えない読むだけの要約
             <li key={i} className="truncate">
               {stepSummary(s)}
             </li>
           ))}
-          {list.length > 3 && <li>…ほか {list.length - 3} ステップ</li>}
+          {list.length > Math.min(3, summary.length) && (
+            <li>…ほか {list.length - Math.min(3, summary.length)} ステップ</li>
+          )}
         </ul>
       )}
     </div>

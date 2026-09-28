@@ -19,6 +19,7 @@ import { PlaceEditor } from './place/PlaceEditor.tsx';
 import { focusTarget, revealPath } from './reveal.ts';
 import { foldAll, resetFold } from './steps/Nested.tsx';
 import { StepList } from './steps/StepList.tsx';
+import { ViewBar } from './steps/ViewBar.tsx';
 import { TestimonyEditor } from './TestimonyEditor.tsx';
 import { CharactersTable, EvidenceTable, FlagsTable } from './tables/RecordTables.tsx';
 import { YamlEditor } from './YamlEditor.tsx';
@@ -86,6 +87,7 @@ export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
         body = (
           <div className="space-y-4">
             <Header kicker={partLabel(data, selection.part)} title={`場所: ${selection.id}`} />
+            <ViewBar />
             <PlaceEditor
               key={pathKey(path)}
               path={path}
@@ -212,6 +214,7 @@ function SceneEditor({
           <Play /> ここから再生
         </Button>
       </Header>
+      <ViewBar />
       {testimony ? (
         <TestimonyEditor key={pathKey(path)} path={path} scene={scene} />
       ) : (

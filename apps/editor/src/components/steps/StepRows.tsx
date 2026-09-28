@@ -1,11 +1,13 @@
 // ステップ列の行（ドロップの受け口とカード）。長い列では、行を CHUNK 個ずつのまとまりにして、
-// 1 文字の編集で描き直すのを、変わった行のあるまとまりだけにする。遠くの行は空の箱にしておく（Lazy）
+// 1 文字の編集で描き直すのを、変わった行のあるまとまりだけにする。遠くの行は空の箱にしておく（Lazy）。
+// 隠した種類の連続する行は、1 行（FoldRow）にまとめる
 import { memo, type ReactNode, useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { pathKey } from '@/model/paths.ts';
 import type { Rows } from '@/model/row-keys.ts';
+import { chunkRanges, foldUnits } from '@/model/step-groups.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useRevealListener } from '../reveal.ts';
+import { DropLine, FoldRow } from './FoldRow.tsx';
 import { StepCard } from './StepCard.tsx';
 import type { StepOps } from './StepList.tsx';
 
@@ -17,38 +19,49 @@ export function StepRows({
   listPath,
   ops,
   dropAt,
+  visible,
 }: {
   rows: Rows<unknown>;
   listPath: Path;
   ops: StepOps;
   dropAt: number | null;
+  /** 行ごとに見せるか（null ならすべて見せる） */
+  visible: boolean[] | null;
 }) {
   const count = rows.items.length;
   const lazy = count > LAZY_FROM;
-  const chunks: ReactNode[] = [];
-  for (let start = 0; start < count; start += CHUNK) {
-    const end = Math.min(count, start + CHUNK);
-    chunks.push(
-      <Chunk
-        key={start}
-        start={start}
-        items={rows.items.slice(start, end)}
-        keys={rows.keys.slice(start, end)}
-        count={count}
-        listPath={listPath}
-        ops={ops}
-        lazy={lazy}
-        dropAt={dropAt !== null && dropAt >= start && dropAt <= end ? dropAt : null}
-      />,
-    );
-  }
-  return chunks;
+  const ranges: [number, number][] = [];
+  if (visible) ranges.push(...chunkRanges(visible, CHUNK));
+  else for (let s = 0; s < count; s += CHUNK) ranges.push([s, Math.min(count, s + CHUNK)]);
+  return ranges.map(([start, end]) => (
+    <Chunk
+      key={start}
+      start={start}
+      items={rows.items.slice(start, end)}
+      keys={rows.keys.slice(start, end)}
+      vis={
+        visible
+          ? visible
+              .slice(start, end)
+              .map((v) => (v ? '1' : '0'))
+              .join('')
+          : ''
+      }
+      count={count}
+      listPath={listPath}
+      ops={ops}
+      lazy={lazy}
+      dropAt={dropAt !== null && dropAt >= start && dropAt <= end ? dropAt : null}
+    />
+  ));
 }
 
 interface ChunkProps {
   start: number;
   items: unknown[];
   keys: string[];
+  /** 行ごとに見せるか（'1' / '0'）。空ならすべて見せる */
+  vis: string;
   count: number;
   listPath: Path;
   ops: StepOps;
@@ -60,15 +73,36 @@ const sameItems = (a: unknown[], b: unknown[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
 
 const Chunk = memo(
-  function Chunk({ start, items, keys, count, listPath, ops, lazy, dropAt }: ChunkProps) {
-    return items.map((step, k) => {
-      const i = start + k;
+  function Chunk({ start, items, keys, vis, count, listPath, ops, lazy, dropAt }: ChunkProps) {
+    const units = vis
+      ? foldUnits(
+          [...vis].map((c) => c === '1'),
+          start,
+        )
+      : items.map((_, k) => ({ row: start + k }));
+    return units.map((u) => {
+      if ('fold' in u) {
+        const [a, b] = u.fold;
+        return (
+          <FoldRow
+            key={`fold-${keys[a - start]}`}
+            listPath={listPath}
+            start={a}
+            end={b}
+            items={items.slice(a - start, b - start + 1)}
+            ops={ops}
+            drop={dropAt === a ? 'top' : dropAt === b + 1 && b === count - 1 ? 'bottom' : null}
+          />
+        );
+      }
+      const i = u.row;
+      const k = i - start;
       return (
         <Row
           key={keys[k]}
           rowKey={keys[k]!}
           listPath={listPath}
-          step={step}
+          step={items[k]}
           index={i}
           count={count}
           ops={ops}
@@ -81,6 +115,7 @@ const Chunk = memo(
   (a, b) =>
     a.start === b.start &&
     a.count === b.count &&
+    a.vis === b.vis &&
     a.listPath === b.listPath &&
     a.ops === b.ops &&
     a.lazy === b.lazy &&
@@ -195,16 +230,5 @@ function Lazy({ pathKey: key, children }: { pathKey: string; children: ReactNode
         style={{ height: height.current }}
       />
     </div>
-  );
-}
-
-function DropLine({ top }: { top?: boolean }) {
-  return (
-    <div
-      className={cn(
-        'pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded bg-blue-500',
-        top ? '-top-0.5' : '-bottom-0.5',
-      )}
-    />
   );
 }
