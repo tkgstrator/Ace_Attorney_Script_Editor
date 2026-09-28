@@ -1,12 +1,14 @@
 // 入力欄の小さな部品。値の書き込みは useActions().edit で、パスを指定して行う。
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { isValidId, pathKey } from '@/model/paths.ts';
 import type { Path } from '@/model/yaml-doc.ts';
-import { useActions, useEditorState } from '@/state/editor-store.tsx';
+import { useActions, useDraft, useEditorState } from '@/state/editor-store.tsx';
+
+export { CondInput } from './cond-input.tsx';
 
 /** パスに値を書く関数（空文字なら省略＝キーを消す、を選べる） */
 export function useSetter() {
@@ -38,6 +40,7 @@ export function Field({
   hint?: string;
 }) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: 入力欄は children で渡す（label の中に入る）
     <label className={cn('flex min-w-0 flex-col gap-1', className)} title={hint}>
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
@@ -55,6 +58,8 @@ interface TextProps {
   mono?: boolean;
   className?: string;
   'aria-label'?: string;
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
 }
 
 /** 文字列の値を編集する欄 */
@@ -73,32 +78,20 @@ export function TextInput({
     typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
   const onChange = (s: string) => (optional ? setOptional(path, s, true) : set(path, s, true));
   const cls = cn(mono && 'font-mono text-xs', className);
-  if (multiline) {
+  const common = {
+    value: v,
+    placeholder,
+    onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+    'aria-label': rest['aria-label'],
+    'aria-invalid': rest['aria-invalid'],
+    'aria-describedby': rest['aria-describedby'],
+    'data-path': pathKey(path),
+  };
+  if (multiline)
     return (
-      <Textarea
-        className={cn('min-h-9 min-w-full resize-none py-1.5', cls)}
-        rows={1}
-        value={v}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={rest['aria-label']}
-      />
+      <Textarea className={cn('min-h-9 min-w-full resize-none py-1.5', cls)} rows={1} {...common} />
     );
-  }
-  return (
-    <Input
-      className={cn('h-8', cls)}
-      value={v}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={rest['aria-label']}
-    />
-  );
-}
-
-/** 条件式の欄 */
-export function CondInput(props: Omit<TextProps, 'mono'>) {
-  return <TextInput mono placeholder="条件式（例: has(repair) and not asked）" {...props} />;
+  return <Input className={cn('h-8', cls)} {...common} />;
 }
 
 /** 数値の欄。空にすると省略（optional のとき） */
@@ -109,6 +102,7 @@ export function NumberInput({
   className,
   min,
   step,
+  ...rest
 }: {
   path: Path;
   value: unknown;
@@ -116,6 +110,7 @@ export function NumberInput({
   className?: string;
   min?: number;
   step?: number;
+  'aria-label'?: string;
 }) {
   const { set, setOptional } = useSetter();
   return (
@@ -124,6 +119,8 @@ export function NumberInput({
       className={cn('h-8 w-24', className)}
       min={min}
       step={step}
+      aria-label={rest['aria-label']}
+      data-path={pathKey(path)}
       value={typeof value === 'number' ? value : ''}
       onChange={(e) => {
         const s = e.target.value;
@@ -151,6 +148,8 @@ interface IdSelectProps {
   noneLabel?: string;
   labels?: Record<string, string>;
   className?: string;
+  /** 診断から開いたときにフォーカスするためのパス */
+  path?: Path;
   'aria-label'?: string;
 }
 
@@ -163,6 +162,7 @@ export function IdSelect({
   noneLabel,
   labels,
   className,
+  path,
   ...rest
 }: IdSelectProps) {
   const current = value === null ? NULL : value === undefined ? NONE : String(value);
@@ -173,6 +173,9 @@ export function IdSelect({
       className={cn('h-8 min-w-28', unknown && 'border-destructive text-destructive', className)}
       value={current}
       aria-label={rest['aria-label']}
+      aria-invalid={unknown || undefined}
+      title={unknown ? `「${String(value)}」はこの章にありません` : undefined}
+      data-path={path ? pathKey(path) : undefined}
       onChange={(e) => {
         const v = e.target.value;
         onChange(v === NULL ? null : v === NONE ? undefined : v);
@@ -220,21 +223,33 @@ export function IdChips({
   options,
   labels,
   onChange,
+  path,
+  ...rest
 }: {
   value: string[];
   options: string[];
   labels?: Record<string, string>;
   onChange: (v: string[]) => void;
+  path?: Path;
+  'aria-label': string;
 }) {
   const all = [...options, ...value.filter((v) => !options.includes(v))];
   return (
-    <div className="flex flex-wrap gap-1">
+    // biome-ignore lint/a11y/useSemanticElements: 見た目を変えずにまとまりの名前を付けるため
+    <div
+      className="flex flex-wrap gap-1"
+      role="group"
+      aria-label={rest['aria-label']}
+      data-path={path ? pathKey(path) : undefined}
+    >
       {all.map((id) => {
         const on = value.includes(id);
         return (
           <button
             key={id}
             type="button"
+            aria-pressed={on}
+            title={options.includes(id) ? id : `「${id}」はこの章にありません`}
             className={cn(
               'rounded-full border px-2 py-0.5 text-xs transition-colors',
               on
@@ -276,49 +291,71 @@ export function Section({
   );
 }
 
-/** マップのキー（ID）の欄。確定（Enter かフォーカスを外す）したときに名前を変える */
+/**
+ * マップのキー（ID）の欄。確定（Enter かフォーカスを外す）したときに名前を変える。
+ * 正しくない ID は入力を残したまま理由を欄の下に出す（Esc で元に戻す）。保存の前にも確かめる
+ */
 export function KeyInput({
   value,
   taken,
   onRename,
   className,
+  label = 'ID',
 }: {
   value: string;
   taken: string[];
   onRename: (to: string) => void;
   className?: string;
+  label?: string;
 }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const input = useRef<HTMLInputElement>(null);
+  const errorId = useId();
   const error =
     draft === value
       ? null
       : !isValidId(draft)
-        ? 'ID は英字・数字・_ で、先頭は英字か _'
+        ? 'ID は英字・数字・_ で、先頭は英字か _ にしてください'
         : taken.includes(draft)
-          ? 'すでに使われています'
+          ? 'この ID はすでに使われています'
           : null;
-  const commit = () => {
-    if (draft === value) return;
-    if (error) {
-      setDraft(value);
-      return;
-    }
+  /** 最後に反映した下書き（欄がなくなるときに、もう一度反映しないため） */
+  const done = useRef<string | null>(null);
+  useEffect(() => {
+    setDraft(value);
+    done.current = null;
+  }, [value]);
+  const commit = (): string | null => {
+    if (draft === value || draft === done.current) return null;
+    if (error) return `${label}: ${error}`;
+    done.current = draft;
     onRename(draft);
+    return null;
   };
+  useDraft(draft !== value, commit, input);
   return (
-    <Input
-      className={cn('h-8 font-mono text-xs', error && 'border-destructive', className)}
-      value={draft}
-      title={error ?? 'Enter で確定'}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') commit();
-        if (e.key === 'Escape') setDraft(value);
-      }}
-      aria-label="ID"
-      aria-invalid={error !== null}
-    />
+    <div className="space-y-0.5">
+      <Input
+        ref={input}
+        data-local-undo
+        className={cn('h-8 font-mono text-xs', error && 'border-destructive', className)}
+        value={draft}
+        title="Enter で確定・Esc で取り消し"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setDraft(value);
+        }}
+        aria-label={label}
+        aria-invalid={error !== null}
+        aria-describedby={error ? errorId : undefined}
+      />
+      {error && (
+        <p id={errorId} className="text-[11px] leading-tight text-destructive">
+          {error}（Esc で元に戻す）
+        </p>
+      )}
+    </div>
   );
 }

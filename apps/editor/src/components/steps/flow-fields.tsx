@@ -1,35 +1,18 @@
 // 条件分岐・選択肢・つきつけ要求（中にステップ列を持つもの）の入力欄
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { pathKey } from '@/model/paths.ts';
 import type { Path } from '@/model/yaml-doc.ts';
-import { useActions } from '@/state/editor-store.tsx';
-import { CondInput, TextInput } from '../fields.tsx';
+import { useActions, useIds } from '@/state/editor-store.tsx';
+import { CondInput, IdSelect, TextInput, useCharacterLabels, useSetter } from '../fields.tsx';
+import { useRows } from '../use-rows.ts';
+import { Nested } from './Nested.tsx';
 import { PresentMap } from './PresentMap.tsx';
-import type { BodyProps } from './say-fields.tsx';
 import { IconButton } from './StepCard.tsx';
 import { StepList } from './StepList.tsx';
+import type { BodyProps } from './say-fields.tsx';
 
-/** 入れ子のステップ列（左に線を引いて、見出しを付ける） */
-export function Nested({
-  label,
-  children,
-  actions,
-}: {
-  label: ReactNode;
-  children: ReactNode;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="mt-1 border-l-2 border-muted pl-2">
-      <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-        {label}
-        <div className="ml-auto flex items-center">{actions}</div>
-      </div>
-      {children}
-    </div>
-  );
-}
+export { Nested } from './Nested.tsx';
 
 /** 省略できるステップ列（なければ「追加」ボタン、あれば「消す」ボタン） */
 export function OptionalSteps({
@@ -59,6 +42,8 @@ export function OptionalSteps({
   return (
     <Nested
       label={label}
+      path={path}
+      steps={value}
       actions={
         <IconButton
           title={`${label}を消す`}
@@ -78,7 +63,7 @@ export function IfBody({ path, step }: BodyProps) {
   return (
     <div>
       <CondInput path={[...path, 'if']} value={step.if} aria-label="条件" />
-      <Nested label="then（真のとき）">
+      <Nested label="then（真のとき）" path={[...path, 'then']} steps={step.then}>
         <StepList path={[...path, 'then']} steps={step.then} />
       </Nested>
       <OptionalSteps
@@ -94,16 +79,17 @@ export function IfBody({ path, step }: BodyProps) {
 export function ChoiceBody({ path, step }: BodyProps) {
   const { edit } = useActions();
   const options = Array.isArray(step.choice) ? (step.choice as Record<string, unknown>[]) : [];
+  const rows = useRows(options);
   const listPath = [...path, 'choice'];
   return (
     <div className="space-y-1">
-      {options.map((opt, i) => {
+      {rows.items.map((opt, i) => {
         const p = [...listPath, i];
         return (
           <div
-            key={i}
+            key={rows.keys[i]}
             className="rounded-md border border-dashed border-violet-300 p-2"
-            data-path={JSON.stringify(p)}
+            data-path={pathKey(p)}
           >
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">{i + 1}.</span>
@@ -111,7 +97,7 @@ export function ChoiceBody({ path, step }: BodyProps) {
                 path={[...p, 'text']}
                 value={opt.text}
                 placeholder="選択肢の文"
-                aria-label="選択肢の文"
+                aria-label={`選択肢 ${i + 1} の文`}
               />
               <IconButton
                 title="上へ"
@@ -141,9 +127,9 @@ export function ChoiceBody({ path, step }: BodyProps) {
               optional
               className="mt-1"
               placeholder="表示する条件（省略可）"
-              aria-label="表示する条件"
+              aria-label={`選択肢 ${i + 1} を表示する条件`}
             />
-            <Nested label="選んだとき">
+            <Nested label="選んだとき" path={[...p, 'then']} steps={opt.then}>
               <StepList
                 path={[...p, 'then']}
                 steps={opt.then}
@@ -162,6 +148,7 @@ export function ChoiceBody({ path, step }: BodyProps) {
             {
               op: 'insert',
               path: listPath,
+              // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
               value: { text: `選択肢 ${options.length + 1}`, then: [] },
             },
           ])
@@ -174,6 +161,9 @@ export function ChoiceBody({ path, step }: BodyProps) {
 }
 
 export function DemandBody({ path, step }: BodyProps) {
+  const ids = useIds();
+  const labels = useCharacterLabels();
+  const { setOptional } = useSetter();
   return (
     <div className="space-y-1">
       <TextInput
@@ -183,7 +173,16 @@ export function DemandBody({ path, step }: BodyProps) {
         placeholder="つきつけを求める文"
         aria-label="つきつけを求める文"
       />
-      <Nested label="正解（証拠品・人物ファイルごと）">
+      <IdSelect
+        path={[...path, 'by']}
+        value={step.by}
+        options={ids.characters}
+        labels={labels}
+        noneLabel="（問いかける人: 指定なし）"
+        aria-label="問いかける人"
+        onChange={(v) => setOptional([...path, 'by'], v ?? undefined)}
+      />
+      <Nested label="正解（証拠品・人物ファイルごと）" path={[...path, 'present']}>
         <PresentMap path={[...path, 'present']} value={step.present} label="正解" profiles />
       </Nested>
       <OptionalSteps

@@ -1,12 +1,14 @@
 // ステップ列の編集。カードの追加・差し込み・複製・削除・並べ替え（ドラッグか ↑↓）ができる。
-import { memo, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { pathKey } from '@/model/paths.ts';
-import { lastSpeakerBefore, stepTemplate, type CommandName } from '@/model/steps.ts';
+import { type CommandName, lastSpeakerBefore, profileIds, stepTemplate } from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
-import { useActions, useIds } from '@/state/editor-store.tsx';
+import { useActions, useEditorState, useFlagValues, useIds } from '@/state/editor-store.tsx';
+import { focusTarget } from '../reveal.ts';
+import { useRows } from '../use-rows.ts';
 import { AddStepMenu } from './AddStepMenu.tsx';
-import { StepCard } from './StepCard.tsx';
+import { StepRows } from './StepRows.tsx';
 
 /** ドラッグ中のステップ（同じ列の中でだけ動かせる） */
 let dragging: { list: string; index: number } | null = null;
@@ -16,11 +18,19 @@ export interface StepOps {
   dragStart(index: number): void;
   dragEnd(): void;
   insertAfter(index: number, name: CommandName): void;
-  move(index: number, delta: number): void;
+  insertAt(index: number, name: CommandName): void;
+  /** action: 押したボタン（動かした後、同じカードの同じボタンにフォーカスを戻す） */
+  move(index: number, delta: number, action?: string): void;
   duplicate(index: number): void;
   remove(index: number): void;
   dragOver(index: number, e: DragEvent<HTMLDivElement>): void;
   drop(index: number, e: DragEvent<HTMLDivElement>): void;
+}
+
+/** 操作の後にフォーカスを移す先（列の中の位置と、カードの中のボタン。なければ最初の入力欄） */
+interface FocusAfter {
+  index: number;
+  action?: string;
 }
 
 export function StepList({
@@ -35,28 +45,37 @@ export function StepList({
   className?: string;
 }) {
   const ids = useIds();
+  const flagValues = useFlagValues();
+  const characters = useEditorState((s) => s.data?.characters);
   const { edit } = useActions();
-  const list = Array.isArray(steps) ? steps : [];
+  const list = Array.isArray(steps) ? steps : EMPTY;
+  const rows = useRows(list);
   const key = pathKey(rawPath);
   // 描き直しのたびに新しい配列が来ても、中身が同じなら同じものを使う（カードの memo を効かせるため）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key（パスの中身）が同じなら同じもの
   const path = useMemo(() => rawPath, [key]);
   const [dropAt, setDropAt] = useState<number | null>(null);
+  const focusAfter = useRef<FocusAfter | null>(null);
 
   // 操作の関数からは、いつも最新の値を見る
-  const latest = useRef({ list, ids, path, edit });
-  latest.current = { list, ids, path, edit };
-
-  const insert = (index: number, name: CommandName) => {
-    const { list: l, ids: i, path: p, edit: e } = latest.current;
-    const value = stepTemplate(name, { ...i, lastSpeaker: lastSpeakerBefore(l, index) });
-    e([{ op: 'insert', path: p, index, value }]);
-  };
+  const latest = useRef({ list, ids, flagValues, characters, path, edit });
+  latest.current = { list, ids, flagValues, characters, path, edit };
 
   const dropRef = useRef(dropAt);
   dropRef.current = dropAt;
 
-  const ops = useMemo<StepOps>(
-    () => ({
+  const ops = useMemo<StepOps>(() => {
+    const insert = (index: number, name: CommandName) => {
+      const { list: l, ids: i, flagValues: fv, characters: c, path: p, edit: e } = latest.current;
+      const value = stepTemplate(name, {
+        ...i,
+        flagValues: fv,
+        profiles: profileIds(c),
+        lastSpeaker: lastSpeakerBefore(l, index),
+      });
+      if (e([{ op: 'insert', path: p, index, value }])) focusAfter.current = { index };
+    };
+    return {
       dragStart: (index) => {
         dragging = { list: key, index };
       },
@@ -83,22 +102,41 @@ export function StepList({
         setDropAt(null);
       },
       insertAfter: (index, name) => insert(index + 1, name),
-      move: (index, delta) =>
-        latest.current.edit([
-          { op: 'move', path: latest.current.path, from: index, to: index + delta },
-        ]),
+      move: (index, delta, action) => {
+        const to = index + delta;
+        if (latest.current.edit([{ op: 'move', path: latest.current.path, from: index, to }]))
+          focusAfter.current = { index: to, action };
+      },
       duplicate: (index) => {
         const { list: l, path: p, edit: e } = latest.current;
-        e([{ op: 'insert', path: p, index: index + 1, value: structuredClone(l[index]) }]);
+        if (e([{ op: 'insert', path: p, index: index + 1, value: structuredClone(l[index]) }]))
+          focusAfter.current = { index: index + 1 };
       },
-      remove: (index) =>
-        latest.current.edit([{ op: 'delete', path: [...latest.current.path, index] }]),
-    }),
-    [key],
-  );
+      remove: (index) => {
+        if (latest.current.edit([{ op: 'delete', path: [...latest.current.path, index] }]))
+          focusAfter.current = { index: Math.max(0, index - 1), action: 'grip' };
+      },
+      insertAt: insert,
+    };
+  }, [key]);
 
-  const lazy = list.length > LAZY_FROM;
+  // 追加・複製・並べ替えの後: 新しいカードの入力欄、動かしたカードの同じボタンにフォーカスする
+  useEffect(() => {
+    const f = focusAfter.current;
+    if (!f) return;
+    focusAfter.current = null;
+    const rowKey = rows.keys[f.index];
+    if (!rowKey) return;
+    const card = document.querySelector<HTMLElement>(`[data-row-key="${rowKey}"]`);
+    const target = f.action
+      ? document.querySelector<HTMLElement>(`[data-owner="${rowKey}"][data-action="${f.action}"]`)
+      : card && focusTarget(card);
+    (target ?? card)?.focus({ preventScroll: true });
+    (target ?? card)?.scrollIntoView({ block: 'nearest' });
+  }, [rows]);
+
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: ドラッグの受け口から出たことを見るだけ
     <div
       className={cn('space-y-1', className)}
       onDragLeave={(e) => {
@@ -110,103 +148,10 @@ export function StepList({
           {emptyLabel ?? 'ステップがありません'}
         </div>
       )}
-      {list.map((step, i) => (
-        <Row
-          key={i}
-          listPath={path}
-          step={step}
-          index={i}
-          count={list.length}
-          ops={ops}
-          lazy={lazy && i >= EAGER}
-          drop={dropAt === i ? 'top' : dropAt === i + 1 && i === list.length - 1 ? 'bottom' : null}
-        />
-      ))}
-      <AddStepMenu onPick={(name) => insert(list.length, name)} />
+      <StepRows rows={rows} listPath={path} ops={ops} dropAt={dropAt} />
+      <AddStepMenu onPick={(name) => ops.insertAt(list.length, name)} />
     </div>
   );
 }
 
-/** 列の 1 行（ドロップの受け口とカード）。変わった行だけ描き直す */
-const Row = memo(function Row({
-  listPath,
-  step,
-  index,
-  count,
-  ops,
-  lazy,
-  drop,
-}: {
-  listPath: Path;
-  step: unknown;
-  index: number;
-  count: number;
-  ops: StepOps;
-  lazy: boolean;
-  drop: 'top' | 'bottom' | null;
-}) {
-  const card = <StepCard listPath={listPath} step={step} index={index} count={count} ops={ops} />;
-  return (
-    <div
-      onDragOver={(e) => ops.dragOver(index, e)}
-      onDrop={(e) => ops.drop(index, e)}
-      className="relative"
-    >
-      {drop === 'top' && <DropLine top />}
-      {lazy ? <Lazy pathKey={pathKey([...listPath, index])}>{card}</Lazy> : card}
-      {drop === 'bottom' && <DropLine />}
-    </div>
-  );
-});
-
-/** これより長い列では、画面の近くに来たカードだけを作る（何百ものカードを一度に作ると開くのに何秒もかかる） */
-const LAZY_FROM = 80;
-/** 最初から作っておくカードの数 */
-const EAGER = 30;
-
-let observer: IntersectionObserver | null = null;
-const shows = new WeakMap<Element, () => void>();
-function observe(el: Element, show: () => void): () => void {
-  observer ??= new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        shows.get(e.target)?.();
-        observer?.unobserve(e.target);
-      }
-    },
-    { rootMargin: '1200px 0px' },
-  );
-  shows.set(el, show);
-  observer.observe(el);
-  return () => {
-    observer?.unobserve(el);
-    shows.delete(el);
-  };
-}
-
-/**
- * 画面の近くに来るまでは、高さの見積もりだけの空の箱を置く。一度作ったらそのまま。
- * 診断から開いたときのために、空の箱にも data-path を付けておく（MainPane がスクロールして光らせる）
- */
-function Lazy({ pathKey: key, children }: { pathKey: string; children: ReactNode }) {
-  const [shown, setShown] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (shown || !box.current) return;
-    return observe(box.current, () => setShown(true));
-  }, [shown]);
-  if (shown) return children;
-  return <div ref={box} data-path={key} className="h-16 rounded-md border border-dashed" />;
-}
-
-function DropLine({ top }: { top?: boolean }) {
-  return (
-    <div
-      className={cn(
-        'pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded bg-blue-500',
-        top ? '-top-0.5' : '-bottom-0.5',
-      )}
-    />
-  );
-}
+const EMPTY: unknown[] = [];

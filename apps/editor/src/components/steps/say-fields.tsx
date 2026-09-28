@@ -1,13 +1,25 @@
 // 台詞・ナレーション・帯テキスト・日時表示、それと種類の分からないステップの入力欄
-import { useEffect, useState } from 'react';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { useId } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { makeSay, readSay, sayTextKey, type Step } from '@/model/steps.ts';
+import { pathKey } from '@/model/paths.ts';
+import {
+  COMMAND_LABELS,
+  type CommandName,
+  canShorten,
+  commandDescription,
+  readSay,
+  type SayPatch,
+  type Step,
+  sayEditOps,
+  sayTextKey,
+  shortenOps,
+} from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
-import { useIds } from '@/state/editor-store.tsx';
-import { IdSelect, TextInput, useCharacterLabels, useSetter } from '../fields.tsx';
+import { useActions, useIds } from '@/state/editor-store.tsx';
+import { IdSelect, TextInput, useCharacterLabels } from '../fields.tsx';
+import { YamlDraft } from '../yaml-draft.tsx';
 
 export interface BodyProps {
   path: Path;
@@ -24,27 +36,32 @@ export const TEXT_COLORS: { value: string; label: string; className: string }[] 
 
 export function SayBody({ path, step }: BodyProps) {
   const ids = useIds();
-  const { set } = useSetter();
+  const { edit } = useActions();
   const labels = useCharacterLabels();
+  const autoId = useId();
   const v = readSay(step);
   const color = TEXT_COLORS.find((c) => c.value === v.color);
+  // 変えた属性だけを書き換える（auto などを消さない）
+  const change = (patch: SayPatch) => edit(sayEditOps(path, step, patch));
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-1">
         <IdSelect
+          path={'say' in step ? [...path, 'say'] : undefined}
           value={v.speaker}
           options={ids.characters}
           labels={labels}
           nullLabel="（名前なし）"
           aria-label="話す人物"
-          onChange={(s) => set(path, makeSay({ ...v, speaker: s ?? null }))}
+          onChange={(s) => change({ speaker: s ?? null })}
         />
         <NativeSelect
           size="sm"
           className={cn('h-8 w-32', color?.className)}
           value={v.color ?? ''}
           aria-label="文字の色"
-          onChange={(e) => set(path, makeSay({ ...v, color: e.target.value || undefined }))}
+          data-path={pathKey([...path, 'color'])}
+          onChange={(e) => change({ color: e.target.value || undefined })}
         >
           <NativeSelectOption value="">色: 既定</NativeSelectOption>
           {TEXT_COLORS.map((c) => (
@@ -53,11 +70,22 @@ export function SayBody({ path, step }: BodyProps) {
             </NativeSelectOption>
           ))}
         </NativeSelect>
-        {'say' in step && v.speaker && !v.color && (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Checkbox
+            id={autoId}
+            checked={v.auto === true}
+            data-path={pathKey([...path, 'auto'])}
+            onCheckedChange={(c) => change({ auto: c === true })}
+          />
+          <label htmlFor={autoId} title="出し終えたら、ボタンを待たずに次へ進みます">
+            自動送り
+          </label>
+        </span>
+        {canShorten(step) && (
           <button
             type="button"
             className="text-[11px] text-muted-foreground underline"
-            onClick={() => set(path, makeSay(v))}
+            onClick={() => edit(shortenOps(path, step))}
           >
             省略形にする
           </button>
@@ -94,36 +122,32 @@ export function TextCommandBody({ path, step, name }: BodyProps & { name: 'banne
       path={[...path, name]}
       value={step[name]}
       placeholder={name === 'card' ? '日時・場所（改行できます）' : '帯に出す文字（例: 無罪）'}
+      aria-label={name === 'card' ? '日時・場所' : '帯テキスト'}
     />
   );
 }
 
-/** 種類の分からないステップは、YAML のまま編集する */
-export function UnknownBody({ path, step }: BodyProps) {
-  const { set } = useSetter();
-  const source = stringifyYaml(step, { lineWidth: 0 }).trimEnd();
-  const [draft, setDraft] = useState(source);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => setDraft(source), [source]);
+/**
+ * 種類の分からないステップや、専用の入力欄がないコマンドは、YAML のまま編集する。
+ * known: 分かっているコマンドの名前（説明を出す）
+ */
+export function UnknownBody({ path, step, known }: BodyProps & { known?: CommandName }) {
+  const { edit } = useActions();
   return (
-    <div className="space-y-1">
-      <Textarea
-        className="min-h-9 resize-none py-1.5 font-mono text-xs"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          try {
-            const v = parseYaml(draft) as unknown;
-            setError(null);
-            if (draft !== source) set(path, v);
-          } catch (e) {
-            setError((e as Error).message.split('\n')[0] ?? '');
-          }
+    <div data-path={pathKey(path)}>
+      <YamlDraft
+        value={step}
+        aria-label={known ? `${COMMAND_LABELS[known]}（YAML）` : 'ステップ（YAML）'}
+        hint={
+          known
+            ? `専用の入力欄はありません。YAML で編集してください（${commandDescription(known)}）`
+            : 'コマンドが分かりません。YAML のまま直してください'
+        }
+        onCommit={(v) => {
+          edit([{ op: 'set', path, value: v }]);
+          return null;
         }}
       />
-      <p className="text-[11px] text-destructive">
-        {error ?? 'コマンドが分かりません。YAML のまま直してください'}
-      </p>
     </div>
   );
 }

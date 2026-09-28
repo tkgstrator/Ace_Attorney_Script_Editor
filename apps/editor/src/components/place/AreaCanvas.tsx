@@ -1,12 +1,14 @@
-// 「調べる」範囲の編集。背景（256×192 ドット）を 2 倍で表示し、ドラッグで範囲を描く・動かす・大きさを変える。
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+// 「調べる」範囲の編集。背景（256×192 ドット）を欄の幅に合わせて（最大 2 倍で）表示し、
+// ドラッグで範囲を描く・動かす・大きさを変える。ポインターの位置は、実際に表示している大きさから換算する
+import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { getAssets } from '@/preview/assets.ts';
 
 export type Area = [number, number, number, number];
 const W = 256;
 const H = 192;
-const SCALE = 2;
+/** いちばん大きく表示するときの倍率 */
+const MAX_SCALE = 2;
 
 export interface AreaItem {
   area: Area;
@@ -65,7 +67,10 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
 
   const point = (e: PointerEvent): [number, number] => {
     const r = e.currentTarget.getBoundingClientRect();
-    return [clamp((e.clientX - r.left) / SCALE, 0, W), clamp((e.clientY - r.top) / SCALE, 0, H)];
+    return [
+      clamp(((e.clientX - r.left) / r.width) * W, 0, W),
+      clamp(((e.clientY - r.top) / r.height) * H, 0, H),
+    ];
   };
 
   const onDown = (e: PointerEvent<SVGSVGElement>) => {
@@ -121,8 +126,8 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
 
   return (
     <div
-      className="relative w-fit select-none rounded border bg-muted"
-      style={{ width: W * SCALE, height: H * SCALE }}
+      className="relative w-full select-none rounded border bg-muted"
+      style={{ maxWidth: W * MAX_SCALE, aspectRatio: `${W} / ${H}` }}
     >
       <canvas
         ref={canvas}
@@ -138,6 +143,8 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
       <svg
         className="absolute inset-0 size-full cursor-crosshair"
         viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="調べる範囲（ドラッグで描く・動かす。下の一覧でも数値で変えられます）"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -147,6 +154,7 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
           const [x, y, w, h] = it.area;
           const on = i === selected;
           return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 範囲は一覧の順番そのもの（data-area と同じ）
             <g key={i} data-area={i} className="cursor-move">
               <rect
                 x={x}

@@ -209,7 +209,7 @@ scenes:
 | `- bgm: trial`<br>`  frames: 60` / `- bgm: null` | BGM を流す（繰り返し）/ 止める。frames はフェードの長さ。セーブデータに残り、ロードすると流れ直す |
 | `- se: gavel` | 効果音 |
 | `- shake: true`<br>`  strength: 1` | 画面を揺らす。`shake: 40` で長さ（既定 30）。strength は 0〜2（既定 0） |
-| `- flash: true` / `- flash: red` | 画面を一瞬光らせる（true は白。frames で長さ、既定 8） |
+| `- flash: true` / `- flash: red` | 画面を一瞬光らせる（true は白。frames で長さ（フレーム）。省略すると既定の 3） |
 | `- fade: out`<br>`  color: white`<br>`  frames: 48` | フェードアウト（画面を覆う）。`fade: in` で明ける。覆っている間の台詞は覆いの上に出る。color の既定は black、frames の既定は 30 |
 | `- wait: 30` | 待つ |
 | `- fade: out`<br>`  nowait: true` | 終わるのを待たずに次へ進むフェード（元のゲームのフェード） |

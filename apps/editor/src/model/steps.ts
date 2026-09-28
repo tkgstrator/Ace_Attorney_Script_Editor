@@ -1,36 +1,24 @@
 // ステップ（シーンの中の 1 命令）の種類の判定と、新しく足すときのひな形。
 // コマンドの一覧と説明は @gyakusai/script の zod スキーマ（commandSchemas）から取る。
 import { commandSchemas } from '@gyakusai/script';
+import { makeSay, RESERVED, readSay, type Step } from './say.ts';
+
+export {
+  canShorten,
+  makeSay,
+  readSay,
+  type SayPatch,
+  type SayValue,
+  type Step,
+  sayEditOps,
+  sayTextKey,
+  shortenOps,
+} from './say.ts';
 
 export type CommandName = keyof typeof commandSchemas;
 export type StepKind = CommandName | 'shorthand' | 'unknown';
-export type Step = Record<string, unknown>;
 
 export const COMMAND_NAMES = Object.keys(commandSchemas) as CommandName[];
-
-/** 省略形 `人物ID: 台詞` の人物 ID として使えないキー（schema.ts の RESERVED_KEYS と同じもの） */
-const RESERVED = new Set<string>([
-  ...COMMAND_NAMES,
-  'text',
-  'color',
-  'then',
-  'else',
-  'when',
-  'by',
-  'present',
-  'wrong',
-  'seen',
-  'frames',
-  'strength',
-  'talk',
-  'idle',
-  'args',
-  'auto',
-  'nowait',
-  'off',
-  'side',
-  'profiles',
-]);
 
 /** スキーマの説明文（describe） */
 export function commandDescription(name: CommandName): string {
@@ -84,9 +72,14 @@ export const COMMAND_GROUPS: { label: string; items: CommandName[] }[] = [
   { label: '表示', items: ['show', 'showEvidence', 'location'] },
   { label: '分岐', items: ['if', 'choice', 'demand', 'goto', 'investigate'] },
   { label: '演出', items: ['bgm', 'se', 'shake', 'flash', 'fade', 'wait'] },
-  { label: '状態', items: ['set', 'add', 'give', 'take', 'penalty'] },
+  { label: '状態', items: ['set', 'add', 'give', 'take', 'giveProfile', 'takeProfile', 'penalty'] },
   { label: '終わり', items: ['end', 'gameover'] },
 ];
+
+/** 上のまとまりに入っていない、そのほかのコマンド（追加メニューの「その他のコマンド」） */
+export const OTHER_COMMANDS: CommandName[] = COMMAND_NAMES.filter(
+  (n) => !COMMAND_GROUPS.some((g) => g.items.includes(n)),
+);
 
 export function stepKind(step: unknown): StepKind {
   if (typeof step !== 'object' || step === null || Array.isArray(step)) return 'unknown';
@@ -97,34 +90,16 @@ export function stepKind(step: unknown): StepKind {
   return 'unknown';
 }
 
-export interface SayValue {
-  speaker: string | null;
-  text: string;
-  color?: string;
+export type FlagValue = boolean | number | string;
+
+/** フラグの型に合う、set の初期値（真偽は true、数値は 0、文字列は ''） */
+export function flagDefault(initial: FlagValue | undefined): FlagValue {
+  return typeof initial === 'number' ? 0 : typeof initial === 'string' ? '' : true;
 }
 
-/** 台詞（省略形・完全形のどちらでも）の中身を取り出す */
-export function readSay(step: Step): SayValue {
-  if ('say' in step) {
-    return {
-      speaker: typeof step.say === 'string' ? step.say : null,
-      text: typeof step.text === 'string' ? step.text : '',
-      ...(typeof step.color === 'string' ? { color: step.color } : {}),
-    };
-  }
-  const [speaker, text] = Object.entries(step)[0] ?? ['', ''];
-  return { speaker, text: typeof text === 'string' ? text : '' };
-}
-
-/** 台詞のステップを作る。人物があり色の指定がなければ省略形にする */
-export function makeSay(v: SayValue): Step {
-  if (v.speaker && !v.color && !RESERVED.has(v.speaker)) return { [v.speaker]: v.text };
-  return { say: v.speaker, text: v.text, ...(v.color ? { color: v.color } : {}) };
-}
-
-/** 台詞の本文が入っているキー（省略形なら人物 ID、完全形なら text） */
-export function sayTextKey(step: Step): string {
-  return 'say' in step ? 'text' : Object.keys(step)[0]!;
+/** 型ごとのフラグ（型の分からないものは真偽として扱う） */
+export function flagsOfType(ctx: Pick<TemplateContext, 'flags' | 'flagValues'>, type: string) {
+  return ctx.flags.filter((f) => typeof (ctx.flagValues?.[f] ?? true) === type);
 }
 
 export interface TemplateContext {
@@ -133,6 +108,10 @@ export interface TemplateContext {
   scenes: string[];
   places: string[];
   flags: string[];
+  /** フラグの初期値（型を決める）。なければ型が分からないので、真偽のフラグとして扱う */
+  flagValues?: Record<string, FlagValue>;
+  /** 人物ファイルのある人物 */
+  profiles?: string[];
   /** 直前の台詞の話し手（続けて書くときに引き継ぐ） */
   lastSpeaker?: string | null;
 }
@@ -145,20 +124,29 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
       return makeSay({ speaker: ctx.lastSpeaker ?? ctx.characters[0] ?? null, text: '' });
     case 'narrate':
       return { narrate: '' };
-    case 'set':
-      return { set: { [first(ctx.flags, 'flag')]: true } };
-    case 'add':
-      return { add: { [first(ctx.flags, 'count')]: 1 } };
+    case 'set': {
+      // 真偽のフラグを優先する。フラグがなければ空（入力欄でフラグの表へ案内する）
+      const flag = flagsOfType(ctx, 'boolean')[0] ?? ctx.flags[0];
+      return { set: flag ? { [flag]: flagDefault(ctx.flagValues?.[flag]) } : {} };
+    }
+    case 'add': {
+      // 数値のフラグだけ
+      const flag = flagsOfType(ctx, 'number')[0];
+      return { add: flag ? { [flag]: 1 } : {} };
+    }
     case 'give':
       return { give: first(ctx.evidence, 'evidence') };
     case 'take':
       return { take: first(ctx.evidence, 'evidence') };
     case 'if':
-      return { if: first(ctx.flags, 'flag'), then: [] };
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      return { if: flagsOfType(ctx, 'boolean')[0] ?? 'true', then: [] };
     case 'choice':
       return {
         choice: [
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           { text: '選択肢 1', then: [] },
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           { text: '選択肢 2', then: [] },
         ],
       };
@@ -215,9 +203,9 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
     case 'palette':
       return { palette: 'grayscale' };
     case 'giveProfile':
-      return { giveProfile: first(ctx.characters, 'character') };
+      return { giveProfile: first(ctx.profiles ?? ctx.characters, 'character') };
     case 'takeProfile':
-      return { takeProfile: first(ctx.characters, 'character') };
+      return { takeProfile: first(ctx.profiles ?? ctx.characters, 'character') };
     case 'end':
       return { end: true };
     case 'gameover':

@@ -16,13 +16,14 @@ import {
 import {
   listParts,
   type PartInfo,
-  recordKeys,
   type Selection,
   selectionExists,
+  selectionFromPath,
+  selectionLabel,
 } from '@/model/paths.ts';
-import { isTestimony } from '@/model/steps.ts';
 import type { Op, Path } from '@/model/yaml-doc.ts';
 import { listCases, readCase, writeCase } from './api.ts';
+import { deriveIds, deriveTree } from './derive.ts';
 
 export type FlagValue = boolean | number | string;
 
@@ -53,8 +54,10 @@ export interface EditorState {
   canUndo: boolean;
   canRedo: boolean;
   selection: Selection;
-  /** 開いた項目の中で、見せたい場所（診断から開いたとき） */
-  focus: { path: Path; serial: number } | null;
+  /** 開いた項目の中で、見せたい場所（診断・検索から開いたとき）。line は YAML の直接編集の行 */
+  focus: { path: Path; serial: number; line?: number } | null;
+  /** 参照先を開く前にいた場所（「元の場所へ戻る」用。新しいものが最後） */
+  backStack: { selection: Selection; path: Path | null }[];
   message: { text: string; error: boolean } | null;
   /** 名前の一覧（選択肢に使う） */
   ids: Ids;
@@ -69,7 +72,11 @@ export interface EditorActions {
   getText(): string;
   undo(): void;
   redo(): void;
-  select(sel: Selection, focus?: Path): void;
+  select(sel: Selection, focus?: Path, line?: number): void;
+  /** 参照先（goto の行き先など）を開く。from は今いる場所（戻るときにそこを見せる） */
+  jump(sel: Selection, from?: Path): void;
+  /** jump する前の場所へ戻る */
+  back(): void;
   open(name: string): Promise<void>;
   save(): Promise<void>;
   create(name: string, text: string): Promise<void>;
@@ -77,6 +84,16 @@ export interface EditorActions {
 }
 
 export type EditorApi = EditorState & EditorActions;
+
+/**
+ * 画面の中の、まだ章に反映していない入力（YAML の欄・ID の欄など）。
+ * 保存・元に戻すの前に flush で反映する。反映できない（入力が正しくない）ときは、理由を返す
+ */
+export interface Draft {
+  flush(): string | null;
+  /** 反映できないときにフォーカスを移す欄 */
+  element(): HTMLElement | null;
+}
 
 const LAST_FILE_KEY = 'gyakusai:editor:file';
 const EMPTY_IDS: Ids = {
@@ -87,49 +104,14 @@ const EMPTY_IDS: Ids = {
   flags: [],
 };
 
-const sameList = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((x, i) => x === b[i]);
-
-/** 中身が同じなら前の配列を使う（選択肢の一覧を持つ部品を描き直さないため） */
-function deriveIds(data: Data | null, prev: Ids, parts: PartInfo[]): Ids {
-  const next: Ids = {
-    characters: recordKeys(data?.characters),
-    evidence: recordKeys(data?.evidence),
-    scenes: parts.flatMap((p) => p.scenes),
-    places: parts.flatMap((p) => p.places),
-    flags: recordKeys(data?.flags),
-  };
-  let changed = false;
-  for (const k of Object.keys(next) as (keyof Ids)[]) {
-    if (sameList(next[k], prev[k])) next[k] = prev[k];
-    else changed = true;
-  }
-  return changed ? next : prev;
-}
-
-function deriveTree(data: Data | null, prev: TreePart[], parts: PartInfo[]): TreePart[] {
-  const rec = (v: unknown) =>
-    typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
-  const next = parts.map((p) => {
-    const base = rec(p.index === null ? data?.scenes : rec(rec(data?.parts)[p.index]).scenes);
-    const places = p.index === null ? {} : rec(rec(rec(data?.parts)[p.index]).places);
-    return {
-      ...p,
-      testimony: p.scenes.map((id) => isTestimony(base[id])),
-      placeNames: p.places.map((id) => String(rec(places[id]).name ?? '')),
-    };
-  });
-  return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
-}
-
 export class EditorStore {
   private session: DocSession | null = null;
   private history: History<Entry> = createHistory();
   private savedVersion = 0;
   private listeners = new Set<() => void>();
   private started = false;
-  /** YAML の直接編集で、まだ反映していない入力を反映する（元に戻す・保存の前に呼ぶ） */
-  flushPending: (() => void) | null = null;
+  private serial = 0;
+  private drafts = new Set<Draft>();
 
   state: EditorState = {
     files: [],
@@ -143,6 +125,7 @@ export class EditorStore {
     canRedo: false,
     selection: { kind: 'meta' },
     focus: null,
+    backStack: [],
     message: null,
     ids: EMPTY_IDS,
     flagValues: {},
@@ -192,6 +175,44 @@ export class EditorStore {
     });
   }
 
+  /** 未反映の入力を登録する（戻り値で登録を外す） */
+  registerDraft(d: Draft): () => void {
+    this.drafts.add(d);
+    return () => {
+      this.drafts.delete(d);
+    };
+  }
+
+  /**
+   * 未反映の入力をすべて反映する。反映できないものがあれば、その欄にフォーカスして理由を知らせ、false を返す
+   * （strict でなければ、反映できないものは残したまま true）
+   */
+  flushDrafts(strict: boolean): boolean {
+    for (const d of [...this.drafts]) {
+      const error = d.flush();
+      if (error && strict) {
+        const el = d.element();
+        el?.scrollIntoView({ block: 'center' });
+        el?.focus();
+        this.actions.notify(`確定できない入力があります: ${error}`, true);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** 元に戻した・やり直した所が今の画面と違えば、そこを開いて知らせる */
+  private reveal(entry: Entry, verb: string): void {
+    const scope = entry.swap ? null : entry.scopes[0];
+    const t = scope ? selectionFromPath(scope) : null;
+    if (!t || JSON.stringify(t.selection) === JSON.stringify(this.state.selection)) {
+      this.actions.notify(verb);
+      return;
+    }
+    this.actions.select(t.selection, t.focus);
+    this.actions.notify(`${verb}（${selectionLabel(t.selection)}）`);
+  }
+
   private record(entry: Entry | null, coalesceKey: string | undefined): void {
     if (!entry) return;
     this.history = push(this.history, entry, coalesceKey ?? null, Date.now(), mergeEntries);
@@ -216,28 +237,45 @@ export class EditorStore {
     },
     getText: () => this.session?.text() ?? '',
     undo: () => {
-      this.flushPending?.();
+      this.flushDrafts(false);
       const r = undo(this.history);
       if (!r || !this.session) return;
       this.session.undo(r.entry);
       this.history = r.history;
       this.refresh();
+      this.reveal(r.entry, '元に戻しました');
     },
     redo: () => {
-      this.flushPending?.();
+      this.flushDrafts(false);
       const r = redo(this.history);
       if (!r || !this.session) return;
       this.session.redo(r.entry);
       this.history = r.history;
       this.refresh();
+      this.reveal(r.entry, 'やり直しました');
     },
-    select: (selection, focus) => {
+    select: (selection, focus, line) => {
       this.set({
         selection,
-        focus: focus ? { path: focus, serial: Date.now() } : null,
+        focus: focus || line ? { path: focus ?? [], serial: ++this.serial, line } : null,
       });
     },
+    jump: (selection, from) => {
+      const stack = [
+        ...this.state.backStack,
+        { selection: this.state.selection, path: from ?? null },
+      ];
+      this.set({ backStack: stack.slice(-30) });
+      this.actions.select(selection);
+    },
+    back: () => {
+      const last = this.state.backStack.at(-1);
+      if (!last) return;
+      this.set({ backStack: this.state.backStack.slice(0, -1) });
+      this.actions.select(last.selection, last.path ?? undefined);
+    },
     open: async (name) => {
+      this.flushDrafts(false);
       try {
         const text = await readCase(name);
         const started = performance.now();
@@ -250,6 +288,7 @@ export class EditorStore {
           size: text.length,
           selection: { kind: 'meta' },
           focus: null,
+          backStack: [],
         });
         try {
           localStorage.setItem(LAST_FILE_KEY, name);
@@ -261,7 +300,7 @@ export class EditorStore {
       }
     },
     save: async () => {
-      this.flushPending?.();
+      if (!this.flushDrafts(true)) return;
       const { file } = this.state;
       const s = this.session;
       if (!file || !s) return;

@@ -1,33 +1,34 @@
 // 1 つのステップのカード。見出し（種類・操作ボタン）と、種類ごとの入力欄。
 import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
-import { memo, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { type ComponentProps, memo, useMemo, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { extraKeys } from '@/model/form-keys.ts';
 import { pathKey } from '@/model/paths.ts';
 import {
   COMMAND_LABELS,
   commandDescription,
-  stepKind,
   type Step,
   type StepKind,
+  stepKind,
 } from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
+import { ExtraFields } from '../ExtraFields.tsx';
 import { AddStepMenu } from './AddStepMenu.tsx';
-import type { StepOps } from './StepList.tsx';
+import { LocationBody, ShowBody, ShowEvidenceBody } from './display-fields.tsx';
 import { BgmBody, FadeBody, FlashBody, SeBody, ShakeBody, WaitBody } from './effect-fields.tsx';
 import { ChoiceBody, DemandBody, IfBody } from './flow-fields.tsx';
+import { BgmPauseBody, PaletteBody, ProfileBody, ResumeBody, TextboxBody } from './misc-fields.tsx';
+import type { StepOps } from './StepList.tsx';
 import { NarrateBody, SayBody, TextCommandBody, UnknownBody } from './say-fields.tsx';
 import {
   AddBody,
   GiveTakeBody,
   GotoBody,
   InvestigateBody,
-  LocationBody,
   PenaltyBody,
   SetBody,
   ShoutBody,
-  ShowBody,
-  ShowEvidenceBody,
 } from './state-fields.tsx';
 
 const TONE: Partial<Record<StepKind, string>> = {
@@ -56,15 +57,26 @@ const TONE: Partial<Record<StepKind, string>> = {
   end: 'border-l-zinc-800',
   gameover: 'border-l-zinc-800',
   unknown: 'border-l-destructive',
+  giveProfile: 'border-l-orange-400',
+  takeProfile: 'border-l-orange-400',
 };
 
-// マウスが乗っているカード（入れ子のとき、いちばん内側の 1 枚だけ操作ボタンを出す）
+// 操作ボタンを出すカード: マウスが乗っているか、フォーカスが中にあるもの（入れ子のときは、いちばん内側の 1 枚）
 let hovered: string | null = null;
+let focused: string | null = null;
 const listeners = new Set<() => void>();
+function notify() {
+  for (const fn of listeners) fn();
+}
 function setHovered(key: string | null) {
   if (hovered === key) return;
   hovered = key;
-  for (const fn of listeners) fn();
+  notify();
+}
+function setFocused(key: string | null) {
+  if (focused === key) return;
+  focused = key;
+  notify();
 }
 const subscribe = (fn: () => void) => {
   listeners.add(fn);
@@ -80,26 +92,52 @@ interface Props {
   index: number;
   count: number;
   ops: StepOps;
+  /** 並べ替えても変わらない、この行のキー（操作の後にフォーカスを戻すのに使う） */
+  rowKey: string;
 }
 
 /** 中身（step）・位置・数が変わらなければ描き直さない（長い列で 1 枚だけ編集したとき、ほかのカードはそのまま） */
-export const StepCard = memo(function StepCard({ listPath, step, index, count, ops }: Props) {
+export const StepCard = memo(function StepCard({
+  listPath,
+  step,
+  index,
+  count,
+  ops,
+  rowKey,
+}: Props) {
   const path = useMemo(() => [...listPath, index], [listPath, index]);
   const kind = stepKind(step);
   const [armed, setArmed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const key = pathKey(path);
-  const active = useSyncExternalStore(subscribe, () => hovered === key);
+  // 並べ替えても変わらない行のキーで見る（動かした後もフォーカスしたままのカードに操作ボタンを出す）
+  const active = useSyncExternalStore(subscribe, () => hovered === rowKey || focused === rowKey);
   const label =
     kind === 'shorthand' ? COMMAND_LABELS.say : kind === 'unknown' ? '不明' : COMMAND_LABELS[kind];
+  const name = `${index + 1}. ${label}`;
+  const extras = extraKeys(kind, step);
+  const act = (action: string) => ({ 'data-action': action, 'data-owner': rowKey });
   return (
+    // biome-ignore lint/a11y/useSemanticElements: カードは見た目を変えずに、まとまりの名前を付ける
     <div
       data-path={key}
+      data-row-key={rowKey}
+      role="group"
+      aria-label={name}
       onMouseOver={(e) => {
         e.stopPropagation();
-        setHovered(key);
+        setHovered(rowKey);
       }}
       onMouseLeave={() => {
-        if (hovered === key) setHovered(null);
+        if (hovered === rowKey) setHovered(null);
+      }}
+      onFocus={(e) => {
+        e.stopPropagation();
+        setFocused(rowKey);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null) && focused === rowKey)
+          setFocused(null);
       }}
       draggable={armed}
       onDragStart={(e) => {
@@ -118,14 +156,23 @@ export const StepCard = memo(function StepCard({ listPath, step, index, count, o
     >
       <div className="flex items-start gap-1.5">
         <div className="flex shrink-0 items-center gap-1 pt-1">
-          <span
-            className="cursor-grab text-muted-foreground/60 hover:text-foreground"
-            title="ドラッグで並べ替え"
+          <button
+            type="button"
+            className="cursor-grab rounded text-muted-foreground/60 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            title="ドラッグで並べ替え（Alt+↑↓ でも動かせます）"
+            aria-label={`${name}（Alt+↑↓ で並べ替え）`}
+            {...act('grip')}
             onMouseDown={() => setArmed(true)}
             onMouseUp={() => setArmed(false)}
+            onKeyDown={(e) => {
+              if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+              e.preventDefault();
+              const d = e.key === 'ArrowUp' ? -1 : 1;
+              if (index + d >= 0 && index + d < count) ops.move(index, d, 'grip');
+            }}
           >
             <GripVertical className="size-4" />
-          </span>
+          </button>
           <span
             className="w-20 truncate text-[11px] font-medium text-muted-foreground"
             title={
@@ -136,43 +183,52 @@ export const StepCard = memo(function StepCard({ listPath, step, index, count, o
                   : commandDescription(kind)
             }
           >
-            {index + 1}. {label}
+            {name}
           </span>
         </div>
         <div className="min-w-0 flex-1">
           <Body kind={kind} path={path} step={step as Step} />
+          {extras.length > 0 && <ExtraFields path={path} value={step as Step} keys={extras} />}
         </div>
         <div
           className={cn(
             'absolute -top-2.5 right-1 z-10 flex items-center rounded-md border bg-card shadow-sm',
-            !active && 'hidden',
+            !active && !menuOpen && 'hidden',
           )}
         >
-          <IconButton title="上へ" disabled={index === 0} onClick={() => ops.move(index, -1)}>
+          <IconButton
+            title="上へ"
+            disabled={index === 0}
+            onClick={() => ops.move(index, -1, 'up')}
+            {...act('up')}
+          >
             <ArrowUp />
           </IconButton>
           <IconButton
             title="下へ"
             disabled={index === count - 1}
-            onClick={() => ops.move(index, 1)}
+            onClick={() => ops.move(index, 1, 'down')}
+            {...act('down')}
           >
             <ArrowDown />
           </IconButton>
-          <IconButton title="複製" onClick={() => ops.duplicate(index)}>
+          <IconButton title="複製" onClick={() => ops.duplicate(index)} {...act('copy')}>
             <Copy />
           </IconButton>
           <AddStepMenu
-            onPick={(name) => ops.insertAfter(index, name)}
-            trigger={
-              <Button variant="ghost" size="icon" className="size-6" title="この後に追加">
+            onPick={(n) => ops.insertAfter(index, n)}
+            onOpenChange={setMenuOpen}
+            trigger={(open) => (
+              <IconButton title="この後に追加" onClick={open} {...act('add')}>
                 <Plus />
-              </Button>
-            }
+              </IconButton>
+            )}
           />
           <IconButton
             title="削除"
             onClick={() => ops.remove(index)}
             className="hover:text-destructive"
+            {...act('remove')}
           >
             <Trash2 />
           </IconButton>
@@ -182,22 +238,20 @@ export const StepCard = memo(function StepCard({ listPath, step, index, count, o
   );
 });
 
+/** アイコンだけのボタン（title を読み上げの名前にもする） */
 export function IconButton({
   children,
   className,
+  title,
   ...props
-}: {
-  children: ReactNode;
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-}) {
+}: Omit<ComponentProps<typeof Button>, 'title'> & { title: string }) {
   return (
     <Button
       variant="ghost"
       size="icon"
       className={cn('size-6 [&_svg]:size-3.5', className)}
+      title={title}
+      aria-label={title}
       {...props}
     >
       {children}
@@ -258,7 +312,21 @@ function Body({ kind, path, step }: { kind: StepKind; path: Path; step: Step }) 
       return <p className="pt-1 text-xs text-muted-foreground">ゲームクリア（エンディング）</p>;
     case 'gameover':
       return <p className="pt-1 text-xs text-muted-foreground">ゲームオーバー</p>;
+    case 'giveProfile':
+    case 'takeProfile':
+      return <ProfileBody path={path} step={step} name={kind} />;
+    case 'resume':
+      return <ResumeBody path={path} step={step} />;
+    case 'palette':
+      return <PaletteBody path={path} step={step} />;
+    case 'textbox':
+      return <TextboxBody path={path} step={step} />;
+    case 'bgmPause':
+      return <BgmPauseBody path={path} step={step} />;
     case 'unknown':
       return <UnknownBody path={path} step={step} />;
+    default:
+      // 専用の入力欄がないコマンド（native・ui・scroll・pan・overlay・random）は YAML で
+      return <UnknownBody path={path} step={step} known={kind} />;
   }
 }

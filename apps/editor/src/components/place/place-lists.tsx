@@ -3,12 +3,15 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { pathKey } from '@/model/paths.ts';
 import type { Path } from '@/model/yaml-doc.ts';
 import { useActions, useIds } from '@/state/editor-store.tsx';
 import { CondInput, IdSelect, TextInput, useSetter } from '../fields.tsx';
+import { RefJump } from '../ref-jump.tsx';
 import { Nested } from '../steps/flow-fields.tsx';
 import { IconButton } from '../steps/StepCard.tsx';
 import { StepList } from '../steps/StepList.tsx';
+import { useRows } from '../use-rows.ts';
 import type { Area } from './AreaCanvas.tsx';
 
 type Rec = Record<string, unknown>;
@@ -59,15 +62,18 @@ export function ExamineList({
   onSelect: (i: number) => void;
 }) {
   const { set } = useSetter();
+  const rows = useRows(items);
   return (
     <div className="space-y-2">
-      {items.map((it, i) => {
+      {rows.items.map((it, i) => {
         const p = [...path, i];
         const area = asArea(it.area);
         return (
+          // biome-ignore lint/a11y/useKeyWithClickEvents: キーボードでは中の欄にフォーカスしたときに選ばれる（onFocusCapture）
+          // biome-ignore lint/a11y/noStaticElementInteractions: 同上
           <div
-            key={i}
-            data-path={JSON.stringify(p)}
+            key={rows.keys[i]}
+            data-path={pathKey(p)}
             onFocusCapture={() => onSelect(i)}
             onClick={() => onSelect(i)}
             className={cn(
@@ -83,7 +89,7 @@ export function ExamineList({
                 optional
                 className="w-40"
                 placeholder="表示名（エディタ用）"
-                aria-label="表示名"
+                aria-label={`範囲 ${i + 1} の表示名`}
               />
               <TextInput
                 path={[...p, 'id']}
@@ -92,7 +98,7 @@ export function ExamineList({
                 mono
                 className="w-32"
                 placeholder="ID（省略可）"
-                aria-label="ID"
+                aria-label={`範囲 ${i + 1} の ID`}
               />
               <span className="ml-1 text-[11px] text-muted-foreground">範囲</span>
               {(['x', 'y', '幅', '高さ'] as const).map((label, k) => (
@@ -100,7 +106,7 @@ export function ExamineList({
                   key={label}
                   type="number"
                   title={label}
-                  aria-label={label}
+                  aria-label={`範囲 ${i + 1} の${label}`}
                   className="h-8 w-16 px-1.5 text-xs"
                   value={area[k]}
                   onChange={(e) => {
@@ -118,9 +124,9 @@ export function ExamineList({
               optional
               className="mt-1"
               placeholder="調べられる条件（省略可）"
-              aria-label="条件"
+              aria-label={`範囲 ${i + 1} を調べられる条件`}
             />
-            <Nested label="調べたとき">
+            <Nested label="調べたとき" path={[...p, 'then']} steps={it.then}>
               <StepList path={[...p, 'then']} steps={it.then} />
             </Nested>
           </div>
@@ -132,15 +138,16 @@ export function ExamineList({
 
 export function TalkList({ path, items }: { path: Path; items: Rec[] }) {
   const { edit } = useActions();
+  const rows = useRows(items);
   return (
     <div className="space-y-2">
-      {items.map((it, i) => {
+      {rows.items.map((it, i) => {
         const p = [...path, i];
         return (
           <div
-            key={i}
+            key={rows.keys[i]}
             className="rounded-lg border bg-card p-2 shadow-xs"
-            data-path={JSON.stringify(p)}
+            data-path={pathKey(p)}
           >
             <div className="flex items-center gap-1">
               <span className="text-xs font-semibold">{i + 1}.</span>
@@ -148,7 +155,7 @@ export function TalkList({ path, items }: { path: Path; items: Rec[] }) {
                 path={[...p, 'topic']}
                 value={it.topic}
                 placeholder="話題"
-                aria-label="話題"
+                aria-label={`話題 ${i + 1}`}
               />
               <TextInput
                 path={[...p, 'id']}
@@ -157,7 +164,7 @@ export function TalkList({ path, items }: { path: Path; items: Rec[] }) {
                 mono
                 className="w-32"
                 placeholder="ID（省略可）"
-                aria-label="ID"
+                aria-label={`話題 ${i + 1} の ID`}
               />
               <ItemTools listPath={path} i={i} count={items.length} />
             </div>
@@ -167,9 +174,9 @@ export function TalkList({ path, items }: { path: Path; items: Rec[] }) {
               optional
               className="mt-1"
               placeholder="話題に出る条件（例: seen(night)）"
-              aria-label="条件"
+              aria-label={`話題 ${i + 1} が出る条件`}
             />
-            <Nested label="話したとき">
+            <Nested label="話したとき" path={[...p, 'then']} steps={it.then}>
               <StepList path={[...p, 'then']} steps={it.then} />
             </Nested>
           </div>
@@ -180,7 +187,10 @@ export function TalkList({ path, items }: { path: Path; items: Rec[] }) {
         size="sm"
         className="h-7"
         onClick={() =>
-          edit([{ op: 'insert', path, value: { topic: `話題 ${items.length + 1}`, then: [] } }])
+          edit([
+            // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+            { op: 'insert', path, value: { topic: `話題 ${items.length + 1}`, then: [] } },
+          ])
         }
       >
         <Plus /> 話題を追加
@@ -195,19 +205,21 @@ export function MoveList({ path, items, self }: { path: Path; items: unknown[]; 
   const { edit } = useActions();
   const { set } = useSetter();
   const options = ids.places.filter((p) => p !== self);
+  const rows = useRows(items);
   return (
     <div className="space-y-1">
-      {items.map((it, i) => {
+      {rows.items.map((it, i) => {
         const p = [...path, i];
         const obj = typeof it === 'object' && it !== null ? (it as Rec) : null;
         const to = obj ? obj.to : it;
         const when = obj && typeof obj.when === 'string' ? obj.when : '';
         return (
-          <div key={i} className="flex items-center gap-1" data-path={JSON.stringify(p)}>
+          <div key={rows.keys[i]} className="flex items-center gap-1" data-path={pathKey(p)}>
             <IdSelect
+              path={obj ? [...p, 'to'] : p}
               value={to}
               options={options}
-              aria-label="行き先"
+              aria-label={`行き先 ${i + 1}`}
               onChange={(v) => {
                 if (v) set(obj ? [...p, 'to'] : p, v);
               }}
@@ -216,7 +228,7 @@ export function MoveList({ path, items, self }: { path: Path; items: unknown[]; 
               className="h-8 font-mono text-xs"
               value={when}
               placeholder="行ける条件（省略可）"
-              aria-label="条件"
+              aria-label={`行き先 ${i + 1} に行ける条件`}
               onChange={(e) => {
                 const w = e.target.value;
                 if (w === '') set(p, to);
@@ -224,6 +236,7 @@ export function MoveList({ path, items, self }: { path: Path; items: unknown[]; 
                 else set(p, { to, when: w }, true);
               }}
             />
+            <RefJump id={to} from={p} />
             <ItemTools listPath={path} i={i} count={items.length} />
           </div>
         );
