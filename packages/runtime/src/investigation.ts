@@ -1,4 +1,5 @@
 import { type Beat, type Engine, type ExamineSpot, examineSpots } from '@gyakusai/core';
+import type { BackgroundView } from './background.ts';
 import { drawExamineMarkers } from './examine-markers.ts';
 import { hit, SCREEN_H, SCREEN_W, TOP, UI } from './layout.ts';
 import type { Labels } from './options.ts';
@@ -62,7 +63,28 @@ export class InvestigationUI {
     else if (this.view === 'talk' && b.talk[i]) engine.talk(b.talk[i]!.id);
   }
 
-  key(engine: Engine, b: InvestigateBeat, key: string, openRecord: () => void): boolean {
+  /**
+   * 調べるで背景を動かす（元のゲームの L ボタン・下の画面の真ん中のボタン）。場所が許していて、背景が画面より大きく、
+   * 端（など決まった位置）にいるときだけ動く
+   */
+  #slide(engine: Engine, b: InvestigateBeat, bg: BackgroundView | undefined): boolean {
+    if (!b.examineScroll || !bg) return false;
+    return bg.slide(engine.state.stage.scroll);
+  }
+
+  /** 画面の点 → 背景の座標（調べる範囲の座標） */
+  #toBackground(x: number, y: number, bg: BackgroundView | undefined): [number, number] {
+    return bg ? [x + bg.x, y + bg.y] : [x, y];
+  }
+
+  /** bg: 背景の表示（調べる範囲は背景の座標なので、スクロールした位置を足して調べる） */
+  key(
+    engine: Engine,
+    b: InvestigateBeat,
+    key: string,
+    openRecord: () => void,
+    bg?: BackgroundView,
+  ): boolean {
     const back = key === 'Escape' || key === 'Backspace';
     if ((key === 'Enter' || key === ' ') && this.#guarded) return true;
     if (this.view === 'menu') {
@@ -78,13 +100,19 @@ export class InvestigationUI {
       return true;
     }
     if (this.view === 'examine') {
+      // 背景が動いている間は操作を受け付けない（元のゲームも止まるまで待つ）
+      if (bg?.sliding) return true;
+      if (key === 'l' || key === 'L') {
+        this.#slide(engine, b, bg);
+        return true;
+      }
       const step = UI.cursorStep;
       const c = this.#cursor;
       if (key === 'ArrowLeft') c.x = Math.max(0, c.x - step);
       else if (key === 'ArrowRight') c.x = Math.min(SCREEN_W - 1, c.x + step);
       else if (key === 'ArrowUp') c.y = Math.max(0, c.y - step);
       else if (key === 'ArrowDown') c.y = Math.min(SCREEN_H - 1, c.y + step);
-      else if (key === 'Enter' || key === ' ') engine.examine(c.x, c.y);
+      else if (key === 'Enter' || key === ' ') engine.examine(...this.#toBackground(c.x, c.y, bg));
       else return false;
       return true;
     }
@@ -96,25 +124,42 @@ export class InvestigationUI {
     return true;
   }
 
-  click(engine: Engine, b: InvestigateBeat, x: number, y: number, openRecord: () => void): void {
+  click(
+    engine: Engine,
+    b: InvestigateBeat,
+    x: number,
+    y: number,
+    openRecord: () => void,
+    bg?: BackgroundView,
+  ): void {
     if (this.view === 'menu') {
       const i = ACTIONS.findIndex((_, j) => hit(UI.invButton(j), x, y));
       if (i >= 0) this.#action(engine, b, i, openRecord);
       return;
     }
+    if (this.view === 'examine' && bg?.sliding) return;
     if (hit(UI.invBack, x, y)) {
       this.#switch('menu');
+      return;
+    }
+    if (this.view === 'examine' && this.#canSlide(b, bg) && hit(UI.examineScroll, x, y)) {
+      this.#slide(engine, b, bg);
       return;
     }
     if (this.#guarded) return;
     if (this.view === 'examine') {
       this.#cursor = { x, y };
-      engine.examine(x, y);
+      engine.examine(...this.#toBackground(x, y, bg));
       return;
     }
     const items = this.#list(b);
     const i = items.findIndex((_, j) => hit(UI.choice(j, items.length), x, y));
     if (i >= 0) this.#pick(engine, b, i);
+  }
+
+  /** 背景を動かすボタンを出すか（動いている間も出したままにする） */
+  #canSlide(b: InvestigateBeat, bg: BackgroundView | undefined): boolean {
+    return !!bg && b.examineScroll && (bg.sliding || bg.slideStep() !== null);
   }
 
   #spotsOf(engine: Engine): ExamineSpot[] {
@@ -125,13 +170,14 @@ export class InvestigationUI {
     return list;
   }
 
-  /** markers: 「調べる」で選べる所の目印を出すとき（出さないなら null） */
+  /** markers: 「調べる」で選べる所の目印を出すとき（出さないなら null）。bg: 背景の表示 */
   render(
     p: Painter,
     b: InvestigateBeat,
     labels: Labels,
     frame: number,
     markers: { engine: Engine; reduceMotion: boolean } | null = null,
+    bg?: BackgroundView,
   ): void {
     const blinkOn = (frame >> 4) % 2 === 0;
     // 場所の名前（左上）
@@ -157,8 +203,11 @@ export class InvestigationUI {
         color: '#ffffff',
       });
       p.tab(UI.invBack, 'tr', labels.back);
-      if (markers)
-        drawExamineMarkers(p, this.#spotsOf(markers.engine), frame, markers.reduceMotion);
+      if (this.#canSlide(b, bg)) scrollButton(p, bg!);
+      if (markers) {
+        const origin: [number, number] = bg ? [bg.x, bg.y] : [0, 0];
+        drawExamineMarkers(p, this.#spotsOf(markers.engine), frame, markers.reduceMotion, origin);
+      }
       cursor(p, this.#cursor.x, this.#cursor.y, blinkOn ? '#ffffff' : '#f0a020');
       return;
     }
@@ -184,4 +233,22 @@ function cursor(p: Painter, x: number, y: number, color: string) {
   ];
   for (const [ax, ay, w, h] of arms) p.rect(ax - 1, ay - 1, w + 2, h + 2, '#000000');
   for (const [ax, ay, w, h] of arms) p.rect(ax, ay, w, h, color);
+}
+
+/** 背景を動かすボタン。動く向きの矢印を描く（動いている間は薄く） */
+function scrollButton(p: Painter, bg: BackgroundView) {
+  const r = UI.examineScroll;
+  const step = bg.slideStep();
+  p.tab(r, 'tl', '', { enabled: !bg.sliding });
+  if (!step) return;
+  const dir = step.x > 0 ? 'right' : step.x < 0 ? 'left' : 'down';
+  const cx = r.x + 6 + (r.w - 6) / 2,
+    cy = r.y + r.h / 2;
+  if (dir === 'down' && step.y < 0) {
+    // 上向き（下向きの三角形を上下に反転して描く）
+    for (let i = 0; i < 7; i++)
+      p.rect(Math.round(cx - i), Math.round(cy - 3 + i), i * 2 + 1, 1, '#ffffff');
+    return;
+  }
+  p.triangle(cx, cy, 10, 13, dir, '#ffffff');
 }

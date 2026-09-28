@@ -2,6 +2,7 @@
 // どれも 7×7 ドットほどの小さな印で、調べるときのカーソル（十字）の真ん中の空きに収まる大きさにする。
 // まだ調べていない所は目立つ色のひし形がゆっくり脈打ち、調べた所は落ち着いた色のチェックの印（形でも見分けられる）
 import type { ExamineSpot } from '@gyakusai/core';
+import { SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
 const EDGE = '#000000';
@@ -12,17 +13,23 @@ const DONE = '#90b0a8';
 const PULSE_FRAMES = 60;
 const SMALL_FRAMES = 20;
 
-/** 目印を描く。reduceMotion なら脈打たない */
+/**
+ * 目印を描く。reduceMotion なら脈打たない。
+ * 目印の点は背景の座標なので、origin（背景のスクロールした位置）を引いて画面に置く。画面の外のものは描かない
+ */
 export function drawExamineMarkers(
   p: Painter,
   spots: readonly ExamineSpot[],
   frame: number,
   reduceMotion = false,
+  origin: readonly [number, number] = [0, 0],
 ): void {
   const small = !reduceMotion && frame % PULSE_FRAMES < SMALL_FRAMES;
   for (const s of spots) {
     if (!s.point) continue;
-    const [x, y] = s.point;
+    const x = s.point[0] - origin[0],
+      y = s.point[1] - origin[1];
+    if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H) continue;
     if (s.seen) check(p, x, y);
     else diamond(p, x, y, small ? 2 : 3);
   }
