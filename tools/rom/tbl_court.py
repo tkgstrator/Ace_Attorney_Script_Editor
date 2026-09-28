@@ -153,8 +153,9 @@ def flag53(a: tuple) -> dict:
 
 
 def is_statement(d: list[tuple]) -> bool:
-    """尋問の文: 15 を持つか、ページ送り（2/10/45）無しで 21/69/121 を持つ。つきつけ要求（17/33）は除く"""
-    if has(d, 17) or has(d, 33):
+    """尋問の文: 15 を持つか、ページ送り（2/10/45）無しで 21/69/121 を持つ。つきつけ要求（17/33）と、
+    台本の項目を替える区画（106。逆転裁判3 のつきつけの正解の後の「106 k → 21」）は除く"""
+    if has(d, 17) or has(d, 33) or has(d, 106):
         return False
     return has(d, 15) or (any(has(d, o) for o in TURN) and not any(has(d, o) for o in (2, 10, 45)))
 
@@ -306,6 +307,8 @@ def main() -> None:
         split_rows = (item in splits) if cg.split_rows else None
         table = read_present(a, part, cg.present_table, split_rows)
         go = a.u16(cg.gameover_table + 2 * part) if cg.gameover_table else 0
+        if go and go - 128 >= len(jp):
+            go = 0  # 3 の分割された項目: パートの区画はこの項目には無い
         info = parse_part(part, jp, labels, table, chars, kinds)
         bad = check_en(jp, en, info)
         if bad:
@@ -324,6 +327,9 @@ def main() -> None:
     if G.code != 'AGYJ':
         doc['game'] = G.code
         doc['part_starts'] = starts
+        if cg.split_rows:
+            doc['load_106'] = {str(k): v for k, v in split_items_yg3j(a).items()}
+            doc['part_kinds'] = list(a.read(0x020a3f20, cg.n_parts))
         doc['life_max'] = 80
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')

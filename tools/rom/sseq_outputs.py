@@ -125,6 +125,14 @@ def _clean(o):
     return o
 
 
+#: 取り出し先（assets/extracted/<ここ>/sound/rendered）→ ゲームの名前
+_TITLES = {'aa2': '逆転裁判2 A2GJ', 'aa3': '逆転裁判3 YG3J'}
+
+
+def _source(out: Path) -> str:
+    return f"sound_data.sdat（{_TITLES.get(out.parent.parent.name, '逆転裁判 蘇る逆転 AGYJ')}）"
+
+
 def write_index(out: Path, results: list[dict], sdat, merge: bool):
     path = out / 'index.json'
     items = {}
@@ -139,7 +147,7 @@ def write_index(out: Path, results: list[dict], sdat, merge: bool):
         e['scriptId'] = e['sdatIndex']
         e['scriptUses'] = uses.get(e['sdatIndex'], {})
     doc = {
-        'source': 'sound_data.sdat（逆転裁判 蘇る逆転 AGYJ）',
+        'source': _source(out),
         'sampleRate': OUTPUT_RATE_INT,
         'note': 'loop.start/end は秒。loop の範囲（2 回目のループ）を繰り返せば継ぎ目なく鳴る。'
                 'sdatIndex は SDAT の INFO のシーケンス番号。名前の BGMnnn/SEnnn は SYMB による。'

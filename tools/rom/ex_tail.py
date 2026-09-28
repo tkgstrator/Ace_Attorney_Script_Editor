@@ -97,14 +97,20 @@ def _pack(w: Writer, d: bytes, it, names: dict, bgs: dict) -> None:
     w.log(it.offset, 'pack', it.size, f'{len(ents)} 個、画像 {made} 枚', group + '/')
 
 
-def export(d: bytes, arm9: bytes, out: Path, raw: bool = True, sheets: bool = True) -> None:
+def export(d: bytes, arm9: bytes, out: Path, raw: bool = True, sheets: bool = True,
+           archive_count: int = ARCHIVE_COUNT, bgs: dict[int, int] | None = None) -> None:
+    """archive_count = 先頭に並ぶ画像アーカイブの数（2・3 は 0）。bgs = data.bin の位置 → 背景の番号
+    （無ければ ARM9 から推定する。2・3 は背景の表の番号（台本の 27 の番号）を渡す）"""
     out.mkdir(parents=True, exist_ok=True)
     items = walk(d)
     packs = [it for it in items if it.kind == 'pack']
-    start = packs[ARCHIVE_COUNT - 1].offset + packs[ARCHIVE_COUNT - 1].size   # 先頭のアーカイブの後ろ
+    start = 0
+    if archive_count:
+        start = packs[archive_count - 1].offset + packs[archive_count - 1].size   # 先頭のアーカイブの後ろ
     items = [it for it in items if it.offset >= start]
     names = named_resources(arm9, len(d))
-    bgs = bg_table(arm9, {it.offset for it in items if it.kind == 'pack'})
+    if bgs is None:
+        bgs = bg_table(arm9, {it.offset for it in items if it.kind == 'pack'})
     w = Writer(out, raw)
     seen: set[bytes] = set()
     for it in items:

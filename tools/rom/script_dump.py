@@ -36,12 +36,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_chars(game: Game | None = None) -> dict[int, str]:
-    """フォントの番号 → 文字（LAYOUT、OCR の結果、手で直したものの順に上書き）。2・3 は font/A2GJ・YG3J の結果"""
+    """フォントの番号 → 文字（LAYOUT、OCR の結果、手で直したものの順に上書き）。2・3 は font/A2GJ・YG3J の結果。
+    2・3 は LAYOUT の範囲でも字形が違う所がある（243 が「，」、256〜268 が「ー保存現在状況中断選下失敗」）。
+    2・3 の mapping.tsv はその範囲も蘇る逆転の字形との点の一致で決めてある（ocr_font.py --base）ので、そちらを使う"""
     g = game or GAMES['AGYJ']
     out = dict(enumerate(LAYOUT))
     m = g.font_dir / 'mapping.tsv'
     if m.exists():
-        out.update({k: v for k, v in read_tsv(str(m)).items() if k >= len(LAYOUT) and v})
+        whole = g.code != 'AGYJ'
+        out.update({k: v for k, v in read_tsv(str(m)).items() if (whole or k >= len(LAYOUT)) and v})
     out.update({k: v for k, v in read_tsv(str(g.font_fixes)).items() if v})
     return out
 

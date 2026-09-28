@@ -33,10 +33,11 @@ FUNCS = {0: 0x0202c31c, 1: 0x0202c1bc, 2: 0x0202c914, 3: 0x0202c784, 4: 0x0202c6
 ARRIVE = {0: (14, 0x14c), 1: (14, 0x1c), 2: (15, -0x66), 3: (15, 0x166), 4: (14, -0x4c), 5: (14, 0xe4)}
 
 
-def tables(a: bytes) -> dict:
+def tables(a: bytes, addrs: tuple = (SHORT, LONG, T1, T3, T2)) -> dict:
     u16 = lambda addr, n: list(struct.unpack_from(f'<{n}H', a, addr - B))  # noqa: E731
     s8 = lambda addr: list(struct.unpack_from('<32b', a, addr - B))          # noqa: E731
-    return {'short': u16(SHORT, 16), 'long': u16(LONG, 16), 't1': s8(T1), 't2': s8(T2), 't3': s8(T3)}
+    short, long_, t1, t3, t2 = addrs
+    return {'short': u16(short, 16), 'long': u16(long_, 16), 't1': s8(t1), 't2': s8(t2), 't3': s8(t3)}
 
 
 def _tile(t: dict, typ: int, i: int) -> int:
@@ -98,22 +99,39 @@ def simulate(t: dict, typ: int) -> list[dict]:
     return out
 
 
-def spec(a: bytes) -> dict:
-    t = tables(a)
+def spec(a: bytes, pan: tuple = PAN_IMAGE, addrs: tuple = (SHORT, LONG, T1, T3, T2), funcs: dict = FUNCS) -> dict:
+    t = tables(a, addrs)
+    name = f'data/tail/bg_fixed/court_pan_{pan[0]:07x}'
     return {
         '_about': '命令 26 a b c d（bg_scroll）のパン。種類 = 2a + (b & 1)。frames[k-1] = 命令が動いた（2 回目の実行の）'
                   'フレームを k = 1 とした各フレームの終わりの状態。bg_x = パノラマ（court_pan_1296x192.png）の左端の x'
                   '（None = まだ元の背景のまま）。char_x = 主の人物の原点の x（y = 96）。char = departing（元の人物）/ '
                   'arriving（c, d で作り直した人物）。desk = 机の OBJ（kind の机を dx だけ定位置からずらして描く）',
-        'image': {'data_bin': PAN_IMAGE[0], 'size': PAN_IMAGE[1], 'palette_bytes': 32, 'bpp': 4,
+        'image': {'data_bin': pan[0], 'size': pan[1], 'palette_bytes': 32, 'bpp': 4,
                   'tiles': [TILES_W, TILES_H], 'mirror': 'v >= 81 のタイル列は 161 - v を左右反転',
-                  'png_half': 'data/tail/bg_fixed/court_pan_21f2f00_648x192.png',
-                  'png_full': 'data/tail/bg_fixed/court_pan_21f2f00_1296x192.png',
+                  'png_half': f'{name}_648x192.png',
+                  'png_full': f'{name}_1296x192.png',
                   'bg_layer': 'BG3（16 色、パレット 2）。パンが終わっても次の 27 bg が読み込まれるまで最後の絵が残る'},
         'rest_tile': {'defense': 0, 'witness': 65, 'prosecution': 130},
         'counter': '前向き（b & 1 = 0）: c = k。後ろ向き（b & 1 = 1）: c = 30 - k。k = 31 で終わり',
         'tables': t,
-        'types': {str(typ): {'label': TYPES[typ][0], 'direction': TYPES[typ][1], 'func': hex(FUNCS[typ]),
+        'types': {str(typ): {'label': TYPES[typ][0], 'direction': TYPES[typ][1], 'func': hex(funcs[typ]) if typ in funcs else None,
                              'arrive_counter': ARRIVE[typ][0], 'arrive_x': ARRIVE[typ][1],
                              'frames': simulate(t, typ)} for typ in TYPES},
     }
+
+
+#: 2・3: 命令 26（2: 0x0202b150、3: 0x0202d0e8）が読むパンの絵の位置と、表（蘇る逆転とバイト単位で同じ内容の所）。
+#: 人物・机の動かし方（FUNCS・ARRIVE）は蘇る逆転と同じとみなした（表が同じで、2・3 は蘇る逆転の作りを元にしているため。確かさ 中）
+PAN_23 = {
+    'A2GJ': ((0x5193c0, 62240), (0x020950e8, 0x02095108, 0x0208ccd4, 0x0208ccf4, 0x0208cd14)),
+    'YG3J': ((0x4aefb4, 62240), (0x020ad6d4, 0x020ad6f4, 0x020a4374, 0x020a4394, 0x020a43b4)),
+}
+
+
+def spec_23(a: bytes, code: str) -> dict | None:
+    """2・3 のパン（絵の位置と表の番地だけ違う）"""
+    if code not in PAN_23:
+        return None
+    pan, addrs = PAN_23[code]
+    return spec(a, pan, addrs, {})
