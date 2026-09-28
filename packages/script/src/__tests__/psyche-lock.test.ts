@@ -124,6 +124,8 @@ describe('サイコ・ロック', () => {
     const e = new Engine(load(six));
     skip(e);
     e.present('magatama');
+    // 表示も、壊せる錠は 5 つ（YG3J 0x02088d9c）
+    expect(e.state.stage.locks).toEqual({ total: 6, left: 5, hidden: false });
     for (let i = 0; i < 4; i++) {
       skip(e);
       e.present('news');

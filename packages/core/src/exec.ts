@@ -118,7 +118,8 @@ function applyLocks(
 ): void {
   const st = s.stage;
   if (typeof show === 'number') {
-    st.locks = { total: show, left: show, hidden: false };
+    // 壊せる錠は 5 つまで（元のゲームは 6 以上なら 5 にする。YG3J 0x02088d9c。錠を壊す処理も同じ。compile-lock.ts）
+    st.locks = { total: show, left: Math.min(show, 5), hidden: false };
     events.push({ type: 'locks', fx: 'show' });
   } else if (show === 'break') {
     if (st.locks) st.locks = { ...st.locks, left: Math.max(0, st.locks.left - 1) };
