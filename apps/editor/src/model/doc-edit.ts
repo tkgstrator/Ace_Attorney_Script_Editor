@@ -5,18 +5,20 @@
 // Change はノードそのもの（参照）を持つ。元に戻す・やり直すは必ず後ろから順に行うので、
 // ある Change を戻すときには、それより後の書き換えはすべて戻っていて、ノードは記録したときと同じ状態にある。
 import {
+  type Document,
   isCollection,
   isMap,
   isPair,
   isScalar,
   isSeq,
-  Pair,
-  type Document,
   type Node,
+  Pair,
   type Scalar,
   type YAMLMap,
   type YAMLSeq,
 } from 'yaml';
+import { renameInCond } from './cond.ts';
+import { findRefs, type RefTarget } from './refs.ts';
 import { createNode, type Op, type Path } from './yaml-doc.ts';
 
 type Coll = YAMLMap | YAMLSeq;
@@ -136,7 +138,8 @@ export class DocEditor {
   apply(op: Op): void {
     switch (op.op) {
       case 'set':
-        return this.set(op.path, op.value);
+        this.set(op.path, op.value);
+        return;
       case 'delete':
         if (lookup(this.doc, op.path).found) {
           this.scopes.push(op.path.slice(0, -1));
@@ -144,15 +147,20 @@ export class DocEditor {
         }
         return;
       case 'insert':
-        return this.insert(op.path, op.index, op.value);
+        this.insert(op.path, op.index, op.value);
+        return;
       case 'move':
-        return this.move(op.path, op.from, op.to);
+        this.move(op.path, op.from, op.to);
+        return;
       case 'renameKey':
-        return this.renameKey(op.path, op.from, op.to);
+        this.renameKey(op.path, op.from, op.to);
+        return;
       case 'relocate':
-        return this.relocate(op.from, op.to);
+        this.relocate(op.from, op.to);
+        return;
       case 'renameRefs':
-        return this.renameRefs(op.target, op.from, op.to);
+        this.renameRefs(op.target, op.from, op.to);
+        return;
     }
   }
 
@@ -231,38 +239,22 @@ export class DocEditor {
     this.setNode(to, r.node);
   }
 
-  /** シーン・場所の ID を参照している所（goto・start.scene・investigate など）も書き換える */
-  private renameRefs(target: 'scene' | 'place', from: string, to: string): void {
-    const replace = (n: unknown, path: Path) => {
-      if (isScalar(n) && n.value === from) {
-        this.scopes.push(path);
-        this.setScalar(n, to);
+  /** ID を参照している所（goto・台詞の人物・条件式など）も書き換える。refs.ts の findRefs で探す */
+  private renameRefs(target: RefTarget, from: string, to: string): void {
+    for (const r of findRefs(this.doc.toJS(), target, from)) {
+      if (r.how === 'key') {
+        const map = lookup(this.doc, r.path).node;
+        // 行き先の名前がすでにあるマップ（set: { a: 1, b: 2 } の a → b など）はそのままにする
+        if (isMap(map) && !map.has(to)) this.renameKey(r.path, from, to);
+        continue;
       }
-    };
-    if (target === 'scene') {
-      replace(lookup(this.doc, ['start', 'scene']).node, ['start', 'scene']);
-      replace(lookup(this.doc, ['gameover']).node, ['gameover']);
+      const n = lookup(this.doc, r.path).node;
+      if (!isScalar(n) || typeof n.value !== 'string') continue;
+      const next = r.how === 'value' ? to : renameInCond(n.value, r.kind, from, to);
+      if (next === n.value) continue;
+      this.scopes.push(r.path);
+      this.setScalar(n, next);
     }
-    const onPair = (pair: Pair, path: Path) => {
-      const k = keyOf(pair);
-      const p = [...path, k as string];
-      if (target === 'scene' && k === 'goto') replace(pair.value, p);
-      if (target === 'place' && (k === 'investigate' || k === 'to')) replace(pair.value, p);
-      if (target === 'place' && k === 'move' && isSeq(pair.value))
-        pair.value.items.forEach((it, i) => replace(it, [...p, i]));
-      walk(pair.value, p);
-    };
-    const walk = (n: unknown, path: Path) => {
-      if (isMap(n)) for (const pair of n.items) onPair(pair, path);
-      else if (isSeq(n)) {
-        n.items.forEach((it, i) => {
-          // フロー形式の列の中の「a: b」は Pair のまま入っている
-          if (isPair(it)) onPair(it, [...path, i]);
-          else walk(it, [...path, i]);
-        });
-      }
-    };
-    walk(this.doc.contents, []);
   }
 
   /**

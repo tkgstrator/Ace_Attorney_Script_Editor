@@ -1,24 +1,26 @@
-// フラグ・証拠品・移動・表示など、値を 1〜数個持つステップの入力欄
+// フラグ・証拠品・移動・吹き出しなど、値を 1〜数個持つステップの入力欄（表示まわりは display-fields.tsx）
 import { Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { idList, idListValue } from '@/model/steps.ts';
+import { pathKey } from '@/model/paths.ts';
+import { flagDefault, flagsOfType, idList, idListValue } from '@/model/steps.ts';
 import type { Path } from '@/model/yaml-doc.ts';
-import { useActions, useIds, useFlagValues, type FlagValue } from '@/state/editor-store.tsx';
+import { type FlagValue, useActions, useFlagValues, useIds } from '@/state/editor-store.tsx';
 import { IdChips, IdSelect, useCharacterLabels, useEvidenceLabels, useSetter } from '../fields.tsx';
+import { RefJump } from '../ref-jump.tsx';
 import type { BodyProps } from './say-fields.tsx';
 
 const record = (v: unknown) =>
   typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
-/** フラグ名 → 値 の組を編集する（set と add で使う） */
+/** フラグ名 → 値 の組を編集する（set と add で使う）。add は数値のフラグだけ */
 function FlagRows({ path, value, numeric }: { path: Path; value: unknown; numeric?: boolean }) {
   const ids = useIds();
   const flagValues = useFlagValues();
-  const { edit } = useActions();
+  const { edit, select } = useActions();
   const { set } = useSetter();
   const entries = Object.entries(record(value));
-  const options = numeric ? ids.flags.filter((f) => typeof flagValues[f] === 'number') : ids.flags;
+  const options = numeric ? flagsOfType({ flags: ids.flags, flagValues }, 'number') : ids.flags;
   const unused = options.find((f) => !entries.some(([k]) => k === f));
   return (
     <div className="flex flex-col gap-1">
@@ -37,11 +39,13 @@ function FlagRows({ path, value, numeric }: { path: Path; value: unknown; numeri
             path={[...path, name]}
             value={v}
             initial={numeric ? 0 : flagValues[name]}
+            label={`${name} の値`}
           />
           <button
             type="button"
             className="text-muted-foreground hover:text-destructive"
             title="消す"
+            aria-label={`${name} を消す`}
             onClick={() => edit([{ op: 'delete', path: [...path, name] }])}
           >
             <X className="size-3.5" />
@@ -52,30 +56,42 @@ function FlagRows({ path, value, numeric }: { path: Path; value: unknown; numeri
         <button
           type="button"
           className="flex w-fit items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-          onClick={() => set([...path, unused], numeric ? 1 : defaultFor(flagValues[unused]))}
+          onClick={() => set([...path, unused], numeric ? 1 : flagDefault(flagValues[unused]))}
         >
           <Plus className="size-3" /> フラグを追加
         </button>
       )}
+      {options.length === 0 && (
+        <p className="text-[11px] text-amber-700">
+          {numeric ? '数値のフラグがありません。' : 'フラグがありません。'}
+          <button
+            type="button"
+            className="ml-1 underline"
+            onClick={() => select({ kind: 'flags' })}
+          >
+            フラグの表で作る
+          </button>
+        </p>
+      )}
     </div>
   );
 }
-
-const defaultFor = (initial: FlagValue | undefined): FlagValue =>
-  typeof initial === 'number' ? 0 : typeof initial === 'string' ? '' : true;
 
 /** フラグの値の欄。型は初期値（flags）に合わせる */
 export function FlagValueInput({
   path,
   value,
   initial,
+  label = '値',
 }: {
   path: Path;
   value: unknown;
   initial: FlagValue | undefined;
+  label?: string;
 }) {
   const { set } = useSetter();
   const type = typeof (initial ?? value);
+  const dp = pathKey(path);
   if (type === 'boolean') {
     return (
       <NativeSelect
@@ -83,7 +99,8 @@ export function FlagValueInput({
         className="h-8 w-24"
         value={String(value)}
         onChange={(e) => set(path, e.target.value === 'true')}
-        aria-label="値"
+        aria-label={label}
+        data-path={dp}
       >
         <NativeSelectOption value="true">true</NativeSelectOption>
         <NativeSelectOption value="false">false</NativeSelectOption>
@@ -96,7 +113,8 @@ export function FlagValueInput({
         type="number"
         className="h-8 w-24"
         value={typeof value === 'number' ? value : ''}
-        aria-label="値"
+        aria-label={label}
+        data-path={dp}
         onChange={(e) => {
           const n = Number(e.target.value);
           if (e.target.value !== '' && Number.isFinite(n)) set(path, n, true);
@@ -109,7 +127,8 @@ export function FlagValueInput({
       className="h-8 w-40"
       value={String(value ?? '')}
       onChange={(e) => set(path, e.target.value, true)}
-      aria-label="値"
+      aria-label={label}
+      data-path={dp}
     />
   );
 }
@@ -131,6 +150,8 @@ export function GiveTakeBody({ path, step, name }: BodyProps & { name: 'give' | 
       value={idList(step[name])}
       options={ids.evidence}
       labels={labels}
+      path={[...path, name]}
+      aria-label={name === 'give' ? '渡す証拠品' : '外す証拠品'}
       onChange={(v) => set([...path, name], idListValue(v))}
     />
   );
@@ -140,12 +161,16 @@ export function GotoBody({ path, step }: BodyProps) {
   const ids = useIds();
   const { set } = useSetter();
   return (
-    <IdSelect
-      value={step.goto}
-      options={ids.scenes}
-      onChange={(v) => v && set([...path, 'goto'], v)}
-      aria-label="移動先のシーン"
-    />
+    <div className="flex items-center gap-1">
+      <IdSelect
+        path={[...path, 'goto']}
+        value={step.goto}
+        options={ids.scenes}
+        onChange={(v) => v && set([...path, 'goto'], v)}
+        aria-label="移動先のシーン"
+      />
+      <RefJump id={step.goto} from={path} />
+    </div>
   );
 }
 
@@ -153,12 +178,16 @@ export function InvestigateBody({ path, step }: BodyProps) {
   const ids = useIds();
   const { set } = useSetter();
   return (
-    <IdSelect
-      value={step.investigate}
-      options={ids.places}
-      onChange={(v) => v && set([...path, 'investigate'], v)}
-      aria-label="場所"
-    />
+    <div className="flex items-center gap-1">
+      <IdSelect
+        path={[...path, 'investigate']}
+        value={step.investigate}
+        options={ids.places}
+        onChange={(v) => v && set([...path, 'investigate'], v)}
+        aria-label="場所"
+      />
+      <RefJump id={step.investigate} from={path} />
+    </div>
   );
 }
 
@@ -220,6 +249,7 @@ export function ShoutBody({ path, step }: BodyProps) {
         ))}
       </NativeSelect>
       <IdSelect
+        path={[...path, 'by']}
         value={step.by}
         options={ids.characters}
         labels={labels}
@@ -227,64 +257,6 @@ export function ShoutBody({ path, step }: BodyProps) {
         aria-label="叫ぶ人"
         onChange={(v) => setOptional([...path, 'by'], v ?? undefined)}
       />
-    </div>
-  );
-}
-
-export function ShowEvidenceBody({ path, step }: BodyProps) {
-  const ids = useIds();
-  const { set } = useSetter();
-  const labels = useEvidenceLabels();
-  return (
-    <IdSelect
-      value={step.showEvidence}
-      options={ids.evidence}
-      labels={labels}
-      nullLabel="（小窓を消す）"
-      aria-label="証拠品"
-      onChange={(v) => set([...path, 'showEvidence'], v ?? null)}
-    />
-  );
-}
-
-export function ShowBody({ path, step }: BodyProps) {
-  const ids = useIds();
-  const { set } = useSetter();
-  const labels = useCharacterLabels();
-  return (
-    <IdSelect
-      value={step.show}
-      options={ids.characters}
-      labels={labels}
-      nullLabel="（誰も出さない）"
-      aria-label="人物"
-      onChange={(v) => set([...path, 'show'], v ?? null)}
-    />
-  );
-}
-
-export function LocationBody({ path, step }: BodyProps) {
-  const ids = useIds();
-  const { set } = useSetter();
-  const listId = `location-${path.join('-')}`;
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        className="h-8 w-48 font-mono text-xs"
-        list={listId}
-        value={typeof step.location === 'string' ? step.location : ''}
-        placeholder="空なら法廷に戻る"
-        aria-label="場所（背景のキー）"
-        onChange={(e) =>
-          set([...path, 'location'], e.target.value === '' ? null : e.target.value, true)
-        }
-      />
-      <datalist id={listId}>
-        {ids.places.map((p) => (
-          <option key={p} value={p} />
-        ))}
-      </datalist>
-      {step.location === null && <span className="text-xs text-muted-foreground">法廷に戻る</span>}
     </div>
   );
 }

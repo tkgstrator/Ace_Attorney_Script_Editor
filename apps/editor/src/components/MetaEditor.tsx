@@ -1,9 +1,13 @@
 // 章の基本情報（id・タイトル・操作する人物・ライフ・既定の反応・開始・ゲームオーバー）と、編の設定
-import { useActions, useIds, useData } from '@/state/editor-store.tsx';
-import { idList } from '@/model/steps.ts';
-import { partPath } from '@/model/paths.ts';
-import { PART_LABELS } from '@/model/structure.ts';
+
+import { useMemo } from 'react';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { extraRecordKeys } from '@/model/form-keys.ts';
+import { partPath } from '@/model/paths.ts';
+import { idList, profileIds } from '@/model/steps.ts';
+import { PART_LABELS } from '@/model/structure.ts';
+import { useActions, useData, useIds } from '@/state/editor-store.tsx';
+import { ExtraFields } from './ExtraFields.tsx';
 import {
   Field,
   IdChips,
@@ -29,6 +33,7 @@ export function MetaEditor() {
   const evLabels = useEvidenceLabels();
   const d = rec(data);
   const start = rec(d.start);
+  const profiles = useMemo(() => profileIds(d.characters), [d.characters]);
   const defaults = rec(d.defaults);
   return (
     <div className="space-y-8">
@@ -42,6 +47,7 @@ export function MetaEditor() {
         </Field>
         <Field label="操作する弁護士（player）">
           <IdSelect
+            path={['player']}
             value={d.player}
             options={ids.characters}
             labels={chars}
@@ -58,6 +64,7 @@ export function MetaEditor() {
         <div className="grid grid-cols-2 gap-3">
           <Field label="最初のシーン">
             <IdSelect
+              path={['start', 'scene']}
               value={start.scene}
               options={ids.scenes}
               onChange={(v) => v && set(['start', 'scene'], v)}
@@ -65,6 +72,7 @@ export function MetaEditor() {
           </Field>
           <Field label="ライフが尽きたときのシーン（gameover）">
             <IdSelect
+              path={['gameover']}
               value={d.gameover}
               options={ids.scenes}
               noneLabel="（指定なし）"
@@ -74,10 +82,22 @@ export function MetaEditor() {
         </div>
         <Field label="最初から持っている証拠品">
           <IdChips
+            path={['start', 'evidence']}
+            aria-label="最初から持っている証拠品"
             value={idList(start.evidence)}
             options={ids.evidence}
             labels={evLabels}
             onChange={(v) => setOptional(['start', 'evidence'], v.length ? v : undefined)}
+          />
+        </Field>
+        <Field label="最初から人物ファイルに載っている人物（何も選ばなければ、人物ファイルのある全員）">
+          <IdChips
+            path={['start', 'profiles']}
+            aria-label="最初から人物ファイルに載っている人物"
+            value={idList(start.profiles)}
+            options={profiles}
+            labels={chars}
+            onChange={(v) => setOptional(['start', 'profiles'], v.length ? v : undefined)}
           />
         </Field>
       </Section>
@@ -86,6 +106,11 @@ export function MetaEditor() {
         <Field label="penalty: true のときに減るライフ（既定 2）" className="w-60">
           <NumberInput path={['defaults', 'penalty']} value={defaults.penalty} optional min={1} />
         </Field>
+        <ExtraFields
+          path={['defaults']}
+          value={defaults}
+          keys={extraRecordKeys(defaults, ['penalty', 'wrongPresent'])}
+        />
         <OptionalSteps
           path={['defaults', 'wrongPresent']}
           value={defaults.wrongPresent}

@@ -1,18 +1,27 @@
 // 真ん中: 選んでいる項目の編集画面
-import { MessageSquareQuote, MessagesSquare, Play } from 'lucide-react';
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  ArrowLeft,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  MessageSquareQuote,
+  MessagesSquare,
+  Play,
+} from 'lucide-react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { listParts, pathKey, placePath, scenePath } from '@/model/paths.ts';
+import { listParts, pathKey, placePath, scenePath, selectionLabel } from '@/model/paths.ts';
 import { isTestimony } from '@/model/steps.ts';
 import { PART_LABELS } from '@/model/structure.ts';
 import { getIn } from '@/model/yaml-doc.ts';
-import { useData, useEditorState, useEditorStore } from '@/state/editor-store.tsx';
+import { useActions, useData, useEditorState } from '@/state/editor-store.tsx';
 import { MetaEditor, PartEditor } from './MetaEditor.tsx';
 import { PlaceEditor } from './place/PlaceEditor.tsx';
+import { focusTarget, revealPath } from './reveal.ts';
+import { foldAll, resetFold } from './steps/Nested.tsx';
 import { StepList } from './steps/StepList.tsx';
-import { CharactersTable, EvidenceTable, FlagsTable } from './tables/RecordTables.tsx';
 import { TestimonyEditor } from './TestimonyEditor.tsx';
+import { CharactersTable, EvidenceTable, FlagsTable } from './tables/RecordTables.tsx';
+import { YamlEditor } from './YamlEditor.tsx';
 
 export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
   const selection = useEditorState((s) => s.selection);
@@ -21,48 +30,34 @@ export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
   const focus = useEditorState((s) => s.focus);
   const root = useRef<HTMLDivElement>(null);
 
-  // 診断から開いたとき: いちばん近い入力欄の場所までスクロールして、少し光らせる
+  // 診断・検索から開いたとき: その場所を（隠れていれば開いて）見せ、入力欄にフォーカスして、少し光らせる
   useEffect(() => {
-    if (!focus || !root.current) return;
-    const find = () => {
-      for (let n = focus.path.length; n > 0; n--) {
-        const el = root.current?.querySelector<HTMLElement>(
-          `[data-path="${CSS.escape(pathKey(focus.path.slice(0, n)))}"]`,
-        );
-        if (el) return el;
-      }
-      return null;
-    };
-    const flash = (el: HTMLElement) =>
-      el.animate(
-        [{ boxShadow: '0 0 0 3px rgb(239 68 68 / 0.8)' }, { boxShadow: '0 0 0 3px transparent' }],
-        { duration: 1600 },
-      );
-    let later: ReturnType<typeof setTimeout> | undefined;
-    const id = requestAnimationFrame(() => {
-      const el = find();
-      if (!el) {
-        root.current?.scrollTo({ top: 0 });
-        return;
-      }
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      flash(el);
-      // 長い列ではカードがまだ作られていない（空の箱だった）ことがある。作られた後にもう一度合わせる
-      later = setTimeout(() => {
-        const again = find();
-        if (again && again !== el) {
-          again.scrollIntoView({ block: 'center' });
-          flash(again);
+    const r = root.current;
+    if (!focus || !r || focus.path.length === 0) return;
+    let alive = true;
+    const id = setTimeout(() => {
+      void revealPath(r, focus.path, () => alive).then((el) => {
+        if (!alive) return;
+        if (!el) {
+          r.scrollTo({ top: 0 });
+          return;
         }
-      }, 500);
+        el.scrollIntoView({ block: 'center' });
+        const target = focusTarget(el);
+        target?.focus({ preventScroll: true });
+        (target ?? el).animate(
+          [{ boxShadow: '0 0 0 3px rgb(239 68 68 / 0.8)' }, { boxShadow: '0 0 0 3px transparent' }],
+          { duration: 1600 },
+        );
+      });
     });
     return () => {
-      cancelAnimationFrame(id);
-      clearTimeout(later);
+      alive = false;
+      clearTimeout(id);
     };
   }, [focus]);
 
-  let body;
+  let body: ReactNode;
   if (selection.kind === 'yaml' || (parseError && data === null)) body = <YamlEditor />;
   else if (!data) body = <p className="text-muted-foreground">章を読み込んでいます…</p>;
   else {
@@ -104,8 +99,11 @@ export function MainPane({ onPlay }: { onPlay: (scene: string) => void }) {
     }
   }
   return (
-    <main ref={root} className="min-w-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-5xl p-6 pb-40">{body}</div>
+    <main ref={root} className="min-w-0 flex-1 overflow-y-auto" aria-label="編集">
+      <div className="mx-auto max-w-5xl p-6 pb-40">
+        <BackBar />
+        {body}
+      </div>
     </main>
   );
 }
@@ -132,6 +130,53 @@ function Header({
       </div>
       <div className="ml-auto flex items-center gap-2">{children}</div>
     </div>
+  );
+}
+
+/** 参照先を開いたときの「元の場所へ戻る」 */
+function BackBar() {
+  const stack = useEditorState((s) => s.backStack);
+  const { back } = useActions();
+  const last = stack.at(-1);
+  if (!last) return null;
+  return (
+    <Button variant="ghost" size="sm" className="-mt-3 mb-2 h-7 text-xs" onClick={back}>
+      <ArrowLeft /> 元の場所へ戻る（{selectionLabel(last.selection)}）
+    </Button>
+  );
+}
+
+/** 入れ子（分岐・選択肢など）をすべて折りたたむ・開く */
+function FoldButtons({ scene }: { scene: string }) {
+  // 別のシーンを開いたら、折りたたみを戻す（中のカードを作る前に。見出しはカードより先に描かれる）
+  const shown = useRef(scene);
+  if (shown.current !== scene) {
+    shown.current = scene;
+    resetFold();
+  }
+  useEffect(() => resetFold, []);
+  return (
+    <span className="flex items-center">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-8 px-2 text-xs"
+        title="分岐・選択肢などの中をすべて折りたたみ、要約だけにします"
+        onClick={() => foldAll(false)}
+      >
+        <ChevronsDownUp /> すべて折りたたむ
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-8 px-2 text-xs"
+        title="すべて開く"
+        aria-label="すべて開く"
+        onClick={() => foldAll(true)}
+      >
+        <ChevronsUpDown />
+      </Button>
+    </span>
   );
 }
 
@@ -162,6 +207,7 @@ function SceneEditor({
             </>
           )}
         </span>
+        {!testimony && <FoldButtons scene={id} />}
         <Button size="sm" variant="outline" className="h-8" onClick={() => onPlay(id)}>
           <Play /> ここから再生
         </Button>
@@ -176,69 +222,6 @@ function SceneEditor({
           emptyLabel="ステップがありません。下の「ステップを追加」から足してください"
         />
       )}
-    </div>
-  );
-}
-
-/** YAML の直接編集。大きな章でも打てるよう、入力欄は React で持たず、打ち終わってから（少し待って）読み直す */
-function YamlEditor() {
-  const store = useEditorStore();
-  const parseError = useEditorState((s) => s.parseError);
-  const file = useEditorState((s) => s.file);
-  const version = useEditorState((s) => s.version);
-  const size = useEditorState((s) => s.size);
-  const area = useRef<HTMLTextAreaElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** 入力欄に出している内容の版 */
-  const shown = useRef<number | null>(null);
-
-  const flush = useCallback(() => {
-    if (timer.current === null) return;
-    clearTimeout(timer.current);
-    timer.current = null;
-    if (area.current) store.actions.setText(area.current.value, 'yaml');
-    shown.current = store.state.version;
-  }, [store]);
-
-  useEffect(() => {
-    store.flushPending = flush;
-    return () => {
-      flush();
-      if (store.flushPending === flush) store.flushPending = null;
-    };
-  }, [store, flush]);
-
-  // 元に戻すなど、ほかの所で内容が変わったら入れ直す
-  useEffect(() => {
-    if (!area.current || shown.current === version || timer.current !== null) return;
-    area.current.value = store.actions.getText();
-    shown.current = version;
-  }, [store, version]);
-
-  const onInput = () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-    // 読み直しは大きな章ほど時間がかかるので、長めに待つ
-    timer.current = setTimeout(flush, size > 500_000 ? 1500 : 400);
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold">YAML</h2>
-        <span className="font-mono text-xs text-muted-foreground">{file}</span>
-      </div>
-      {parseError && (
-        <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
-          YAML の構文エラー: {parseError}（直すまでフォームでは編集できません）
-        </p>
-      )}
-      <Textarea
-        ref={area}
-        className="h-[75vh] font-mono text-xs leading-relaxed field-sizing-fixed"
-        spellCheck={false}
-        onInput={onInput}
-        onBlur={flush}
-      />
     </div>
   );
 }
