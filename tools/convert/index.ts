@@ -8,6 +8,8 @@
 //   bun tools/convert/index.ts 0 --id ep1 --title <章の名前> [--out assets/extracted/converted/ep1.yaml] [--stats]
 //   bun tools/convert/index.ts 2,4,6,8 --id ep2 --title <章の名前>    # 複数の項目（編）を 1 つの章に
 //   （第 1 話 0 / 第 2 話 2,4,6,8 / 第 3 話 10〜16 / 第 4 話 18〜32 / 第 5 話 34〜68 の偶数）
+//   bun tools/convert/index.ts 4,6,8,10,12,14 --game aa2 --id ep2 --title <章の名前>   # 逆転裁判2・3（--game aa2 / aa3）
+//   （入力は assets/extracted/aa2/（script/json・tables）、出力の既定は assets/extracted/aa2/converted/）
 //
 // 出力は元のゲームの文を含むので assets/extracted/ の下に置き、配布しない。
 // --stats: 命令ごとの変換の内訳と、YAML で表せない所の一覧を出す。
@@ -16,10 +18,7 @@ import { dirname, join } from 'node:path';
 import { Document, isScalar, visit } from 'yaml';
 import { convertChapter } from './chapter.ts';
 import { Stats } from './stats.ts';
-import { EXTRACTED, loadEntry, loadTables } from './tables.ts';
-
-/** 共通の台本（尋問の見当違いの反応など）の項目: 日本語 072、英語 073 */
-const COMMON = { ja: 72, en: 73 } as const;
+import { GAMES, type GameKey, loadEntry, loadTables } from './tables.ts';
 
 export const HEADER = [
   ' 元の台本から tools/convert/ で自動生成したもの。手で直さず、変換を直して作り直すこと。',
@@ -47,8 +46,8 @@ export function toYaml(scenario: Record<string, unknown>): string {
 }
 
 /** investigation.json の parts（無ければ空） */
-export function loadInvParts(): Record<string, any>[] {
-  const p = join(EXTRACTED, 'tables/investigation.json');
+export function loadInvParts(base = GAMES.aa1.dir): Record<string, any>[] {
+  const p = join(base, 'tables/investigation.json');
   const parts = existsSync(p)
     ? (JSON.parse(readFileSync(p, 'utf8')) as { parts: Record<string, any>[] }).parts
     : [];
@@ -74,26 +73,34 @@ function main() {
   const id = arg(rest, '--id');
   const title = arg(rest, '--title');
   const outArg = arg(rest, '--out');
+  const gameArg = arg(rest, '--game') ?? 'aa1';
+  if (!(gameArg in GAMES)) {
+    console.error(`--game は ${Object.keys(GAMES).join(' / ')} のどれか`);
+    process.exit(2);
+  }
+  const game = gameArg as GameKey;
+  const base = GAMES[game].dir;
+  const scriptDir = join(base, 'script/json');
   const ns = (rest[0] ?? '').split(',').map(Number);
   if (rest.length !== 1 || ns.some((n) => !Number.isInteger(n))) {
     console.error(
-      '使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--id ep1] [--title 章の名前] [--out ファイル] [--stats]',
+      '使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--game aa1|aa2|aa3] [--id ep1] [--title 章の名前] [--out ファイル] [--stats]',
     );
     process.exit(2);
   }
-  const tables = loadTables();
-  const entries = ns.map((n) => loadEntry(n));
+  const tables = loadTables(join(base, 'tables'), game);
+  const entries = ns.map((n) => loadEntry(n, scriptDir));
   let common = null;
   try {
-    common = loadEntry(COMMON[entries[0]!.lang]);
+    common = loadEntry(GAMES[game].commonItem + (entries[0]!.lang === 'ja' ? 0 : 1), scriptDir);
   } catch {
     console.warn('共通の台本（072/073）が無いので、尋問の外れなどは native にします');
   }
   // 3D で詳しく調べるときの台詞（第 5 話）: 日本語 070、英語 071
   let item070 = null;
-  if (ns.some((n) => n >= 34))
+  if (game === 'aa1' && ns.some((n) => n >= 34))
     try {
-      item070 = loadEntry(entries[0]!.lang === 'ja' ? 70 : 71);
+      item070 = loadEntry(entries[0]!.lang === 'ja' ? 70 : 71, scriptDir);
     } catch {
       console.warn('項目 070 が無いので、3D で調べる台詞は native にします');
     }
@@ -102,10 +109,10 @@ function main() {
     id: cid,
     title: title ?? `項目 ${ns.join(', ')}`,
     common,
-    invParts: loadInvParts(),
+    invParts: loadInvParts(base),
     item070,
   });
-  const out = outArg ?? join(EXTRACTED, 'converted', `${cid}.yaml`);
+  const out = outArg ?? join(base, 'converted', `${cid}.yaml`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, toYaml(scenario));
   const all = new Stats();
