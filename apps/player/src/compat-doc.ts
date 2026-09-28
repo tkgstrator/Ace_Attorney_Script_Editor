@@ -1,6 +1,6 @@
 // docs/compatibility.md の比較画像（DS 版の上画面 | このプレイヤー | 違う所）を描くページ。
 // ?shot=<名前> の場面を、公式の章（蘇る逆転の第 1 話）と DS 版の絵で描き、DS 版のスクリーンショットと画素で比べる。
-// ページの左上に等倍で置き、document.title に「done <一致率>」を書く（ヘッドレスの Chrome で撮る）。
+// ページの左上に等倍で置き、document.title に「done <一致率> <黒でない画素の一致率>」を書く（ヘッドレスの Chrome で撮る）。
 import { type Assets, loadFonts } from '@gyakusai/runtime';
 import { loadScenario } from '@gyakusai/script';
 import choiceImg from '../../../assets/samples/ds/top/choice/20260927_11-18-39.335.png?url';
@@ -184,10 +184,25 @@ async function pixels(url: string, scale: number): Promise<ImageData> {
   return g.getImageData(0, 0, W, H);
 }
 
-/** 画素ごとに比べ、一致した数と、違う所の絵（DS 版を暗い灰色にし、違う画素を赤で塗る）を返す */
-function compare(a: ImageData, b: ImageData): { same: number; diff: ImageData } {
+/** RGB のどれもこれ以下なら黒とみなす（黒でない画素だけの一致率に使う） */
+const BLACK = 16;
+
+interface Result {
+  /** 一致した画素の数 */
+  same: number;
+  /** どちらかが黒でない画素の数と、そのうち一致した数 */
+  lit: number;
+  litSame: number;
+  /** 違う所の絵（DS 版を暗い灰色にし、違う画素を赤で塗る） */
+  diff: ImageData;
+}
+
+/** 画素ごとに比べる */
+function compare(a: ImageData, b: ImageData): Result {
   const diff = new ImageData(W, H);
   let same = 0;
+  let lit = 0;
+  let litSame = 0;
   for (let i = 0; i < W * H * 4; i += 4) {
     const d = Math.max(
       Math.abs(a.data[i]! - b.data[i]!),
@@ -197,16 +212,23 @@ function compare(a: ImageData, b: ImageData): { same: number; diff: ImageData } 
     const grey = (a.data[i]! + a.data[i + 1]! + a.data[i + 2]!) / 9;
     const hit = d > THRESHOLD;
     if (!hit) same++;
+    const isLit =
+      Math.max(a.data[i]!, a.data[i + 1]!, a.data[i + 2]!) > BLACK ||
+      Math.max(b.data[i]!, b.data[i + 1]!, b.data[i + 2]!) > BLACK;
+    if (isLit) {
+      lit++;
+      if (!hit) litSame++;
+    }
     diff.data[i] = hit ? 255 : grey;
     diff.data[i + 1] = hit ? 48 : grey;
     diff.data[i + 2] = hit ? 48 : grey;
     diff.data[i + 3] = 255;
   }
-  return { same, diff };
+  return { same, lit, litSame, diff };
 }
 
 const a = await pixels(shot.image, 1);
-let best: { b: ImageData; same: number; diff: ImageData } | null = null;
+let best: (Result & { b: ImageData }) | null = null;
 for (const s of shots) {
   const b = await pixels(s.url, 2);
   const r = compare(a, b);
@@ -215,6 +237,7 @@ for (const s of shots) {
 if (!best) throw new Error('画面を撮れませんでした');
 const { b, diff } = best;
 const rate = ((best.same / (W * H)) * 100).toFixed(1);
+const litRate = ((best.litSame / Math.max(1, best.lit)) * 100).toFixed(1);
 
 const out = document.createElement('canvas');
 out.width = W * 3 + GAP * 2;
@@ -224,5 +247,5 @@ g.putImageData(a, 0, 0);
 g.putImageData(b, W + GAP, 0);
 g.putImageData(diff, (W + GAP) * 2, 0);
 document.body.append(out);
-console.log(`${name}: ${rate}%`);
-document.title = `done ${rate}`;
+console.log(`${name}: ${rate}%（黒でない画素 ${litRate}%）`);
+document.title = `done ${rate} ${litRate}`;
