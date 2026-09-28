@@ -123,8 +123,9 @@ export function playShots(
   aspect: Aspect,
   max: number,
   perScene = 4,
+  PlayerClass: typeof Player = Player,
 ): Shot[] {
-  const { engine, player, shots, snap } = setup(scenario, assets, fonts, aspect);
+  const { engine, player, shots, snap } = setup(scenario, assets, fonts, aspect, PlayerClass);
   let recordShot = false;
   pump(2);
   for (const scene of Object.keys(scenario.scenes)) {
