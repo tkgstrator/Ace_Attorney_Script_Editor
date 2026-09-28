@@ -1,6 +1,9 @@
 // 背景の表示位置とスクロール。画面（256×192）より大きい背景は、表示位置から画面の大きさだけ切り出して描く。
 // 元のゲームと同じく、背景を変えると最初の位置（縦長なら下端など）に戻り、スクロールは毎フレーム速さの分だけ動いて端で止まる。
+import { type BackgroundPos, examineScrollStep } from './examine-scroll.ts';
 import { SCREEN_H, SCREEN_W } from './layout.ts';
+
+type Scroll = { x: number; y: number } | null;
 
 export class BackgroundView {
   #key: string | null = null;
@@ -26,16 +29,61 @@ export class BackgroundView {
       this.x = this.#startX;
       this.y = this.#startY;
       this.#started = image !== undefined;
+      this.#slide = null;
+      this.#spent = undefined;
     }
   }
   #started = false;
+  /** 「調べる」で動かしている間の 1 フレームの速さ */
+  #slide: Scroll = null;
+  /** 「調べる」で動かす前から続いていた台本のスクロール（もう当てない。新しい scroll 命令で別の値になる） */
+  #spent: Scroll | undefined = undefined;
 
-  /** 1 フレーム進める（端でちょうど止める） */
-  tick(scroll: { x: number; y: number } | null): void {
-    if (!scroll || !this.#image) return;
+  /** 1 フレーム進める（端でちょうど止める）。scroll は台本のスクロール（エンジンの stage.scroll） */
+  tick(scroll: Scroll): void {
+    if (!this.#image) return;
+    const v = this.#slide ?? (scroll && scroll !== this.#spent ? scroll : null);
+    if (!v) return;
     const { w, h } = size(this.#image);
-    this.x = Math.max(0, Math.min(Math.max(0, w - SCREEN_W), this.x + scroll.x));
-    this.y = Math.max(0, Math.min(Math.max(0, h - SCREEN_H), this.y + scroll.y));
+    const maxX = Math.max(0, w - SCREEN_W),
+      maxY = Math.max(0, h - SCREEN_H);
+    this.x = Math.max(0, Math.min(maxX, this.x + v.x));
+    this.y = Math.max(0, Math.min(maxY, this.y + v.y));
+    // 「調べる」の動きは、進む向きの端に着いたら終わる
+    if (this.#slide) {
+      const endX = v.x === 0 || this.x === (v.x > 0 ? maxX : 0);
+      const endY = v.y === 0 || this.y === (v.y > 0 ? maxY : 0);
+      if (endX && endY) this.#slide = null;
+    }
+  }
+
+  /** 今の位置と背景の大きさ（背景が無ければ null） */
+  get pos(): BackgroundPos | null {
+    if (!this.#image) return null;
+    return { x: this.x, y: this.y, ...size(this.#image) };
+  }
+
+  /** 「調べる」で背景を動かしている最中か */
+  get sliding(): boolean {
+    return this.#slide !== null;
+  }
+
+  /** 「調べる」で背景を動かせる向き（動かせなければ null） */
+  slideStep(): Scroll {
+    const pos = this.pos;
+    return pos && !this.#slide ? examineScrollStep(pos) : null;
+  }
+
+  /**
+   * 「調べる」で背景を端から端へ動かし始める（動かせたら true）。
+   * scroll は今の台本のスクロール。動かした後は、それに引き戻されないよう当てない
+   */
+  slide(scroll: Scroll): boolean {
+    const step = this.slideStep();
+    if (!step) return false;
+    this.#slide = step;
+    this.#spent = scroll;
+    return true;
   }
 
   /** 人物・重ね絵をずらす量（スクロールした分だけ、背景と一緒に動く） */

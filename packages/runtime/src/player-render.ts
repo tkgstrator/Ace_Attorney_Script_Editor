@@ -95,7 +95,7 @@ export function renderScreen(h: PlayerHost) {
       break;
     }
     case 'investigate':
-      h.inv.render(p, b, h.labels, h.frame, h.markers);
+      h.inv.render(p, b, h.labels, h.frame, h.markers, h.views.bg);
       break;
     case 'end':
       W.endScreen(p, h.labels.end);
