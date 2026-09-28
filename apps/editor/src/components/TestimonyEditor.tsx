@@ -16,6 +16,7 @@ import {
   useSetter,
 } from './fields.tsx';
 import { Nested, OptionalSteps } from './steps/flow-fields.tsx';
+import { PlayHere } from './steps/PlayHere.tsx';
 import { PresentMap } from './steps/PresentMap.tsx';
 import { IconButton } from './steps/StepCard.tsx';
 import { useRows } from './use-rows.ts';
@@ -98,6 +99,7 @@ export function TestimonyEditor({ path, scene }: { path: Path; scene: Rec }) {
                     aria-label={`証言 ${i + 1} が現れる条件`}
                   />
                   <div className="ml-auto flex">
+                    <PlayHere path={p} label={`証言 ${i + 1}`} what="この証言（尋問）" />
                     <IconButton
                       title="上へ"
                       disabled={i === 0}

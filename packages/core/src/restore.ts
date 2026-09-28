@@ -4,15 +4,16 @@
 // エンジンの実行の意味は変えない（位置と、消えた証拠品・フラグなどのデータを直すだけ）。
 import { cloneData } from './clone.ts';
 import { Engine } from './engine.ts';
+import { engineAt } from './play-at.ts';
 import { mapPc } from './relocate.ts';
-import { migrateState } from './state.ts';
-import type { CompiledScenario, GameState, InspectFrame } from './types.ts';
+import { initialState, migrateState } from './state.ts';
+import type { CompiledScenario, GameState, InspectFrame, PlayTarget } from './types.ts';
 
 /**
  * same: 同じ場面から（位置の番号も同じ） / moved: 同じ場面から（編集で位置がずれた・その台詞が変わった）
- * sceneStart: 状態を保ったまま、シーンの始めから / start: 最初から
+ * sceneStart: 状態を保ったまま、シーンの始めから / start: 最初から / at: 頼まれた位置（at）から
  */
-export type RestoreResult = 'same' | 'moved' | 'sceneStart' | 'start';
+export type RestoreResult = 'same' | 'moved' | 'sceneStart' | 'start' | 'at';
 
 export interface Restored {
   engine: Engine;
@@ -26,6 +27,10 @@ export interface Restored {
 export interface RestoreOptions {
   /** 位置は合わせず、状態を保ったままこのシーンの始めから遊ぶ */
   scene?: string;
+  /** 位置は合わせず、状態を保ったままこの位置から遊ぶ（エディタの「ここから再生」）。無理ならそのシーンの始めから */
+  at?: PlayTarget;
+  /** 前の状態は使わず、最初の状態（フラグ・証拠品などが初期値）で始める（scene・at と組み合わせる） */
+  fresh?: boolean;
 }
 
 /** 前のシナリオで遊んでいた状態を、新しいシナリオで続ける */
@@ -35,7 +40,9 @@ export function restoreEngine(
   opts: RestoreOptions = {},
 ): Restored {
   const notes: string[] = [];
-  const s = fixData(next, migrateState(cloneData(prev.state), next), notes);
+  const s = opts.fresh
+    ? initialState(next)
+    : fixData(next, migrateState(cloneData(prev.state), next), notes);
 
   const start = (why: string): Restored => {
     notes.push(why);
@@ -56,6 +63,21 @@ export function restoreEngine(
   };
 
   const at = s.inspectFrom ? s.inspectFrom.scene : s.scene;
+  if (opts.at) {
+    const target = opts.at;
+    try {
+      const engine = engineAt(next, cloneData(s), target, notes);
+      void engine.beat;
+      return { engine, result: 'at', scene: target.scene, notes };
+    } catch (e) {
+      s.mode = 'investigate';
+      s.inspectFrom = null;
+      return sceneStart(
+        target.scene,
+        `その位置から始められないので、シーン「${target.scene}」の始めから始めます（${msg(e)}）`,
+      );
+    }
+  }
   if (opts.scene !== undefined) {
     s.mode = 'investigate';
     return sceneStart(opts.scene);

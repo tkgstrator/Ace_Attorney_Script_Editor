@@ -268,6 +268,15 @@ export interface GameState {
   inspectFrom?: InspectFrame | null;
 }
 
+/** エディタの「ここから再生」で遊び始める位置（restoreEngine の at） */
+export type PlayTarget =
+  /** 命令の位置から。証言のシーンのブロック（ゆさぶり・つきつけなど）なら、どの証言の中か */
+  | { kind: 'pc'; scene: string; pc: number; statement?: number }
+  /** 尋問の、その証言から */
+  | { kind: 'statement'; scene: string; statement: number }
+  /** シーンの頭から（場所なら、来たときのブロックか探偵メニューから） */
+  | { kind: 'scene'; scene: string };
+
 export interface Snapshot {
   version: 1;
   scenario: string;
