@@ -332,6 +332,45 @@ console.log(
     }),
   ),
 );
+// 隠れた文のある証言の割合と、探偵パートのつきつけの反応の中身（証拠品か人物ファイルか）
+console.log('\n### 隠れた文と、探偵パートのつきつけの反応\n');
+for (const g of GAMES) {
+  let t = 0;
+  let hidden = 0;
+  let ev = 0;
+  let prof = 0;
+  for (const ep of eps.filter((e) => e.game === g))
+    for (const p of ep.data.parts ?? []) {
+      for (const s of Object.values<Y>(p.scenes ?? {}))
+        if (!Array.isArray(s) && s.statements) {
+          t++;
+          if (s.statements.some((x: Y) => x.when)) hidden++;
+        }
+      for (const pl of Object.values<Y>(p.places ?? {}))
+        for (const k of Object.keys(pl.present ?? {}))
+          if (ep.characters.has(k.replace(/_v\d+$/, ''))) prof++;
+          else ev++;
+    }
+  console.log(
+    `- ${GAME_NAME[g]}: 隠れた文のある証言 ${pct(hidden, t, 0)}（${hidden}/${t}）、探偵パートのつきつけの反応 証拠品 ${ev}・人物ファイル ${prof}`,
+  );
+}
+
+// ライフと、減る量の予告（逆転裁判2・3 の lifeRisk）
+const risk = new Counter<string>();
+for (const ep of eps)
+  for (const r of walkEpisode(ep))
+    if (r.type === 'lifeRisk' && r.step.lifeRisk) risk.add(String(r.step.lifeRisk));
+console.log('\n### ライフ\n');
+console.log(
+  `- ライフの最大: ${[...new Set(eps.map((e) => `${e.game} ${e.data.life}`))].join('、')}`,
+);
+console.log(
+  `- 減る量の予告（lifeRisk、分岐に写された分も含む）: ${risk
+    .top(8)
+    .map(([k, n]) => `${k} ${pct(n, risk.total(), 0)}`)
+    .join('、')}`,
+);
 console.log('\n### 証言の後（after）と尋問の一巡（loop）で話す人物\n');
 for (const g of GAMES)
   for (const w of ['after', 'loop']) {
