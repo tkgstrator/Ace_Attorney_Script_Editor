@@ -63,11 +63,13 @@ impl Act {
     }
 }
 
+/// 4:3 の画面の大きさ（背景の座標）
 const SCREEN_W: i64 = 256;
 const SCREEN_H: i64 = 192;
 
 /// 場所で試す「調べる」の点（背景の座標。範囲の辺で区切った升目のうち、どの範囲に入るかの組み合わせごとに 1 点）。
 /// 背景の大きさは分からないので、画面の大きさと範囲の右・下の端のうち大きい方までを背景とみなす（verify-actions.ts と同じ）
+/// 画面の幅（4:3 / 16:9）によらない: プレイヤーは 16:9 でも、背景の座標でこの範囲の点しか調べさせない
 pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
     let cut = |lo: Vec<i64>, max: i64| {
         let mut v: Vec<i64> = std::iter::once(0).chain(lo).filter(|&v| v >= 0 && v < max).collect();
