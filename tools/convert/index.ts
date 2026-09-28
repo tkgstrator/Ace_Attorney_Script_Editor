@@ -5,12 +5,13 @@
 //   uv run tools/rom/tbl_invest_start.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds  # 探偵パートの最初の場所
 //   uv run tools/rom/record_text.py                                               # 法廷記録の名前・説明文（文字認識）
 //   uv run tools/rom/tbl_minigames.py assets/roms/GYAKUTEN_YOM_AGYJ08_00.nds    # 第 5 話の指紋・人物の指名・映像・ツボ・金庫などの表と映像の絵
-// 変換:
-//   bun tools/convert/index.ts 0 --id ep1 --title <章の名前> [--out assets/extracted/converted/ep1.yaml] [--stats]
-//   bun tools/convert/index.ts 2,4,6,8 --id ep2 --title <章の名前>    # 複数の項目（編）を 1 つの章に
-//   （第 1 話 0 / 第 2 話 2,4,6,8 / 第 3 話 10〜16 / 第 4 話 18〜32 / 第 5 話 34〜68 の偶数）
-//   bun tools/convert/index.ts 4,6,8,10,12,14 --game aa2 --id ep2 --title <章の名前>   # 逆転裁判2・3（--game aa2 / aa3）
+// 変換（ふつうは話の番号で。項目・ID・題名・出力の既定は episodes.ts の表（ROM の話の選択から）で決まる）:
+//   bun tools/convert/index.ts --episode 3 [--stats]                  # → assets/extracted/converted/ep3.yaml
+//   bun tools/convert/index.ts --episode 2 --game aa2                  # 逆転裁判2・3（--game aa2 / aa3）
 //   （入力は assets/extracted/aa2/（script/json・tables）、出力の既定は assets/extracted/aa2/converted/）
+//   （蘇る逆転: 第 1 話 0 / 第 2 話 2〜8 / 第 3 話 10〜20 / 第 4 話 22〜32 / 第 5 話 34〜68 の偶数）
+// 項目を直に指定もできる（話をまたぐと警告する）:
+//   bun tools/convert/index.ts 2,4,6,8 --id ep2 --title <章の名前> [--out ファイル]
 //
 // 出力は元のゲームの文を含むので assets/extracted/ の下に置き、配布しない。
 // --stats: 命令ごとの変換の内訳と、YAML で表せない所の一覧を出す。
@@ -19,6 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Document, isScalar, visit } from 'yaml';
 import { convertChapter } from './chapter.ts';
+import { episode, episodeOfItem } from './episodes.ts';
 import { Stats } from './stats.ts';
 import { GAMES, type GameKey, loadEntry, loadTables } from './tables.ts';
 
@@ -80,8 +82,9 @@ function main() {
   const stats = args.includes('--stats');
   const listIds = args.includes('--ids');
   const rest = args.filter((a) => a !== '--stats' && a !== '--ids');
-  const id = arg(rest, '--id');
-  const title = arg(rest, '--title');
+  let id = arg(rest, '--id');
+  let title = arg(rest, '--title');
+  const epArg = arg(rest, '--episode');
   const outArg = arg(rest, '--out');
   const gameArg = arg(rest, '--game') ?? 'aa1';
   if (!(gameArg in GAMES)) {
@@ -91,15 +94,35 @@ function main() {
   const game = gameArg as GameKey;
   const base = GAMES[game].dir;
   const scriptDir = join(base, 'script/json');
-  const ns = (rest[0] ?? '')
+  let ns = (rest[0] ?? '')
     .split(',')
     .filter((x) => x !== '')
     .map(Number);
-  if (rest.length !== 1 || ns.some((n) => !Number.isInteger(n))) {
+  if (epArg !== undefined) {
+    const ep = episode(game, Number(epArg));
+    if (!ep || rest.length !== 0) {
+      console.error(`--episode は ${game} の話の番号（項目の番号と一緒には使わない）`);
+      process.exit(2);
+    }
+    ns = ep.items;
+    id ??= `ep${ep.ep}`;
+    title ??= ep.title;
+  } else if (rest.length !== 1 || ns.some((n) => !Number.isInteger(n))) {
     console.error(
-      '使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--game aa1|aa2|aa3] [--id ep1] [--title 章の名前] [--out ファイル] [--stats]',
+      '使い方: bun tools/convert/index.ts (--episode <話> | <項目の番号（, で複数）> [--id ep1] [--title 章の名前]) [--game aa1|aa2|aa3] [--out ファイル] [--stats]',
     );
     process.exit(2);
+  } else {
+    // 項目を直に指定したとき: 話をまたぐ・話の途中から、は取り違えの恐れがあるので知らせる
+    const eps = new Set(ns.map((n) => episodeOfItem(game, n)));
+    if (eps.size > 1)
+      console.warn(`警告: 項目 ${ns.join(',')} は複数の話にまたがる（${[...eps].join('・')}）`);
+    const m = id?.match(/^ep(\d+)$/);
+    const want = m ? episode(game, Number(m[1])) : undefined;
+    if (want && want.items.join() !== ns.join())
+      console.warn(
+        `警告: ${id} の項目は ${want.items.join(',')}（--episode ${want.ep} を使うとよい）`,
+      );
   }
   const tables = loadTables(join(base, 'tables'), game);
   const entries = ns.map((n) => loadEntry(n, scriptDir));
