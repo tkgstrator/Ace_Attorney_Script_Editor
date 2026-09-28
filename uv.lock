@@ -25,7 +25,7 @@ wheels = [
 ]
 
 [[package]]
-name = "igiari-tools"
+name = "gyakusai-tools"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

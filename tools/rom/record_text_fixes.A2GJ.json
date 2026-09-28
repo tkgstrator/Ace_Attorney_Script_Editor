@@ -1,0 +1,53 @@
+{
+ "_about": "record_text23.py（record_text.py --game aa2）の直し表。glyphs = 場所（画像:行:並びの番号。空きマスも数える）の字形の文字（同じ字形の全部の場所に効く）、fixes = 項目ごとの場所の直し（record_text_fixes.json と同じ形。文字を空にするとその並びを消す）。目で見て直したもの",
+ "glyphs": {
+  "record/desc/ja/002.png:1:5": "捜",
+  "record/desc/ja/003.png:1:3": "須",
+  "record/desc/ja/003.png:1:5": "木",
+  "record/desc/ja/012.png:1:8": "欺",
+  "record/desc/ja/012.png:2:8": "‥",
+  "record/desc/ja/016.png:0:0": "草",
+  "record/desc/ja/016.png:1:0": "墨",
+  "record/desc/ja/031.png:2:5": "未",
+  "record/desc/ja/034.png:1:3": "医",
+  "record/desc/ja/045.png:0:2": "鋼",
+  "record/desc/ja/054.png:1:3": "察",
+  "record/desc/ja/055.png:0:2": "焼",
+  "record/desc/ja/064.png:1:7": "猛",
+  "record/desc/ja/064.png:1:8": "獣",
+  "record/desc/ja/067.png:0:6": "松",
+  "record/desc/ja/067.png:0:7": "夫",
+  "record/desc/ja/077.png:2:4": "歌",
+  "record/desc/ja/102.png:0:6": "丙",
+  "record/desc/ja/108.png:1:0": "執",
+  "record/desc/ja/108.png:1:5": "‥",
+  "record/desc/ja/112.png:0:4": "拐",
+  "record/desc/ja/122.png:0:0": "未",
+  "record/desc/ja/122.png:0:1": "遂",
+  "record/desc/ja/124.png:0:0": "雑",
+  "record/desc/ja/125.png:2:0": "絞",
+  "record/desc/ja/133.png:0:5": "伝",
+  "record/desc/ja/136.png:1:6": "‥",
+  "record/desc/ja/150.png:0:3": "冥",
+  "record/name/ja/016.png:0:4": "貴",
+  "record/name/ja/023.png:0:3": "未",
+  "record/name/ja/025.png:0:3": "冥",
+  "record/name/ja/027.png:0:6": "称",
+  "record/name/ja/077.png:0:4": "扇",
+  "record/name/ja/084.png:0:4": "利",
+  "record/name/ja/085.png:0:0": "虎",
+  "record/name/ja/095.png:0:1": "殺",
+  "record/name/ja/121.png:0:6": "丙"
+ },
+ "fixes": {
+  "107": {
+   "name": [
+    [
+     0,
+     8,
+     "エ"
+    ]
+   ]
+  }
+ }
+}

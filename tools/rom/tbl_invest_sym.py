@@ -16,6 +16,7 @@ ARM9 には、場所に着いたとき（0x020b466c[パート]）と、探偵パ
 結果は「道」の一覧: {'cond': [((組, フラグ番号), 0/1) か ('lang', 'ja'/'en'), ...], 'acts': [(動作の名前, 引数...), ...]}。
 """
 import re
+from dataclasses import dataclass, field
 
 from arm9 import Arm9
 
@@ -44,6 +45,27 @@ CALLS = {
 #: 中に入って続けて実行する関数（第 5 話の「場所ごとに読み込む台本を切り替える」関数）
 INLINE = {0x02068690, 0x02096a9c, 0x020973e0}
 FLAG_TEST = 0x0201a144
+
+
+@dataclass(frozen=True)
+class SymCfg:
+    """ゲームごとの番地（蘇る逆転の値が既定。2・3 の値は invest_addrs.py）"""
+    game: int = GAME
+    calls: dict = field(default_factory=lambda: CALLS)
+    inline: frozenset = frozenset(INLINE)
+    flag_test: int = FLAG_TEST
+    #: ゲーム全体の状態の中の今の場所・パートの位置
+    off_place: int = 0x68
+    off_part: int = 0x69
+    #: 文脈（台本の読み取りの状態）の中の「今読み込んでいる項目の番号」の位置（3 の load_item。ほかは None）
+    off_ctx_item: int | None = None
+    #: 2・3 向けの読み方（tst・文脈や RAM の表の値を読む比較・メモリへの書き込み（store）を扱う）
+    ext: bool = False
+    #: ext のときに名前で表す RAM の表: (名前, 先頭, 大きさ, 1 項目の大きさ)
+    rams: tuple = ()
+
+
+AGYJ = SymCfg()
 COND = {'eq', 'ne', 'hs', 'cs', 'lo', 'cc', 'mi', 'pl', 'hi', 'ls', 'ge', 'lt', 'gt', 'le'}
 REGS = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'sb', 'sl', 'fp', 'ip', 'sp', 'lr', 'pc']
 
@@ -92,7 +114,7 @@ class Path:
         return p
 
 
-def run(a9: Arm9, func: int, place: int, part: int, max_steps: int = 4000) -> list[dict]:
+def run(a9: Arm9, func: int, place: int, part: int, max_steps: int = 4000, g: SymCfg = AGYJ) -> list[dict]:
     """func を place / part の具体的な値で記号的に実行し、道の一覧を返す"""
     done: list[dict] = []
     work = [(func, Path({'r0': 'game'}, [], [], {}, part))]
@@ -125,7 +147,7 @@ def run(a9: Arm9, func: int, place: int, part: int, max_steps: int = 4000) -> li
                 elif not r:
                     pc = nxt
                     continue
-            res = _step(a9, p, pc, base, ops, place)
+            res = _step(a9, p, pc, base, ops, place, g)
             if res == 'ret':
                 if p.stack:
                     pc = p.stack.pop()
@@ -162,6 +184,8 @@ def _decide(p: Path, cc: str):
     a, b = p.cmp
     if isinstance(a, int) and isinstance(b, int):
         return _cond_true(cc, a, b)
+    if isinstance(a, tuple) and a[0] in ('ctx', 'ram'):
+        return p.flags.get((a[1], cc, b))  # ext: 同じ道で前に決めた比較
     return None
 
 
@@ -178,11 +202,32 @@ def _constrain(p: Path, cc: str, truth: bool) -> None:
         p.cond.append(('lang', 'en' if (cc == 'eq') == truth else 'ja'))
         p.cmp = (1 if (cc == 'eq') == truth else 0, 1)
         return
+    if isinstance(a, tuple) and a[0] in ('ctx', 'ram'):
+        p.cond.append((f'{a[1]} {cc} {b}', truth))  # ext: 文脈や RAM の表の値との比較（名前は _mem_name）
+        p.flags[(a[1], cc, b)] = truth
+        if cc in ('eq', 'ne'):
+            p.flags[(a[1], 'ne' if cc == 'eq' else 'eq', b)] = not truth
+        return
     p.cond.append((f'{a} {cc} {b}', truth))
 
 
-def _step(a9: Arm9, p: Path, pc: int, base: str, ops: str, place: int):
+def _mem_name(g: SymCfg, base, off: int) -> str | None:
+    """ext: 読み書きする場所の名前（'ctx+0x4a'、'talk[6][3]'、'game+0x2a' など）。わからなければ None"""
+    if base in ('ctx', 'game'):
+        return f'{base}+{off:#x}'
+    if not isinstance(base, int):
+        return None
+    a = base + off
+    for name, top, size, row in g.rams:
+        if top <= a < top + size:
+            return f'{name}[{(a - top) // row}][{(a - top) % row}]'
+    return f'{a:#010x}' if 0x02000000 <= a < 0x02400000 else None
+
+
+def _step(a9: Arm9, p: Path, pc: int, base: str, ops: str, place: int, g: SymCfg):
     R = p.regs
+    if g.ext and base in ('str', 'strb', 'strh', 'tst'):
+        return _step_ext(p, base, ops, g)
     if base in ('push', 'stm', 'str', 'strb', 'strh', 'cmn', 'tst', 'nop'):
         return None
     if base in ('bx',):
@@ -196,19 +241,21 @@ def _step(a9: Arm9, p: Path, pc: int, base: str, ops: str, place: int):
     if base == 'bl':
         tgt = _imm(ops)
         args = [R.get('r0'), R.get('r1'), R.get('r2'), R.get('r3')]
-        if tgt in INLINE:
+        if tgt in g.inline:
             return ('call', tgt)
-        if tgt == FLAG_TEST and isinstance(args[0], int) and isinstance(args[1], int):
+        name = g.calls.get(tgt, f'call_{tgt:08x}')
+        if tgt == g.flag_test and isinstance(args[0], int) and isinstance(args[1], int):
             fl = (args[0], args[1])
             R['r0'] = p.flags[fl] if fl in p.flags else ('flag', fl)
-        elif tgt in CALLS and CALLS[tgt] is None:
+        elif name is None:
             R['r0'] = None
+        elif name == 'ctx':
+            R['r0'] = 'ctx'  # 文脈を返す関数（記録しない）
         else:
-            name = CALLS.get(tgt, f'call_{tgt:08x}')
             p.acts.append((name, *[a if isinstance(a, int) else None for a in args]))
-            if tgt == 0x0201a170 and None not in args[:3]:
+            if name == 'set_flag' and None not in args[:3]:
                 p.flags[(args[0], args[1])] = args[2]
-            if tgt == 0x02023960 and isinstance(args[0], int):
+            if name == 'load_part' and isinstance(args[0], int):
                 p.part = args[0]
             R['r0'] = None
         for r in ('r1', 'r2', 'r3', 'ip', 'lr'):
@@ -228,15 +275,20 @@ def _step(a9: Arm9, p: Path, pc: int, base: str, ops: str, place: int):
     if base == 'ldr' and '[pc' in ops:
         imm = int(ops.split('#')[-1].rstrip(']'), 0) if '#' in ops else 0
         R[parts[0]] = a9.u32(((pc + 8) & ~3) + imm)
-        if R[parts[0]] == GAME:
+        if R[parts[0]] == g.game:
             R[parts[0]] = 'game'
         return None
     if base.startswith('ldr'):
         mm = re.match(r'\[(\w+)(?:, #(-?0x[0-9a-f]+|-?\d+))?\]', parts[1])
         v = None
+        off = int(mm.group(2), 0) if mm and mm.group(2) else 0
         if mm and R.get(mm.group(1)) == 'game':
-            off = int(mm.group(2), 0) if mm.group(2) else 0
-            v = place if off == 0x68 else p.part if off == 0x69 else ('game', off)
+            v = place if off == g.off_place else p.part if off == g.off_part else ('game', off)
+        elif mm and R.get(mm.group(1)) == 'ctx' and off == g.off_ctx_item:
+            v = 0xffff  # 読み込んでいる項目は不明 → 「読み込み済みでなければ読み込む」の読み込む側へ進む
+        elif mm and g.ext and '!' not in ops:
+            name = _mem_name(g, R.get(mm.group(1)), off)
+            v = ('ctx' if R.get(mm.group(1)) == 'ctx' else 'ram', name) if name else None
         R[parts[0]] = v
         return None
     if base == 'cmp':
@@ -263,4 +315,27 @@ def _step(a9: Arm9, p: Path, pc: int, base: str, ops: str, place: int):
     # そのほか（mul など）は結果を不明にする
     if parts:
         R[parts[0]] = None
+    return None
+
+
+def _step_ext(p: Path, base: str, ops: str, g: SymCfg):
+    """ext: tst は比較として、[基底, #ずれ] への書き込みは動作 ('store', 名前, 値) として扱う"""
+    parts = [x.strip() for x in re.split(r',(?![^\[]*\])', ops)]
+    if base == 'tst':
+        a, b = _val(p, parts[0]), _val(p, parts[1])
+        if isinstance(a, int) and isinstance(b, int):
+            p.cmp = (a & b, 0)
+        elif isinstance(a, tuple) and a[0] == 'flag' and b == 1:
+            p.cmp = (a, 0)
+        else:
+            p.cmp = ((a[0], f'{a[1]} & {b:#x}') if isinstance(a, tuple) and a[0] in ('ctx', 'ram') and isinstance(b, int)
+                      else None, 0)
+        return None
+    mm = re.match(r'\[(\w+)(?:, #(-?0x[0-9a-f]+|-?\d+))?\]$', parts[1])
+    if not mm or mm.group(1) == 'sp':
+        return None
+    name = _mem_name(g, p.regs.get(mm.group(1)), int(mm.group(2), 0) if mm.group(2) else 0)
+    if name:
+        v = p.regs.get(parts[0])
+        p.acts.append(('store', name, v if isinstance(v, int) else None))
     return None

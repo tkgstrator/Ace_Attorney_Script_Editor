@@ -54,3 +54,36 @@ RULES = {
     'court_57_61_75': '57〜61・75 は法廷の図の上の印（部品の表 0x020ce398、0x14 バイト × 8）: 57 = 印を作る/消す、58 (番号, x, y) = '
                       '位置、59 = 動かす、60 = 状態、61 = 動きが終わるまで待つ、75 (番号, v) = 優先度（推測）',
 }
+
+
+def rules_for(g) -> dict:
+    """2・3 の JSON の rules: 蘇る逆転との違いと、このゲームの番地（仕組みは RULES と同じ。番地は蘇る逆転のもの）"""
+    s = g.sym
+    out = {
+        'same_as_aa1': '仕組みは蘇る逆転（assets/extracted/tables/investigation.json の rules）と同じ。下はこのゲームの番地と違い',
+        'addresses': {
+            'game': f'{s.game:#x}（+{s.off_place:#x} = 今の場所、+{s.off_part:#x} = パート）',
+            'per_part_tables': f'始め {g.t_init:#x} / 法廷のつきつけ {g.t_court_present:#x} / 始めの法廷記録 {g.t_record:#x} / '
+                               f'つきつけ {g.t_present:#x} / 着いたとき {g.t_arrive:#x} / 毎フレーム {g.t_frame:#x}（{g.parts} 個）',
+            'nop': f'{g.nop:#x}（始めの関数がこれなら法廷）',
+            'ram': f'場所 {g.places_ram:#x} / 話題 {g.talk_ram:#x} / 調べる場所 {g.examine_ram:#x} / 89 の区画の表 {g.extra_ram:#x}',
+            'flag_test': f'{s.flag_test:#x}',
+            'calls': {f'{k:#x}': v for k, v in s.calls.items()},
+            'court_point': f'{g.court_point:#x}（{g.n_court_point} 個）',
+        },
+        'present': f'つきつけの表は 1 項目 {g.present_row:#x} バイト: [0] 場所, [1] 場所の状態（game+0x398+場所。81 op81 (場所, 値) か '
+                   'place_state で変わる。0xff = どれでも）, [2] 法廷記録の番号（0xff = どれでも）, [3] 人物, [4] 0 = 証拠品・1 = 人物ファイル'
+                   '（0xff = 終わり）, u16 区画, u16 既定の区画。場所の最初の項目から、人物・種類・状態・番号が合う項目の区画。'
+                   '無ければ人物・種類が合った最後の項目の既定の区画',
+        'op89': '始めの関数は 3 つ目の表（u16 の区画の列）も写す。89 op89 k はその k 番目の区画を一覧（+0xc2 が個数）に足す。'
+                '台本では 79 op79（サイコ・ロック）の直後に 89 0, 89 1 … と並び、区画はロックの相手に問いただす話'
+                '（2 の項目 004 §153「被害者の霧崎先生のことですけど。」など）→ サイコ・ロックの話題の表（推測）。init.op89_sections',
+        'store': 'on_enter / every_frame の store = 表や状態へ直接書く（talk[項目][3] = 話題を使う/使わない、examine[項目][0] = 区画、'
+                 'game+0x84 = 今の場所、ctx+0x4a = 今の区画 など）。_other の「talk[8][3] eq 1」などは RAM の表の値での分岐',
+        'court_present': '法廷のつきつけの表は蘇る逆転と同じ 8 バイト。3 は at の 0xf000 が立つ項目 = 106 op106 で替えた項目'
+                         '（文脈 +0x88 ≠ 0）のときだけ使う（split_item）、立たない項目はそれ以外のときだけ。item 0xff = どれでも',
+        'examine_cond': {f'{k:#x}': v for k, v in g.examine_cond.items()},
+        'names': '場所・話題の名前のテクスチャの位置は未確認（names は空、場所の name は null）。bg_file は script/bg_map.tsv が無いので null',
+    }
+    out.update(g.notes)
+    return out

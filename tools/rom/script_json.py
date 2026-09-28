@@ -124,7 +124,7 @@ def export(entry: list[int], idx: int, chars: dict[int, str], names: dict[int, s
     body = [{'section': k, 'ops': decode_section(s, chars, names, labels, g.argc)} for k, s in enumerate(secs)]
     lang = 'en' if idx % 2 else 'ja'
     out = {'entry': idx, 'lang': lang, 'sections': len(secs), 'labels': labels, 'body': body}
-    if a9 is not None and g.code == 'AGYJ':
+    if a9 is not None:
         from script_choices import choices_for
         with_choice = {b['section'] for b in body if any(o['op'] in (8, 9) for o in b['ops'])}
         out['choices'] = choices_for(a9, idx // 2, lang, with_choice, use_ocr) if with_choice else {}
