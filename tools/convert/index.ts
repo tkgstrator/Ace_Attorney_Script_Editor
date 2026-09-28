@@ -81,7 +81,10 @@ function main() {
   const game = gameArg as GameKey;
   const base = GAMES[game].dir;
   const scriptDir = join(base, 'script/json');
-  const ns = (rest[0] ?? '').split(',').map(Number);
+  const ns = (rest[0] ?? '')
+    .split(',')
+    .filter((x) => x !== '')
+    .map(Number);
   if (rest.length !== 1 || ns.some((n) => !Number.isInteger(n))) {
     console.error(
       '使い方: bun tools/convert/index.ts <項目の番号（, で複数）> [--game aa1|aa2|aa3] [--id ep1] [--title 章の名前] [--out ファイル] [--stats]',

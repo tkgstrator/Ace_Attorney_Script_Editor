@@ -1,7 +1,7 @@
 // 変換中に共有するもの（表・集計・ID の割り当て・参照の記録）。
 import { RESERVED_KEYS } from '../../packages/script/src/schema.ts';
-import { isStorySection, parseProfileName, slug, soundId } from './tables.ts';
 import { Stats } from './stats.ts';
+import { isStorySection, parseProfileName, slug, soundId } from './tables.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
 export interface Character {
@@ -20,6 +20,10 @@ export class Shared {
   readonly nameIds = new Map<number, string>();
   /** 人物ファイルとして使う法廷記録の番号（つきつけの表で証拠品と区別する） */
   readonly profileRecords = new Set<number>();
+  /** サイコ・ロック（79）を使ったか（章に psycheLock の keys を書く） */
+  lockKeys = false;
+  /** 章の中で人物ファイルとして使う法廷記録の番号（1 回目の変換で集めたもの。2・3 の見当違いの人物ファイル用） */
+  chapterProfiles: number[] = [];
 }
 
 /** 探偵パートの表（investigation.json の parts の 1 つ） */
@@ -79,7 +83,8 @@ export class Context {
     entry: Entry,
     opts: { shared?: Shared; pfx?: string; gpfx?: string; inv?: InvPart | null } = {},
   ) {
-    this.t = t;
+    // ゲームの無い表（テストの小さな表など）は蘇る逆転
+    this.t = t.game ? t : { ...t, game: 'aa1' };
     this.entry = entry;
     this.part = entry.entry >> 1;
     this.shared = opts.shared ?? new Shared();
@@ -201,7 +206,8 @@ export class Context {
   }
 
   /** 区画 → そこへの移動（どこから・何で）。1 回目の変換で集め、2 回目で取り込む区画を決める */
-  readonly refs = new Map<number, { from: number; kind: 'choice' | 'flow' }[]>();
+  /** 区画への参照（scene = シーンとして残す行き先。サイコ・ロックの start / quit / gaugeOut など） */
+  readonly refs = new Map<number, { from: number; kind: 'choice' | 'flow' | 'scene' }[]>();
   /** その場に取り込む区画（選択肢からだけ行く区画と、そこからだけ続く区画） */
   inline = new Set<number>();
   /** 区画をステップ列にする（scenario.ts が設定する） */
@@ -219,19 +225,19 @@ export class Context {
       for (const r of c.present_table) out.add(r.goto);
       for (const r of c.present_requests) {
         out.add(r.wrong);
-        r.correct.forEach((x) => out.add(x.goto));
+        for (const x of r.correct) out.add(x.goto);
       }
       for (const x of c.cross_examinations) {
-        [x.section, x.after_last, x.testimony ?? -1].forEach((v) => out.add(v));
+        for (const v of [x.section, x.after_last, x.testimony ?? -1]) out.add(v);
         for (const st of x.statements) {
           out.add(st.section);
           if (st.press !== null) out.add(st.press);
-          st.present.forEach((p) => out.add(p.goto));
+          for (const p of st.present) out.add(p.goto);
         }
       }
       for (const t of c.testimonies) {
         out.add(t.section);
-        t.statements.forEach((v) => out.add(v));
+        for (const v of t.statements) out.add(v);
       }
     }
     const walk = (x: unknown): void => {
@@ -254,7 +260,7 @@ export class Context {
   convertCommon: ((section: number) => Step[]) | null = null;
 
   /** 区画への移動のステップ。取り込む区画なら、その区画のステップ列そのもの */
-  jump(target: number, from: number, kind: 'choice' | 'flow' = 'flow'): Step[] {
+  jump(target: number, from: number, kind: 'choice' | 'flow' | 'scene' = 'flow'): Step[] {
     // 値が 0x80 未満（区画の番号が負）なら共通の台本の区画（日時・編の表示など）
     if (target < 0 && this.convertCommon) return this.convertCommon(target + 128);
     const list = this.refs.get(target) ?? [];

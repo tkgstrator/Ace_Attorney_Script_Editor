@@ -2,6 +2,7 @@
 // 選択肢・つきつけの要求などのステップの形は section-branch.ts。
 import type { Context } from './context.ts';
 import { EXAMINE_WAIT, examineWaitAt, luminolTutorial } from './examine3d.ts';
+import { nested } from './flow.ts';
 import { nextDayPlace as nextDay0 } from './investigation.ts';
 import { ifFlagArg, inlineOf, native } from './mapping.ts';
 import { type Hands, type Memory, newMemory, simpleOp } from './ops.ts';
@@ -9,8 +10,9 @@ import {
   choiceStep,
   demandSteps,
   labelGoto,
+  lockDemand,
   minigameChoice,
-  pointChoice,
+  pointSteps,
 } from './section-branch.ts';
 import type { How } from './stats.ts';
 import type { CmdOp, Op, Step } from './types.ts';
@@ -21,6 +23,8 @@ export interface SectionOptions {
   dropCards?: boolean;
   /** 区画への移動をどう書くか（証言の中のブロックでは「証言に戻る」を空にする） */
   gotoSteps?: (target: number) => Step[];
+  /** 証言の中のブロックで、区画（証言の文）へ戻るステップ（resume）。つきつけの要求の外れから尋問へ戻るときに使う */
+  resumeTo?: (target: number) => Step[];
   /** 状態を引き継ぐ（同じ区画を分けたとき）・後で見る（最後の人物の動き） */
   memory?: Memory;
   /** 構造（証言など）で表したので、捨てて数えるだけの命令 */
@@ -36,21 +40,6 @@ export interface SectionOptions {
    * ブロックの中で次の区画を決めた（44 / 32 / 42）なら、ブロックの最後でそこへ移る
    */
   nextAtEnd?: number;
-}
-
-/**
- * i の 53 から先の位置（ops[j]）への飛び越しを、ブロックにしてよいか:
- * 間にある 53 のバイト位置の飛び先が、すべて at 以下で前向き
- */
-export function nested(ops: Op[], i: number, j: number, at: number): boolean {
-  for (let k = i + 1; k < j; k++) {
-    const o = ops[k]!;
-    if (o.op !== 53) continue;
-    const t = o.target;
-    if (!t || t.section !== null) continue;
-    if (t.offset > at || t.offset <= o.at) return false;
-  }
-  return true;
 }
 
 /** ページを閉じる命令 */
@@ -72,6 +61,8 @@ export function convertOps(
   let next: number = opts.nextAtEnd ?? section + 1;
   let nextCond: { flag: string; a: number; b: number } | null = null;
   let dayEnd = false;
+  /** 一日の終わり（52）の後に移る場所（2・3 は 52 の引数。無ければ推測する） */
+  let dayPlace: number | null = null;
   let minigame: number | null = null;
   let i = 0;
 
@@ -117,7 +108,7 @@ export function convertOps(
     },
   };
   const flow = (o: CmdOp, how: How = 'structure') => st.hit(o.name, how);
-  const nextDay = (sec: number) => nextDay0(ctx, sec);
+  const nextDay = (sec: number) => dayPlace ?? nextDay0(ctx, sec);
   const out = () => w.out;
 
   for (; i < ops.length; i++) {
@@ -163,6 +154,11 @@ export function convertOps(
         nextCond = null;
         w.close('auto');
         flow(o);
+        // 逆転裁判3 の 44 は次の区画を決めてすぐ飛ぶ（YG3J 0x0202b1a8 の最後で 0x02024d48）。蘇る逆転・2 は決めるだけ
+        if (ctx.t.game === 'aa3') {
+          out().push(...gotoSteps(next));
+          return finish(ctx, section, ops, i, out());
+        }
         break;
       case 32:
         next = tgt();
@@ -260,7 +256,8 @@ export function convertOps(
         // 写真の一点を指す（62 の問題）→ 選択肢で近づける
         w.close('keep');
         flow(o);
-        out().push(pointChoice(ctx, section, mem.point, gotoSteps));
+        // 2・3 の探偵パートで減る量を予告した（84 2）後なら、サイコ・ロックの挑戦中（「やめる」を出す）
+        out().push(...pointSteps(ctx, section, ops, mem.point, gotoSteps));
         return finish(ctx, section, ops, i, out());
       }
       case 17:
@@ -275,6 +272,7 @@ export function convertOps(
             say?.speaker ?? null,
             gotoSteps,
             o.op === 33,
+            opts.resumeTo,
           ),
         );
         return finish(ctx, section, ops, i, out());
@@ -284,17 +282,22 @@ export function convertOps(
         hands.put(native(o.name, a));
         break;
       case 52: // 下画面の画面（セーブ）を待つ。探偵パートでは一日の終わり
-        // 第 5 話ではセーブの画面を出すだけで、その後の台本（21 なら探偵メニュー）へそのまま続く
-        if (ctx.inv && ctx.part < 17) {
+        // 第 5 話ではセーブの画面を出すだけで、その後の台本（21 なら探偵メニュー）へそのまま続く。
+        // 逆転裁判2・3 は引数の場所へ移る（tools/rom/game.py）
+        if (ctx.inv && (ctx.t.game === 'aa1' ? ctx.part < 17 : a.length > 0)) {
           dayEnd = true;
-          hands.put(native(o.name, a));
-          break;
+          if (ctx.t.game !== 'aa1') dayPlace = a[0]!;
         }
         hands.put(native(o.name, a));
         break;
       case 21:
       case 69:
       case 121:
+        if (mem.lockPresent && o.op === 21) {
+          flow(o);
+          out().push(lockDemand(ctx, section, w.close('auto', false), mem, gotoSteps));
+          return finish(ctx, section, ops, i, out());
+        }
         w.close('auto');
         if (o.op === 21) {
           const turn = ctx.turnGoto.get(section);
@@ -315,10 +318,7 @@ export function convertOps(
           return finish(ctx, section, ops, i, out());
         }
         // 116 8 n の直後の 21 も、下画面の遊び（字を書くなど）の結果待ち
-        {
-          const prev = ops[i - 1];
-          if (prev && prev.op === 116 && prev.args[0] === 8) minigame = 8;
-        }
+        if (ops[i - 1]?.op === 116 && (ops[i - 1] as CmdOp).args[0] === 8) minigame = 8;
         if (minigame !== null && minigameChoice(ctx, section, minigame, gotoSteps, out())) {
           flow(o);
           return finish(ctx, section, ops, i, out());
@@ -328,7 +328,8 @@ export function convertOps(
           out().push(...opts.menuReturn);
         } else if (ctx.inv && dayEnd && nextDay(section) !== null) {
           flow(o);
-          st.gap('一日の終わりの後に行く場所を推測した（52 wait_ui15 の後）', section);
+          if (dayPlace === null)
+            st.gap('一日の終わりの後に行く場所を推測した（52 wait_ui15 の後）', section);
           out().push(
             { set: { [ctx.returnFlag()]: false } },
             { investigate: ctx.placeId(nextDay(section)!) },
@@ -341,21 +342,25 @@ export function convertOps(
           out().push(native(o.name, []));
         }
         return finish(ctx, section, ops, i, out());
+      case 73: // 2・3: ゲームの終わり（game+8 = 1。最終話の最後、スタッフロールへ）
       case 22:
+        if (o.op === 73 && ctx.t.game === 'aa1') simpleOp(o, ctx, hands, mem, section);
+        if (o.op === 73 && ctx.t.game === 'aa1') break;
         w.close('auto');
         flow(o);
-        out().push(...ctx.nextPart);
+        out().push(...(o.op === 73 ? [{ end: true }] : ctx.nextPart));
         return finish(ctx, section, ops, i, out());
       case 106: {
         // 次の語（次の命令の番号）の値のパートの台本を読み、その §0 へ（第 5 話の法廷の日の途中の区切り）
-        const nx = ops[i + 1];
-        if (!nx || nx.op === 'text') {
+        // 2・3 では次の語を引数として読んでいる（tools/rom/game.py）
+        const nx = a.length ? a[0]! : ops[i + 1]?.op;
+        if (nx === undefined || nx === 'text') {
           hands.put(native(o.name, a));
           break;
         }
         w.close('auto');
         flow(o);
-        out().push(...ctx.toPart(nx.op));
+        out().push(...ctx.toPart(nx));
         return finish(ctx, section, ops, i, out());
       }
       case 36:

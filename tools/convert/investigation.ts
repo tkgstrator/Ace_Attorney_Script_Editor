@@ -12,6 +12,17 @@
 import type { Context } from './context.ts';
 import { areaOf, bgSize } from './examine-area.ts';
 import {
+  condOf23,
+  examineBlockers,
+  examineDefault23,
+  type FrameRow,
+  frameRowStep,
+  frameTabs,
+  presentChain23,
+  storeStep,
+  talkAdds23,
+} from './invest23.ts';
+import {
   ctxOf,
   EXAMINE_READY,
   prepareInvestigation,
@@ -19,8 +30,9 @@ import {
   startPlace,
   startsWithEvent,
 } from './investigation-setup.ts';
+import { and, commonBlock, condOf, or, stripMenuReturn, whenOf } from './investigation-util.ts';
 import { bgKey } from './mapping.ts';
-import { convertOps } from './section.ts';
+import { lockIconFlag } from './ops23.ts';
 import type { Entry, Step } from './types.ts';
 
 export { areaOf, bgSize } from './examine-area.ts';
@@ -33,68 +45,14 @@ export {
   prepareInvestigation,
   scriptEntryOf,
 } from './investigation-setup.ts';
+export { commonBlock, condOf, stripMenuReturn, whenOf } from './investigation-util.ts';
 
 const EXAMINE_NOT_YET = 13;
 /** 共通の台本の「手がかりになるものはない。」 */
 const COMMON_NOTHING = 43;
 
 type Sec = { raw: number; script: string; section: number };
-
-/** investigation.json の when（{"0:0x53": 0, ...}）→ 条件式 */
-export function whenOf(ctx: Context, when: Record<string, number | string>): string {
-  // 'lang' は言語（日本語の項目なら ja の道だけ）
-  if (when.lang !== undefined && when.lang !== ctx.entry.lang) return 'false';
-  const parts = Object.entries(when)
-    .filter(([k]) => k !== 'lang')
-    .map(([k, v]) => {
-      const [g, n] = k.split(':');
-      const f = ctx.fname(Number(g), Number(n));
-      return v ? f : `not ${f}`;
-    });
-  return parts.length ? parts.join(' and ') : 'true';
-}
-
-/** 「flag 0x49 == 1」→ 条件式 */
-export function condOf(ctx: Context, cond: string): string {
-  const m = cond.match(/flag\s+(0x[0-9a-f]+|\d+)\s*==\s*(\d)/i);
-  if (!m) return 'true';
-  const f = ctx.fname(0, Number(m[1]));
-  return m[2] === '1' ? f : `not ${f}`;
-}
-
-const or = (xs: string[]) => (xs.length === 1 ? xs[0]! : xs.map((x) => `(${x})`).join(' or '));
-const and = (xs: string[]) =>
-  xs
-    .filter((x) => x !== 'true')
-    .map((x) => (/ or /.test(x) ? `(${x})` : x))
-    .join(' and ') || 'true';
-
-/** ブロックの最後の「探偵メニューへ戻る」は要らない（ブロックが終われば戻る）ので外す */
-export function stripMenuReturn(ctx: Context, steps: Step[]): Step[] {
-  const out = [...steps];
-  const last = out.at(-1);
-  if (last && 'goto' in last && last.goto === ctx.menuScene()) {
-    out.pop();
-    const prev = out.at(-1);
-    if (prev && 'set' in prev && ctx.returnFlag() in (prev.set as object)) out.pop();
-  } else if (last && 'if' in last) {
-    out[out.length - 1] = {
-      ...last,
-      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-      then: stripMenuReturn(ctx, last.then as Step[]),
-      ...(last.else ? { else: stripMenuReturn(ctx, last.else as Step[]) } : {}),
-    };
-  }
-  return out;
-}
-
-/** 共通の台本（項目 072/073）の区画を、探偵メニューへ戻る所を外したステップ列にする（無ければ「……」） */
-export function commonBlock(ctx: Context, common: Entry | null, section: number): Step[] {
-  const sec = common?.body[section];
-  return sec
-    ? stripMenuReturn(ctx, convertOps(ctx, section, sec.ops, { menuReturn: [] }))
-    : [{ narrate: '……' }];
-}
+type Row = Record<string, any>;
 
 export function buildPlaces(
   ctx: Context,
@@ -110,7 +68,11 @@ export function buildPlaces(
   const sectionBlock = (sec: Sec) =>
     sec.script === 'common' ? commonBlock(ctx, common, sec.section) : block(sec.section);
   const places: Record<string, unknown> = {};
-  const lateExamine = inv.part < 17;
+  const aa1 = ctx.t.game === 'aa1';
+  const lockIcons = new Set<number>(
+    (inv.init?.op89_sections ?? []).map((s: { section: number }) => s.section),
+  );
+  const lateExamine = aa1 && inv.part < 17;
   if (inv.places.some((p: { every_frame: unknown[] }) => p.every_frame.length))
     st.gap('探偵パートの毎フレームの処理（every_frame）', -1);
 
@@ -142,14 +104,19 @@ export function buildPlaces(
           doSteps.push(
             {
               show: ctx.character(k),
-              talk: d.talk,
-              ...(d.idle !== d.talk ? { idle: d.idle } : {}),
+              ...(d.talk !== null && d.talk !== undefined ? { talk: d.talk } : {}),
+              ...(d.idle !== d.talk && d.idle !== null && d.talk != null ? { idle: d.idle } : {}),
             },
             { set: { [pf]: k } },
           );
           if (d.char & 0xe000) st.gap('人物の位置・反転（30 char の 0x8000/0x4000/0x2000）', -1);
         }
         if (d.bgm !== undefined) doSteps.push({ bgm: ctx.sound(d.bgm) });
+        if (d.store !== undefined) {
+          const s = storeStep(ctx, d as { store: string; value: number });
+          if (s) doSteps.push(s);
+        }
+        if (d.gauge_full) doSteps.push({ heal: true });
         if (d.call !== undefined || d.op_2232c !== undefined)
           st.gap('着いたときの処理の中の、下画面などの関数呼び出し', -1);
       }
@@ -166,23 +133,12 @@ export function buildPlaces(
         },
       ];
     };
-    // 毎フレームの処理（every_frame）: 条件を満たすとフラグを立てる。各行動の終わりと着いたときに調べる（ずれ）
-    const frame: Step[] = pl.every_frame.flatMap(
-      (r: { when: Record<string, number>; do: Record<string, any>[] }) => {
-        const sets = r.do
-          .filter((d) => d.set_flag)
-          .map((d) => {
-            const [g, n] = String(d.set_flag).split(':');
-            return {
-              set: { [ctx.fname(Number(g), Number(n))]: d.value === undefined ? true : !!d.value },
-            };
-          });
-        if (r.do.some((d) => d.examine))
-          st.gap('毎フレームの処理で調べる表を替える（every_frame）', -1);
-        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-        return sets.length ? [{ if: whenOf(ctx, r.when), then: sets }] : [];
-      },
-    );
+    // 毎フレームの処理（every_frame）: 条件を満たすとフラグを立てる・調べる表を替える・場所を移す（invest23.ts）。
+    // 各行動の終わりと着いたときに調べる（ずれ）
+    if (aa1 && pl.every_frame.some((r: Row) => r.do.some((d: Row) => d.examine)))
+      st.gap('毎フレームの処理で調べる表を替える（every_frame）', -1);
+    const tabs = aa1 ? null : frameTabs(ctx, pl);
+    const frame: Step[] = pl.every_frame.flatMap((r: FrameRow) => frameRowStep(ctx, r, tabs));
     const withFrame = (steps: Step[]) => (frame.length ? [...steps, ...frame] : steps);
     const enter: Step[] = [
       { set: { [ctx.placeFlag()]: P } },
@@ -190,7 +146,8 @@ export function buildPlaces(
         if: ctx.returnFlag(),
         // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         then: [{ set: { [ctx.returnFlag()]: false } }],
-        else: [{ set: { [pf]: 0 } }, ...chain(0)],
+        // 着いたときは、着いたときの表を使う（毎フレームの処理で替えた表を戻す）
+        else: [{ set: { [pf]: 0 } }, ...(tabs ? [{ set: { [tabs.flag]: -1 } }] : []), ...chain(0)],
       },
       ...frame,
     ];
@@ -209,8 +166,23 @@ export function buildPlaces(
       const c = whenOf(ctx, path.when);
       if (t && c !== 'false') tableConds.set(t, [...(tableConds.get(t) ?? []), c]);
     }
+    // 2・3: 毎フレームの処理で替えた表（tabs.flag = 表の番号。-1 なら着いたときの表）
+    if (tabs) {
+      for (const [t, conds] of tableConds)
+        tableConds.set(
+          t,
+          conds.map((c) => and([c, `${tabs.flag} == -1`])),
+        );
+      for (const [t, i] of tabs.index)
+        tableConds.set(t, [...(tableConds.get(t) ?? []), `${tabs.flag} == ${i}`]);
+    }
     const examine: Record<string, unknown>[] = [];
-    const nothing = commonBlock(ctx, common, COMMON_NOTHING);
+    const nothing = aa1
+      ? commonBlock(ctx, common, COMMON_NOTHING)
+      : examineDefault23(ctx, P, sectionBlock, (s) => commonBlock(ctx, common, s));
+    // 2・3: 表より先に見る決め打ち（そのときは表の所を調べても、決め打ちの区画）
+    const blockers = aa1 ? [] : examineBlockers(ctx, P);
+    if (blockers.includes('true')) tableConds.clear();
     // 範囲は背景の座標のまま（横長の背景は、調べる間に左右へ動かせる）
     const size = bgSize(pl.bg_file);
     for (const [table, conds] of tableConds) {
@@ -241,8 +213,10 @@ export function buildPlaces(
         const when = and([
           or(conds),
           ...(lateExamine ? [ctx.fname(0, EXAMINE_READY)] : []),
-          ...(e.cond ? [condOf(ctx, e.cond)] : []),
+          ...(e.cond ? [aa1 ? condOf(ctx, e.cond) : condOf23(ctx, e.cond)] : []),
+          ...blockers.map((c) => `not (${c})`),
         ]);
+        if (when.includes('false')) continue;
         examine.push({
           area,
           ...(when !== 'true' ? { when } : {}),
@@ -269,14 +243,19 @@ export function buildPlaces(
       const before = earlier.get(k) ?? [];
       const flag = and([own, ...before.map((f) => `not ${f}`)]);
       earlier.set(k, [...before, own]);
-      for (const t of entry.topics) {
+      // 逆転裁判3 の 108 で足す話題（invest23.ts の talkAdds23）は、足した印のフラグも条件にする
+      const topics = [
+        ...entry.topics.map((t: Record<string, any>) => ({ t, cond: null as string | null })),
+        ...talkAdds23(ctx, entry.id as number),
+      ];
+      for (const { t, cond } of topics) {
         const key = `${entry.person}:${t.topic}:${t.section.section}`;
         const v = topicWhen.get(key) ?? {
           t,
           k: (entry.person as number) & 0x1fff,
           flags: [] as string[],
         };
-        v.flags.push(flag);
+        v.flags.push(cond ? and([flag, cond]) : flag);
         topicWhen.set(key, v);
       }
     });
@@ -286,6 +265,10 @@ export function buildPlaces(
         id: `${pid}_k${v.k}_t${topic}_${sec}`,
         topic: v.t.name_ocr || `話題 ${topic}`,
         when: and([`${pf} == ${v.k}`, or(v.flags)]),
+        // 2・3: サイコ・ロックの印（89 で一覧に入れた区画の話題）
+        ...(lockIcons.has(v.t.section.section)
+          ? { locked: lockIconFlag(ctx, v.t.section.section) }
+          : {}),
         // 話題の既読（組 2 のフラグ）を立ててから
         // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         then: withFrame([
@@ -315,15 +298,32 @@ export function buildPlaces(
     );
     for (const item of items) {
       // 法廷記録の番号は証拠品と人物ファイルで通し番号。人物ファイルなら、YAML では人物 ID をキーにする
-      const key = ctx.shared.profileRecords.has(item) ? ctx.profile(item) : ctx.evidenceId(item);
+      // （2・3 は表の種類の列で分ける）
+      const profile = aa1
+        ? ctx.shared.profileRecords.has(item)
+        : rows.some((r: Row) => r.item === item && r.record === 'profile');
+      const key = profile ? ctx.profile(item) : ctx.evidenceId(item);
       present[key] = withFrame(
-        personChain((_k, rs) => {
-          const hit = rs.find((r) => r.item === item);
-          return block((hit ?? rs.at(-1)!)[hit ? 'section' : 'default'].section);
-        }),
+        aa1
+          ? personChain((_k, rs) => {
+              const hit = rs.find((r) => r.item === item);
+              return block((hit ?? rs.at(-1)!)[hit ? 'section' : 'default'].section);
+            })
+          : presentChain23(ctx, P, rows, item, profile ? 'profile' : 'evidence', block),
       );
     }
-    const presentWrong = withFrame(personChain((_k, rs) => block(rs.at(-1)!.default.section)));
+    // 2・3: 表に無い人物ファイルは、人物ファイルの行の既定の反応（証拠品の見当違いとは別）
+    if (!aa1 && rows.some((r: Row) => r.record === 'profile'))
+      for (const rec of ctx.shared.chapterProfiles) {
+        const key = ctx.profile(rec);
+        if (!(key in present))
+          present[key] = withFrame(presentChain23(ctx, P, rows, null, 'profile', block));
+      }
+    const presentWrong = withFrame(
+      aa1
+        ? personChain((_k, rs) => block(rs.at(-1)!.default.section))
+        : presentChain23(ctx, P, rows, null, 'evidence', block),
+    );
     // 移動する（51 で版が変わる）
     const versions = ctx.moveVersions.get(P) ?? [pl.dest];
     const mv = versions.length > 1 ? ctx.flag(`${ctx.gpfx}mv_${P}`, 0) : null;
@@ -338,7 +338,7 @@ export function buildPlaces(
       });
     places[pid] = {
       name: pl.name?.ocr || `場所 ${P}`,
-      background: bgKey(pl.bg).key,
+      background: bgKey(pl.bg, ctx.t.game).key,
       ...(person.length ? { person } : {}),
       enter,
       ...(examine.length ? { examine } : {}),
