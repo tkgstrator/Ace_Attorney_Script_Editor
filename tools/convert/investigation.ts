@@ -9,17 +9,31 @@
 // YAML では、人物・場所・行き先の版・話題の有効をフラグ（person / place / mv_場所 / talk_項目）で持ち、条件（when）にする。
 // 区画の中から探偵メニューに戻るときは menu_return を立てて menu シーンへ行き、今の場所へ investigate する
 // （場所の enter は menu_return が立っていれば着いたときの処理を飛ばす）。
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Context } from './context.ts';
+import { areaOf, bgSize } from './examine-area.ts';
+import {
+  ctxOf,
+  EXAMINE_READY,
+  prepareInvestigation,
+  scriptEntryOf,
+  startPlace,
+  startsWithEvent,
+} from './investigation-setup.ts';
 import { bgKey } from './mapping.ts';
 import { convertOps } from './section.ts';
-import { ROOT } from './tables.ts';
 import type { Entry, Step } from './types.ts';
 
-const SCREEN = { w: 256, h: 192 };
-/** パート < 17 では、このフラグ（0x41）が立つまで「調べる」は区画 0x8d（§13）になる */
-const EXAMINE_READY = 0x41;
+export { areaOf, bgSize } from './examine-area.ts';
+export {
+  ctxOf,
+  dayStartFlags,
+  initInvestigationFlags,
+  investigationStartFlags,
+  nextDayPlace,
+  prepareInvestigation,
+  scriptEntryOf,
+} from './investigation-setup.ts';
+
 const EXAMINE_NOT_YET = 13;
 /** 共通の台本の「手がかりになるものはない。」 */
 const COMMON_NOTHING = 43;
@@ -48,38 +62,12 @@ export function condOf(ctx: Context, cond: string): string {
   return m[2] === '1' ? f : `not ${f}`;
 }
 
-/** 背景の PNG の幅（横長の背景は 512。画面には 256 に縮めて出るので、調べる場所も縮める） */
-export function bgWidth(file: string | undefined): number {
-  const p = file ? join(ROOT, file) : '';
-  if (!p || !existsSync(p)) return SCREEN.w;
-  return readFileSync(p).readUInt32BE(16);
-}
-
 const or = (xs: string[]) => (xs.length === 1 ? xs[0]! : xs.map((x) => `(${x})`).join(' or '));
 const and = (xs: string[]) =>
   xs
     .filter((x) => x !== 'true')
     .map((x) => (/ or /.test(x) ? `(${x})` : x))
     .join(' and ') || 'true';
-
-/**
- * 四角形 4 点 → 画面の中の [x, y, 幅, 高さ]（はみ出しは切る。画面の外なら null）。
- * 斜めの四角形は外接する長方形だと隣と大きく重なるので、x・y それぞれ 2 番目と 3 番目の値で作る内側の長方形にする
- * （軸に沿った四角形ならそのまま）。潰れるなら外接する長方形
- */
-export function areaOf(quad: number[][], scaleX = 1): [number, number, number, number] | null {
-  const xs = quad.map((p) => Math.round(p[0]! * scaleX)).sort((a, b) => a - b),
-    ys = quad.map((p) => p[1]!).sort((a, b) => a - b);
-  let [ax, bx] = [xs[1]!, xs[2]!],
-    [ay, by] = [ys[1]!, ys[2]!];
-  if (bx - ax < 4) [ax, bx] = [xs[0]!, xs[3]!];
-  if (by - ay < 4) [ay, by] = [ys[0]!, ys[3]!];
-  const x0 = Math.max(0, ax),
-    y0 = Math.max(0, ay);
-  const x1 = Math.min(SCREEN.w, bx),
-    y1 = Math.min(SCREEN.h, by);
-  return x1 - x0 > 0 && y1 - y0 > 0 ? [x0, y0, x1 - x0, y1 - y0] : null;
-}
 
 /** ブロックの最後の「探偵メニューへ戻る」は要らない（ブロックが終われば戻る）ので外す */
 export function stripMenuReturn(ctx: Context, steps: Step[]): Step[] {
@@ -92,143 +80,11 @@ export function stripMenuReturn(ctx: Context, steps: Step[]): Step[] {
   } else if (last && 'if' in last) {
     out[out.length - 1] = {
       ...last,
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       then: stripMenuReturn(ctx, last.then as Step[]),
       ...(last.else ? { else: stripMenuReturn(ctx, last.else as Step[]) } : {}),
     };
   }
-  return out;
-}
-
-/** その場所の区画がある項目（第 5 話の script_items）。無ければ今の項目 */
-export const scriptEntryOf = (ctx: Context, pl: { script_items?: string[] }): number =>
-  pl.script_items?.length ? Number(pl.script_items[0]) : ctx.entry.entry;
-
-/** その場所の区画を変換する Context（組の中の、その項目の Context） */
-export const ctxOf = (ctx: Context, pl: { script_items?: string[] }): Context =>
-  ctx.group.get(scriptEntryOf(ctx, pl)) ?? ctx;
-
-/** 探偵パートの準備: 行き先の版（51。組のすべての項目から）と、この項目にある会話 event の区画 */
-export function prepareInvestigation(ctx: Context) {
-  const inv = ctx.inv!;
-  const moves = new Map<number, number[][]>();
-  for (const pl of inv.places) moves.set(pl.id, [pl.dest]);
-  const bodies = ctx.group.size
-    ? [...ctx.group.values()].flatMap((c) => c.entry.body)
-    : ctx.entry.body;
-  for (const sec of bodies) {
-    for (const o of sec.ops) {
-      if (o.op !== 51) continue;
-      const [p, ...d] = o.args;
-      const list = moves.get(p!) ?? [];
-      const dest = d.filter((x) => x !== 255);
-      if (!list.some((v) => v.join() === dest.join())) list.push(dest);
-      moves.set(p!, list);
-    }
-  }
-  ctx.moveVersions = moves;
-  for (const pl of inv.places) {
-    if (scriptEntryOf(ctx, pl) !== ctx.entry.entry) continue;
-    for (const path of pl.on_enter)
-      for (const d of path.do) if (d.event) ctx.eventSections.set(d.event.section, pl.id);
-  }
-}
-
-/**
- * 一日の終わり（52 wait_ui15 = セーブの画面 → 21）の後に行く場所。元のゲームで場所を決める仕組みは未解明なので、
- * 「その区画より後の、日時の表示（93 align 1）がある会話 event のうち、それまでに立つフラグで道の条件を満たす最初のもの」の場所にする
- */
-export function nextDayPlace(ctx: Context, section: number): number | null {
-  const inv = ctx.inv!;
-  const set = new Set<string>();
-  for (const sec of ctx.entry.body) {
-    if (sec.section > section) break;
-    for (const o of sec.ops) if (o.op === 16 && o.args[0]! >> 15) set.add(`0:${o.args[0]! & 0xff}`);
-  }
-  for (const pl of inv.places) {
-    for (const path of pl.on_enter) {
-      for (const d of path.do) {
-        if (d.event && d.event.section <= section && d.set_flag)
-          set.add(`0:${Number(String(d.set_flag).split(':')[1])}`);
-      }
-    }
-  }
-  const ok = (when: Record<string, number | string>) =>
-    Object.entries(when).every(([k, v]) => {
-      if (k === 'lang') return v === ctx.entry.lang;
-      const [g, n] = k.split(':');
-      return set.has(`${g}:${Number(n)}`) === (v === 1);
-    });
-  let best: { e: number; place: number } | null = null;
-  for (const pl of inv.places) {
-    if (scriptEntryOf(ctx, pl) !== ctx.entry.entry) continue;
-    for (const path of pl.on_enter) {
-      for (const d of path.do) {
-        const e = d.event?.section as number | undefined;
-        if (e === undefined || e <= section || !ok(path.when)) continue;
-        const card = ctx.entry.body[e]?.ops.some((o) => o.op === 93 && o.args[0] === 1);
-        if (card && (!best || e < best.e)) best = { e, place: pl.id };
-      }
-    }
-  }
-  return best?.place ?? null;
-}
-
-/** 最初に行く場所: ARM9 の始めの関数が決める場所（invest_start.json）、無ければ §0 から落ちていく最初の event の場所 */
-function startPlace(ctx: Context): number {
-  const known = ctx.t.investStart?.[String(ctx.part)];
-  if (known !== undefined) return known;
-  for (let s = 0; s < ctx.entry.body.length; s++) {
-    if (ctx.eventSections.has(s)) return ctx.eventSections.get(s)!;
-    const ops = ctx.entry.body[s]!.ops;
-    if (ops.some((o) => o.op === 21 || o.op === 10 || o.op === 54 || o.op === 8 || o.op === 9))
-      break;
-  }
-  return ctx.inv!.places[0]?.id ?? 0;
-}
-
-/** 始めのフラグ（組 0 は 0、パート > 1 ならフラグ 0x41 = 1）で、最初の場所の着いたときの道に会話 event があるか */
-function startsWithEvent(ctx: Context, place: number): boolean {
-  const pl = ctx.inv!.places.find((p: { id: number }) => p.id === place);
-  const init = (k: string) =>
-    k === `0:0x${EXAMINE_READY.toString(16)}` && ctx.inv!.part > 1 ? 1 : 0;
-  const path = pl?.on_enter.find((p: { when: Record<string, number | string> }) =>
-    Object.entries(p.when).every(([k, v]) => (k === 'lang' ? v === ctx.entry.lang : init(k) === v)),
-  );
-  return !!path?.do.some((d: { event?: unknown }) => d.event);
-}
-
-/** パート > 1 ではフラグ 0x41 が最初から立っている */
-export function initInvestigationFlags(ctx: Context) {
-  ctx.fname(0, EXAMINE_READY);
-}
-
-/** 探偵パートの始めのフラグ: パート < 17 なら組 0 を 0 に戻し、パート > 1 ならフラグ 0x41 = 1 */
-/**
- * 第 5 話の日の始め（探偵パート 0x16 / 0x1c、法廷 0x13 / 0x19 / 0x1f）のフラグ。台本のフラグ（組 0）を戻す:
- * 第 5 話の台本は日ごとに同じ番号を別の意味で使い（例: 034 §8 の話題の既読 0x2a を 038 の尋問で 138 の道の印に使う）、
- * どの日も前の日にだけ立つフラグは読まない（台本と探偵パートの表で確かめた）。元のゲームで消す所は見つかっていない（推測）。
- * 法廷の日は、ARM9 のパートの始め（0x0202f7dc〜）が決めるもの（0x1f = 茜が一緒か、ほかは尋問の進み具合）もそのとおりに。
- * 0x1f はコードが決めるので戻さない
- */
-export function dayStartFlags(part: number, flags: string[]): Record<string, boolean> | null {
-  const rom: Record<number, Record<number, boolean>> = {
-    0x13: { 0x02: false, 0x21: false, 0x22: false, 0x1f: true },
-    0x16: {},
-    0x19: { 0x0f: false, 0x10: false, 0x23: false, 0x24: false, 0x1f: true },
-    0x1c: {},
-    0x1f: { 0x25: false, 0x26: false, 0x27: false, 0x1f: false },
-  };
-  if (!rom[part]) return null;
-  const out: Record<string, boolean> = {};
-  for (const f of flags) if (f.startsWith('f_0_') && f !== 'f_0_31') out[f] = false;
-  for (const [n, v] of Object.entries(rom[part]!)) out[`f_0_${n}`] = v;
-  return out;
-}
-
-export function investigationStartFlags(part: number, flags: string[]): Record<string, boolean> {
-  const out: Record<string, boolean> = {};
-  if (part < 17) for (const f of flags) if (f.startsWith('f_0_')) out[f] = false;
-  if (part > 1) out[`f_0_${EXAMINE_READY}`] = true;
   return out;
 }
 
@@ -304,6 +160,7 @@ export function buildPlaces(
       return [
         {
           if: cond,
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           then: doSteps.length ? doSteps : [{ set: { [pf]: 0 } }],
           ...(rest.length ? { else: rest } : {}),
         },
@@ -322,6 +179,7 @@ export function buildPlaces(
           });
         if (r.do.some((d) => d.examine))
           st.gap('毎フレームの処理で調べる表を替える（every_frame）', -1);
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         return sets.length ? [{ if: whenOf(ctx, r.when), then: sets }] : [];
       },
     );
@@ -330,6 +188,7 @@ export function buildPlaces(
       { set: { [ctx.placeFlag()]: P } },
       {
         if: ctx.returnFlag(),
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         then: [{ set: { [ctx.returnFlag()]: false } }],
         else: [{ set: { [pf]: 0 } }, ...chain(0)],
       },
@@ -352,26 +211,27 @@ export function buildPlaces(
     }
     const examine: Record<string, unknown>[] = [];
     const nothing = commonBlock(ctx, common, COMMON_NOTHING);
-    const scaleX = SCREEN.w / bgWidth(pl.bg_file);
-    if (scaleX !== 1)
-      st.gap('横長の背景（512 ドット）のスクロール: 調べる場所を画面の幅に縮めた', -1);
+    // 範囲は背景の座標のまま（横長の背景は、調べる間に左右へ動かせる）
+    const size = bgSize(pl.bg_file);
     for (const [table, conds] of tableConds) {
       const entries = inv.examine_tables[table] ?? [];
       // 条件つきを先に。重なったときに小さいものが選べるよう、同じ種類の中では小さい順
-      const size = (e: { quad: number[][] }) => {
-        const a = areaOf(e.quad, scaleX);
+      const areaSize = (e: { quad: number[][] }) => {
+        const a = areaOf(e.quad, size);
         return a ? a[2] * a[3] : 0;
       };
       const bySize = (xs: Record<string, any>[]) =>
-        [...xs].sort((a, b) => size(a as { quad: number[][] }) - size(b as { quad: number[][] }));
+        [...xs].sort(
+          (a, b) => areaSize(a as { quad: number[][] }) - areaSize(b as { quad: number[][] }),
+        );
       const sorted = [
         ...bySize(entries.filter((e: { kind: string }) => e.kind === 'cond')),
         ...bySize(entries.filter((e: { kind: string }) => e.kind !== 'cond')),
       ];
       for (const e of sorted) {
-        const area = areaOf(e.quad, scaleX);
+        const area = areaOf(e.quad, size);
         if (!area) {
-          st.gap('画面の外（横長の背景をずらした先）の調べる場所', e.section.section);
+          st.gap('背景の外の調べる場所', e.section.section);
           continue;
         }
         st.gap(
@@ -386,13 +246,15 @@ export function buildPlaces(
         examine.push({
           area,
           ...(when !== 'true' ? { when } : {}),
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
           then: withFrame(sectionBlock(e.section)),
         });
       }
     }
     const examineDefault = withFrame(
       lateExamine
-        ? [{ if: ctx.fname(0, EXAMINE_READY), then: nothing, else: block(EXAMINE_NOT_YET) }]
+        ? // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          [{ if: ctx.fname(0, EXAMINE_READY), then: nothing, else: block(EXAMINE_NOT_YET) }]
         : nothing,
     );
     // 話す
@@ -425,6 +287,7 @@ export function buildPlaces(
         topic: v.t.name_ocr || `話題 ${topic}`,
         when: and([`${pf} == ${v.k}`, or(v.flags)]),
         // 話題の既読（組 2 のフラグ）を立ててから
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         then: withFrame([
           { set: { [ctx.fname(2, v.t.read_flag)]: true } },
           ...block(v.t.section.section),
@@ -438,8 +301,10 @@ export function buildPlaces(
       byPerson.set(r.person & 0x1fff, [...(byPerson.get(r.person & 0x1fff) ?? []), r]);
     const personChain = (f: (k: number, rs: Record<string, any>[]) => Step[]): Step[] => {
       let out: Step[] = rows[0] ? block(rows[0].default.section) : [];
-      for (const [k, rs] of [...byPerson].reverse())
+      for (const [k, rs] of [...byPerson].reverse()) {
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         out = [{ if: `${pf} == ${k}`, then: f(k, rs), ...(out.length ? { else: out } : {}) }];
+      }
       return out;
     };
     const present: Record<string, Step[]> = {};
@@ -488,6 +353,7 @@ export function buildPlaces(
   const menu: Step[] = [
     ...inv.places.map((pl: { id: number }) => ({
       if: `${ctx.placeFlag()} == ${pl.id}`,
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       then: [{ investigate: ctx.placeId(pl.id) }],
     })),
     { set: { [ctx.returnFlag()]: false } },
