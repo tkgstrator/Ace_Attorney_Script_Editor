@@ -81,10 +81,12 @@ def parse_block(anim: bytes, off: int):
 
 
 def script_usage(rom: bytes, argc: dict):
-    """台本の命令 30 から (動き → 人物の出現回数, 人物 → 動き, (項目, 人物, 話す, 黙る) の一覧) を集める"""
+    """台本の命令 30 から (動き → 人物の出現回数, (項目, 人物, 話す, 黙る) の一覧, 人物 → 話し手の名前の番号の回数) を集める。
+    話し手は、人物が出ている間の文（0x80 以上の語の並び）ごとに、そのときの名前（14 name）を数える"""
     f = next(f for f in list_files(rom) if f.path == 'mes_all.bin')
     mes = rom[f.start:f.end]
     anim_char: dict[int, Counter] = defaultdict(Counter)
+    speakers: dict[int, Counter] = defaultdict(Counter)
     uses = []
     for e in range(struct.unpack_from('<I', mes, 0)[0]):
         off, _ = struct.unpack_from('<II', mes, 4 + 8 * e)
@@ -92,20 +94,40 @@ def script_usage(rom: bytes, argc: dict):
         w = struct.unpack(f'<{len(b) // 2}H', b[:len(b) // 2 * 2])
         first = (w[2] | w[3] << 16) // 2        # 最初の区画の位置（区画は続けて並ぶ）
         i = first
+        name, shown, in_text = 0, 0, False
         while i < len(w):
             op = w[i]
             if op >= 0x80:
+                if not in_text and shown and name:
+                    speakers[shown][name] += 1
+                in_text = True
                 i += 1
                 continue
+            in_text = False
             n = argc.get(op, 0)
             a = w[i + 1:i + 1 + n]
+            if op == 14 and a:
+                name = (a[0] >> 8) & 0x7F
+            if op == 30 and len(a) == 3:
+                shown = a[0] & 0x1FFF
             if op == 30 and len(a) == 3 and a[0]:
                 c = a[0] & 0x1FFF
                 for x in a[1:]:
                     anim_char[x][c] += 1
                 uses.append((e, a[0], a[1], a[2]))
             i += 1 + n
-    return anim_char, uses
+    return anim_char, uses, speakers
+
+
+def speaker_of(c: int, tags: dict[int, str], speakers: dict[int, Counter]) -> int | None:
+    """名札の無い人物（大写しの顔など）の名前の番号: 出ている間の文の話し手の 3/4 以上が同じ名前ならその番号"""
+    if tags.get(c):
+        return None
+    cnt = speakers.get(c)
+    if not cnt:
+        return None
+    n, k = cnt.most_common(1)[0]
+    return n if tags.get(n) and k * 4 >= sum(cnt.values()) * 3 else None
 
 
 def render_anim(gfx_b: bytes, anim_b: bytes, gofs: int, seq, dst: Path | None):
@@ -134,7 +156,11 @@ def build(rom: bytes, root: Path, png: bool, A: Assets) -> tuple[dict, dict]:
     parts = pack_parts(data_bin(rom), A.char_pack)
     if A.char_pack_count_word:
         assert len(parts) // 2 == a.u32(A.char_pack_count_word), '人物のパックの数が ARM9 と合わない'
-    anim_char, uses = script_usage(rom, A.game.argc)
+    anim_char, uses, speakers = script_usage(rom, A.game.argc)
+    # 2・3: 名札の文字（tables/names.json。tbl_record.py が先に書く）。名札の無い人物を話し手に結び付けるのに使う
+    npath = root / 'tables' / 'names.json'
+    tags = ({x['id']: x['text']['ja'] for x in json.loads(npath.read_text())['names']}
+            if A.code != 'AGYJ' and npath.exists() else {})
     SCRIPT_ANIMS = A.script_anims
     names = NAMES if A.code == 'AGYJ' else {}
     table = [(a.u16(A.anim_table + 4 * i), a.u16(A.anim_table + 4 * i + 2)) for i in range(A.anim_count)]
@@ -190,9 +216,11 @@ def build(rom: bytes, root: Path, png: bool, A: Assets) -> tuple[dict, dict]:
         entries_of[c & 0x1FFF].add(e)
     for c in sorted(per_char):
         ids = per_char[c]
+        sp = speaker_of(c, tags, speakers)
         chars[str(c)] = {
             'name': names.get(c),
-            'name_id': c,
+            'name_id': c if sp is None else sp,
+            **({'name_from': 'speaker'} if sp is not None else {}),
             'anims': ids,
             'files': sorted({anims[str(i)]['file'] for i in ids}),
             'script_entries': sorted(entries_of.get(c, ())),
@@ -220,7 +248,8 @@ def main() -> None:
     (t / 'char_anims.json').write_text(json.dumps({**meta, 'anims': anims}, ensure_ascii=False, indent=1))
     cmeta = {
         '_about': '人物の番号（台本 30 の第 1 引数の下位 13 ビット）。名前は確かなものだけ（ほかは null）。'
-                  'name_id = 14 name の名前の番号（ほぼ同じ番号）',
+                  'name_id = 14 name の名前の番号（ほぼ同じ番号）。2・3 で名札の無い人物（大写しの顔など）は、'
+                  '出ている間の文の話し手の 3/4 以上が同じ名前ならその番号（name_from = speaker）',
         '_flags': {
             '0x8000': '背景の表のフラグに 0x10 があるとき x = 128 - 256（横長の背景の左側に置く）。無ければ 128',
             '0x4000': '背景の表のフラグに 0x20 があるとき x = 128 + 256（横長の背景の右側に置く）。無ければ 128',
