@@ -20,7 +20,13 @@ export interface PartOptions {
 }
 
 /** 組（1 つの探偵パートが複数の項目にまたがるとき。ふつうは 1 項目）の 1 項目 */
-export interface GroupMember { entry: Entry; inv: InvPart | null; pfx: string; nextPart?: Step[]; toPart?: (part: number) => Step[] }
+export interface GroupMember {
+  entry: Entry;
+  inv: InvPart | null;
+  pfx: string;
+  nextPart?: Step[];
+  toPart?: (part: number) => Step[];
+}
 
 export interface PartResult {
   ctx: Context;
@@ -33,8 +39,17 @@ export interface PartResult {
 
 /** 1 つの項目を 1 つの編にする */
 export function convertPart(t: Tables, entry: Entry, opts: PartOptions = {}): PartResult {
-  const m: GroupMember = { entry, inv: opts.inv ?? null, pfx: opts.pfx ?? '', ...(opts.nextPart ? { nextPart: opts.nextPart } : {}) };
-  return convertGroup(t, [m], { common: opts.common ?? null, shared: opts.shared, gpfx: opts.pfx ?? '' })[0]!;
+  const m: GroupMember = {
+    entry,
+    inv: opts.inv ?? null,
+    pfx: opts.pfx ?? '',
+    ...(opts.nextPart ? { nextPart: opts.nextPart } : {}),
+  };
+  return convertGroup(t, [m], {
+    common: opts.common ?? null,
+    shared: opts.shared,
+    gpfx: opts.pfx ?? '',
+  })[0]!;
 }
 
 /**
@@ -42,25 +57,44 @@ export function convertPart(t: Tables, entry: Entry, opts: PartOptions = {}): Pa
  * 2 回目でその場に取り込む（シーンが減る）
  */
 export function convertGroup(
-  t: Tables, members: GroupMember[], opts: { common: Entry | null; shared?: Shared; gpfx: string },
+  t: Tables,
+  members: GroupMember[],
+  opts: { common: Entry | null; shared?: Shared; gpfx: string },
 ): PartResult[] {
   const probe = new Shared();
-  opts.shared?.profileRecords.forEach(r => probe.profileRecords.add(r));
-  const first = convertPass(t, members, { ...opts, shared: probe }, members.map(() => new Set()));
-  return convertPass(t, members, opts, first.map(r => inlineSet(r.ctx, r.ctx.entry)));
+  opts.shared?.profileRecords.forEach((r) => probe.profileRecords.add(r));
+  const first = convertPass(
+    t,
+    members,
+    { ...opts, shared: probe },
+    members.map(() => new Set()),
+  );
+  return convertPass(
+    t,
+    members,
+    opts,
+    first.map((r) => inlineSet(r.ctx, r.ctx.entry)),
+  );
 }
 
 /** 取り込む区画: 移動が 1 つだけで、それが選択肢・表から（またはすでに取り込む区画から）のもの */
 export function inlineSet(ctx: Context, entry: Entry): Set<number> {
   const out = new Set<number>();
-  const ok = (s: number) => !ctx.consumed.has(s) && s !== entry.body[0]!.section
-    && s !== ctx.court?.gameover_section && !ctx.redirect.has(s) && ![...ctx.pieces].some(p => p.startsWith(`${s}:`));
-  for (let changed = true; changed;) {
+  const ok = (s: number) =>
+    !ctx.consumed.has(s) &&
+    s !== entry.body[0]!.section &&
+    s !== ctx.court?.gameover_section &&
+    !ctx.redirect.has(s) &&
+    ![...ctx.pieces].some((p) => p.startsWith(`${s}:`));
+  for (let changed = true; changed; ) {
     changed = false;
     for (const [s, refs] of ctx.refs) {
       if (out.has(s) || refs.length !== 1 || !ok(s)) continue;
       const r = refs[0]!;
-      if (r.kind === 'choice' || out.has(r.from)) { out.add(s); changed = true; }
+      if (r.kind === 'choice' || out.has(r.from)) {
+        out.add(s);
+        changed = true;
+      }
     }
   }
   return out;
@@ -71,37 +105,54 @@ function setup(ctx: Context, m: GroupMember, common: Entry | null, inline: Set<n
   if (m.nextPart) ctx.nextPart = m.nextPart;
   if (m.toPart) ctx.toPart = m.toPart;
   ctx.inline = inline;
-  ctx.convertSection = s => (entry.body[s] ? convertOps(ctx, s, entry.body[s]!.ops) : [{ native: 'missing_section', args: [s] }]);
+  ctx.convertSection = (s) =>
+    entry.body[s]
+      ? convertOps(ctx, s, entry.body[s]!.ops)
+      : [{ native: 'missing_section', args: [s] }];
   // 共通の台本の区画: 編の表示（日時の表示 + 69）なら、表示してから次の編へ
-  ctx.convertCommon = raw => {
+  ctx.convertCommon = (raw) => {
     const ops = common?.body[raw]?.ops;
     if (!ops) return [{ native: 'common_section', args: [raw] }];
     ctx.stats.gap('共通の台本の区画へ飛ぶ（編の表示）', raw);
-    const partEnd = ops.some(o => o.op === 69);
-    return convertOps(ctx, raw, ops, { menuReturn: partEnd ? ctx.nextPart : undefined, gotoSteps: () => [] });
+    const partEnd = ops.some((o) => o.op === 69);
+    return convertOps(ctx, raw, ops, {
+      menuReturn: partEnd ? ctx.nextPart : undefined,
+      gotoSteps: () => [],
+    });
   };
 }
 
 function convertPass(
-  t: Tables, members: GroupMember[], opts: { common: Entry | null; shared?: Shared; gpfx: string }, inline: Set<number>[],
+  t: Tables,
+  members: GroupMember[],
+  opts: { common: Entry | null; shared?: Shared; gpfx: string },
+  inline: Set<number>[],
 ): PartResult[] {
-  const ctxs = members.map(m => new Context(t, m.entry, { shared: opts.shared, pfx: m.pfx, gpfx: opts.gpfx, inv: m.inv }));
-  const group = new Map(ctxs.map(c => [c.entry.entry, c]));
+  const ctxs = members.map(
+    (m) =>
+      new Context(t, m.entry, { shared: opts.shared, pfx: m.pfx, gpfx: opts.gpfx, inv: m.inv }),
+  );
+  const group = new Map(ctxs.map((c) => [c.entry.entry, c]));
   ctxs.forEach((ctx, k) => {
     ctx.group = group;
     setup(ctx, members[k]!, opts.common, inline[k]!);
-    if (ctx.inv) { prepareInvestigation(ctx); initInvestigationFlags(ctx); }
+    if (ctx.inv) {
+      prepareInvestigation(ctx);
+      initInvestigationFlags(ctx);
+    }
     prepareExamine(ctx);
   });
-  const scenesOf = ctxs.map(ctx => emitEntry(ctx, opts.common));
+  const scenesOf = ctxs.map((ctx) => emitEntry(ctx, opts.common));
   ctxs.forEach(convertExamine);
   const head = ctxs[0]!;
   const places = head.inv ? buildPlaces(head, opts.common) : null;
   if (places) scenesOf[0]![head.menuScene()] = places.menu;
   // 取り込んだ区画へ別の所から飛ぶならその区画も、区画の途中へ飛ぶならそこから先も、シーンとして出す
-  for (let changed = true; changed;) {
+  for (let changed = true; changed; ) {
     changed = false;
-    ctxs.forEach((ctx, k) => { if (emitRest(ctx, scenesOf[k]!)) changed = true; });
+    ctxs.forEach((ctx, k) => {
+      if (emitRest(ctx, scenesOf[k]!)) changed = true;
+    });
   }
   return ctxs.map((ctx, k) => {
     const kind = ctx.inv ? 'investigation' : 'trial';
@@ -114,7 +165,8 @@ function convertPass(
     };
     const go = ctx.court ? ctx.sid(ctx.court.gameover_section) : null;
     // 探偵パートの始め: 最初の場所の着いたときの会話があれば、§0 ではなくそこから（元のゲームでは §0 を追い越す）
-    const start = k === 0 && places?.startAtMenu ? ctx.menuScene() : ctx.sid(ctx.entry.body[0]!.section);
+    const start =
+      k === 0 && places?.startAtMenu ? ctx.menuScene() : ctx.sid(ctx.entry.body[0]!.section);
     return { ctx, part, start, gameover: go && scenesOf[k]![go] !== undefined ? go : null };
   });
 }
@@ -145,7 +197,11 @@ function emitRest(ctx: Context, scenes: Record<string, unknown>): boolean {
   let changed = false;
   for (const r of [...ctx.referenced]) {
     if (scenes[ctx.scene(r)] !== undefined || ctx.redirect.has(r)) continue;
-    if (!entry.body[r]) { ctx.stats.gap('無い区画への移動', r); scenes[ctx.scene(r)] = [{ native: 'missing_section', args: [r] }]; continue; }
+    if (!entry.body[r]) {
+      ctx.stats.gap('無い区画への移動', r);
+      scenes[ctx.scene(r)] = [{ native: 'missing_section', args: [r] }];
+      continue;
+    }
     ctx.stats.gap('取り込んだ区画へ別の所からも飛ぶので、シーンとしても出した', r);
     scenes[ctx.sid(r)] = ctx.preScenes.get(r) ?? convertOps(ctx, r, entry.body[r]!.ops);
     changed = true;
@@ -153,7 +209,11 @@ function emitRest(ctx: Context, scenes: Record<string, unknown>): boolean {
   for (const p of [...ctx.pieces]) {
     const [s, at] = p.split(':').map(Number) as [number, number];
     if (scenes[ctx.sid(s, at)] !== undefined) continue;
-    scenes[ctx.sid(s, at)] = convertOps(ctx, s, entry.body[s]!.ops.filter(o => o.at >= at));
+    scenes[ctx.sid(s, at)] = convertOps(
+      ctx,
+      s,
+      entry.body[s]!.ops.filter((o) => o.at >= at),
+    );
     changed = true;
   }
   return changed;
@@ -164,7 +224,10 @@ export function cutOps(ops: Op[], cuts: number[]): Op[][] {
   const out: Op[][] = [[]];
   let c = 0;
   for (const o of ops) {
-    while (c < cuts.length && o.at >= cuts[c]!) { out.push([]); c++; }
+    while (c < cuts.length && o.at >= cuts[c]!) {
+      out.push([]);
+      c++;
+    }
     out.at(-1)!.push(o);
   }
   while (out.length < cuts.length + 1) out.push([]);

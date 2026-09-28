@@ -20,7 +20,9 @@ export function getAssets(): Promise<Assets> {
   assets ??= (async () => {
     const generated = await loadImageAssets(createPlaceholderAssets());
     if (!isOfficialAvailable()) return generated;
-    return withOfficialStage(await withOfficialRecord(await withOfficialAnims(await loadOfficialAssets(generated))));
+    return withOfficialStage(
+      await withOfficialRecord(await withOfficialAnims(await loadOfficialAssets(generated))),
+    );
   })();
   return assets;
 }
@@ -33,6 +35,8 @@ export function getDsFont() {
 
 /** プレビューの音（DS 版の音があればそれ、なければ合成した仮の音） */
 export function getAudio(): AudioOut {
-  audio ??= createAudio(isOfficialAudioAvailable() ? officialSounds(sampleSounds()) : sampleSounds());
+  audio ??= createAudio(
+    isOfficialAudioAvailable() ? officialSounds(sampleSounds()) : sampleSounds(),
+  );
   return audio;
 }

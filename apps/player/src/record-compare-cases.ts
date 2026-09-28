@@ -1,7 +1,10 @@
 // 法廷記録の比較ページ（record-compare.html）で並べる、DS 版の下画面のスクリーンショットと、そのときの記録の状態。
 // 証拠品・人物は第 1 話（はじめての逆転）のもの。アイコンは tables/evidence.json の番号（e<番号> / r<番号>）で引く。
 
-const shots = import.meta.glob('../../../assets/samples/ds/bottom/{evidence-list,evidence-detail,profile-list,profile-detail,evidence-present}/*.png', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+const shots = import.meta.glob(
+  '../../../assets/samples/ds/bottom/{evidence-list,evidence-detail,profile-list,profile-detail,evidence-present}/*.png',
+  { query: '?url', import: 'default', eager: true },
+) as Record<string, string>;
 
 export interface RecordCase {
   /** assets/samples/ds/bottom/ からのパス */
@@ -24,12 +27,29 @@ const E4 = ['e23', 'e6', 'e7', 'e8'];
 const E5 = ['e23', 'e6', 'e7', 'e8', 'e9'];
 const P4 = ['mia', 'butz', 'r3', 'payne'];
 const P5 = [...P4, 'sahwit'];
-const NO_SWITCH = 'DS 版は証拠品を入手した直後などに「人物ファイル」のタブを出さない（こちらは常に出す）';
+const NO_SWITCH =
+  'DS 版は証拠品を入手した直後などに「人物ファイル」のタブを出さない（こちらは常に出す）';
 
-type Row = [file: string, tab: 'evidence' | 'profile', evidence: string[], profiles: string[], sel: number, detail: boolean, extra?: Partial<RecordCase>];
+type Row = [
+  file: string,
+  tab: 'evidence' | 'profile',
+  evidence: string[],
+  profiles: string[],
+  sel: number,
+  detail: boolean,
+  extra?: Partial<RecordCase>,
+];
 const ROWS: Row[] = [
   ['evidence-list/20260927_11-17-52.368.png', 'evidence', E2, P4, 0, false],
-  ['evidence-list/20260927_11-18-55.260.png', 'evidence', ['e23', 'e6', 'e7'], P4, 2, false, { note: NO_SWITCH }],
+  [
+    'evidence-list/20260927_11-18-55.260.png',
+    'evidence',
+    ['e23', 'e6', 'e7'],
+    P4,
+    2,
+    false,
+    { note: NO_SWITCH },
+  ],
   ['evidence-list/20260927_11-20-47.538.png', 'evidence', E4, P4, 3, false, { note: NO_SWITCH }],
   ['evidence-list/20260927_11-23-32.176.png', 'evidence', E4, P4, 1, false, { note: NO_SWITCH }],
   ['evidence-list/20260927_11-24-36.762.png', 'evidence', E5, P4, 4, false, { note: NO_SWITCH }],
@@ -45,7 +65,15 @@ const ROWS: Row[] = [
   ['evidence-detail/20260927_12-19-19.086.png', 'evidence', E5, P5, 3, true],
   ['evidence-detail/20260927_12-19-22.693.png', 'evidence', E5, P5, 4, true],
   ['profile-list/20260927_11-18-08.762.png', 'profile', E2, P4, 0, false],
-  ['profile-list/20260927_12-19-44.436.png', 'profile', E5, P5, 0, false, { note: 'DS 版は選択の枠が点滅で消えている瞬間' }],
+  [
+    'profile-list/20260927_12-19-44.436.png',
+    'profile',
+    E5,
+    P5,
+    0,
+    false,
+    { note: 'DS 版は選択の枠が点滅で消えている瞬間' },
+  ],
   ['profile-detail/20260927_11-18-05.553.png', 'profile', E2, P4, 0, true],
   ['profile-detail/20260927_11-18-15.222.png', 'profile', E2, P4, 3, true],
   ['profile-detail/20260927_12-19-26.096.png', 'profile', E5, P5, 0, true],
@@ -53,18 +81,40 @@ const ROWS: Row[] = [
   ['profile-detail/20260927_12-19-31.218.png', 'profile', E5, P5, 2, true],
   ['profile-detail/20260927_12-19-34.069.png', 'profile', E5, P5, 3, true],
   ['profile-detail/20260927_12-19-37.075.png', 'profile', E5, P5, 4, true],
-  ['evidence-present/20260927_11-26-47.376.png', 'evidence', E4, P4, 1, true, { present: true, note: '右上の「Y ((•))」（マイクで「くらえ！」と言える印）は描かない' }],
+  [
+    'evidence-present/20260927_11-26-47.376.png',
+    'evidence',
+    E4,
+    P4,
+    1,
+    true,
+    { present: true, note: '右上の「Y ((•))」（マイクで「くらえ！」と言える印）は描かない' },
+  ],
 ];
 
-export const RECORD_CASES: RecordCase[] = ROWS.map(([file, tab, evidence, profiles, sel, detail, extra]) => ({
-  file, tab, evidence, profiles, sel, detail, ...extra,
-  url: Object.entries(shots).find(([k]) => k.endsWith(file))?.[1] ?? '',
-})).filter(c => c.url);
+export const RECORD_CASES: RecordCase[] = ROWS.map(
+  ([file, tab, evidence, profiles, sel, detail, extra]) => ({
+    file,
+    tab,
+    evidence,
+    profiles,
+    sel,
+    detail,
+    ...extra,
+    url: Object.entries(shots).find(([k]) => k.endsWith(file))?.[1] ?? '',
+  }),
+).filter((c) => c.url);
 
 /** 比較用の事件（第 1 話の証拠品と人物ファイルだけを持つ） */
 export function compareScenario(c: RecordCase): string {
   const lines = c.present
-    ? ['    - demand: 証拠品をつきつけろ', '      present:', '        e6:', '          - p: これだ！', '    - end: true']
+    ? [
+        '    - demand: 証拠品をつきつけろ',
+        '      present:',
+        '        e6:',
+        '          - p: これだ！',
+        '    - end: true',
+      ]
     : ['    - p: 法廷記録を開く', '    - end: true'];
   return `
 id: record_compare

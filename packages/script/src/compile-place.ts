@@ -20,17 +20,28 @@ export interface PlaceContext {
 
 /** つきつけの表（demand・場所の present）のキーの種類を決める関数を作る */
 export function presentKindOf(
-  characters: RawScenario['characters'], evidence: RawScenario['evidence'], error: (path: Path, message: string) => void,
+  characters: RawScenario['characters'],
+  evidence: RawScenario['evidence'],
+  error: (path: Path, message: string) => void,
 ): PlaceContext['presentKind'] {
   return (id, path) => {
     const isEvidence = id in evidence;
     if (isEvidence && id in characters) {
-      error(path, `「${id}」は証拠品と人物の両方の ID なので、つきつけの表ではどちらか分かりません。どちらかの ID を変えてください`);
+      error(
+        path,
+        `「${id}」は証拠品と人物の両方の ID なので、つきつけの表ではどちらか分かりません。どちらかの ID を変えてください`,
+      );
       return null;
     }
     if (isEvidence) return 'evidence';
-    if (!(id in characters)) { error(path, `未定義の証拠品・人物です: ${id}`); return null; }
-    if (!characters[id]!.profile) { error(path, `人物「${id}」には profile が無いので、人物ファイルとしてつきつけられません`); return null; }
+    if (!(id in characters)) {
+      error(path, `未定義の証拠品・人物です: ${id}`);
+      return null;
+    }
+    if (!characters[id]!.profile) {
+      error(path, `人物「${id}」には profile が無いので、人物ファイルとしてつきつけられません`);
+      return null;
+    }
     return 'profile';
   };
 }
@@ -56,18 +67,32 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
     b.emit({ op: 'menu' });
     return pc;
   };
-  const when = (src: string | undefined, p: Path) => (src !== undefined ? ctx.cond(src, p) : undefined);
+  const when = (src: string | undefined, p: Path) =>
+    src !== undefined ? ctx.cond(src, p) : undefined;
   const takeThat = () => b.emit({ op: 'shout', kind: 'takethat', by: ctx.player });
 
-  const person = typeof raw.person === 'string' ? [{ id: raw.person }] : raw.person ?? [];
+  const person = typeof raw.person === 'string' ? [{ id: raw.person }] : (raw.person ?? []);
   const scene: PlaceScene = {
-    kind: 'place', id, name: raw.name, background: raw.background ?? id,
+    kind: 'place',
+    id,
+    name: raw.name,
+    background: raw.background ?? id,
     person: person.map((c, i) => {
-      ctx.checkCharacter(c.id, [...path, 'person', ...(typeof raw.person === 'string' ? [] : [i, 'id'])]);
+      ctx.checkCharacter(c.id, [
+        ...path,
+        'person',
+        ...(typeof raw.person === 'string' ? [] : [i, 'id']),
+      ]);
       const w = 'when' in c ? when(c.when, [...path, 'person', i, 'when']) : undefined;
       return w ? { id: c.id, when: w } : { id: c.id };
     }),
-    program: b.code, examine: [], examineDefault: -1, talk: [], present: {}, presentWrong: -1, move: [],
+    program: b.code,
+    examine: [],
+    examineDefault: -1,
+    talk: [],
+    present: {},
+    presentWrong: -1,
+    move: [],
   };
   if (raw.enter) scene.enter = block(raw.enter, [...path, 'enter']);
 
@@ -76,10 +101,19 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
     const p = [...path, 'examine', i];
     const [x, y, w, h] = e.area;
     if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > SCREEN.w || y + h > SCREEN.h) {
-      ctx.error([...p, 'area'], `範囲が画面（${SCREEN.w}×${SCREEN.h}）の外にはみ出しているか、大きさが 0 です`);
+      ctx.error(
+        [...p, 'area'],
+        `範囲が画面（${SCREEN.w}×${SCREEN.h}）の外にはみ出しているか、大きさが 0 です`,
+      );
     }
     const c = when(e.when, [...p, 'when']);
-    scene.examine.push({ id: seen[i]!, ...(e.name ? { name: e.name } : {}), area: e.area, ...(c ? { when: c } : {}), pc: block(e.then, [...p, 'then']) });
+    scene.examine.push({
+      id: seen[i]!,
+      ...(e.name ? { name: e.name } : {}),
+      area: e.area,
+      ...(c ? { when: c } : {}),
+      pc: block(e.then, [...p, 'then']),
+    });
   });
   scene.examineDefault = raw.examineDefault
     ? block(raw.examineDefault, [...path, 'examineDefault'])
@@ -89,14 +123,21 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
   (raw.talk ?? []).forEach((t, i) => {
     const p = [...path, 'talk', i];
     const c = when(t.when, [...p, 'when']);
-    scene.talk.push({ id: seen[talkBase + i]!, topic: t.topic, ...(c ? { when: c } : {}), pc: block(t.then, [...p, 'then']) });
+    scene.talk.push({
+      id: seen[talkBase + i]!,
+      topic: t.topic,
+      ...(c ? { when: c } : {}),
+      pc: block(t.then, [...p, 'then']),
+    });
   });
-  if ((raw.talk ?? []).length > 0 && person.length === 0) ctx.error([...path, 'talk'], '話題がありますが、この場所に人物（person）がいません');
+  if ((raw.talk ?? []).length > 0 && person.length === 0)
+    ctx.error([...path, 'talk'], '話題がありますが、この場所に人物（person）がいません');
 
   for (const [ev, steps] of Object.entries(raw.present ?? {})) {
     const kind = ctx.presentKind(ev, [...path, 'present', ev]);
     const pc = block(steps, [...path, 'present', ev], takeThat);
-    if (kind === 'profile') (scene.presentProfile ??= {})[ev] = pc; else scene.present[ev] = pc;
+    if (kind === 'profile') (scene.presentProfile ??= {})[ev] = pc;
+    else scene.present[ev] = pc;
   }
   scene.presentWrong = raw.presentWrong
     ? block(raw.presentWrong, [...path, 'presentWrong'], takeThat)

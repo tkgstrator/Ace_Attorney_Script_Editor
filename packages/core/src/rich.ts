@@ -49,7 +49,8 @@ function parseCommand(src: string): InlineCommand {
       return fallback;
     }
     const n = Number(a);
-    if (!Number.isFinite(n) || n < 0) throw new RichTextError(`[${src}] の「${a}」は 0 以上の数値にしてください`);
+    if (!Number.isFinite(n) || n < 0)
+      throw new RichTextError(`[${src}] の「${a}」は 0 以上の数値にしてください`);
     return n;
   };
   const id = (i: number) => {
@@ -58,35 +59,65 @@ function parseCommand(src: string): InlineCommand {
     return a;
   };
   switch (name) {
-    case 'wait': return { cmd: 'wait', frames: num(0) };
-    case 'speed': return { cmd: 'speed', frames: num(0) };
+    case 'wait':
+      return { cmd: 'wait', frames: num(0) };
+    case 'speed':
+      return { cmd: 'speed', frames: num(0) };
     case 'color': {
       const c = args[0] as TextColor;
-      if (!COLORS.includes(c)) throw new RichTextError(`[${src}] の色は ${COLORS.join(' / ')} のどれかにしてください`);
+      if (!COLORS.includes(c))
+        throw new RichTextError(`[${src}] の色は ${COLORS.join(' / ')} のどれかにしてください`);
       return { cmd: 'color', color: c };
     }
-    case 'shake': return { cmd: 'shake', frames: num(0, DEFAULT_SHAKE_FRAMES), strength: Math.min(2, num(1, 0)) };
+    case 'shake':
+      return {
+        cmd: 'shake',
+        frames: num(0, DEFAULT_SHAKE_FRAMES),
+        strength: Math.min(2, num(1, 0)),
+      };
     case 'flash': {
       const c = args[0] ?? 'white';
-      if (c !== 'white' && c !== 'red') throw new RichTextError(`[${src}] の色は white / red にしてください`);
+      if (c !== 'white' && c !== 'red')
+        throw new RichTextError(`[${src}] の色は white / red にしてください`);
       return { cmd: 'flash', color: c, frames: num(1, DEFAULT_FLASH_FRAMES) };
     }
-    case 'se': return { cmd: 'se', id: id(0) };
-    case 'bgm': return { cmd: 'bgm', id: args[0] === 'null' || args[0] === undefined ? null : id(0), frames: num(1, 0) };
+    case 'se':
+      return { cmd: 'se', id: id(0) };
+    case 'bgm':
+      return {
+        cmd: 'bgm',
+        id: args[0] === 'null' || args[0] === undefined ? null : id(0),
+        frames: num(1, 0),
+      };
     case 'show': {
       if (args[0] === 'null' || args[0] === undefined) return { cmd: 'show', id: null };
-      const anim = (i: number) => (args[i] === undefined ? undefined : /^\d+$/.test(args[i]!) ? Number(args[i]) : id(i));
-      const talk = anim(1), idle = anim(2);
-      return { cmd: 'show', id: id(0), ...(talk !== undefined ? { talk } : {}), ...(idle !== undefined ? { idle } : {}) };
+      const anim = (i: number) =>
+        args[i] === undefined ? undefined : /^\d+$/.test(args[i]!) ? Number(args[i]) : id(i);
+      const talk = anim(1),
+        idle = anim(2);
+      return {
+        cmd: 'show',
+        id: id(0),
+        ...(talk !== undefined ? { talk } : {}),
+        ...(idle !== undefined ? { idle } : {}),
+      };
     }
-    case 'location': return { cmd: 'location', key: args[0] === 'null' || args[0] === undefined ? null : id(0) };
+    case 'location':
+      return { cmd: 'location', key: args[0] === 'null' || args[0] === undefined ? null : id(0) };
     case 'blip': {
       const k = args[0] as 'male' | 'female' | 'typewriter' | 'off' | 'on';
-      if (!['male', 'female', 'typewriter', 'off', 'on'].includes(k)) throw new RichTextError(`[${src}] は male / female / typewriter / off / on のどれかにしてください`);
+      if (!['male', 'female', 'typewriter', 'off', 'on'].includes(k))
+        throw new RichTextError(
+          `[${src}] は male / female / typewriter / off / on のどれかにしてください`,
+        );
       return { cmd: 'blip', kind: k };
     }
-    case 'native': return { cmd: 'native', name: id(0), args: args.slice(1).map((_, i) => num(i + 1)) };
-    default: throw new RichTextError(`文中のコマンド [${src}] は使えません（wait / speed / color / shake / flash / se / bgm / show / location / blip / native）`);
+    case 'native':
+      return { cmd: 'native', name: id(0), args: args.slice(1).map((_, i) => num(i + 1)) };
+    default:
+      throw new RichTextError(
+        `文中のコマンド [${src}] は使えません（wait / speed / color / shake / flash / se / bgm / show / location / blip / native）`,
+      );
   }
 }
 
@@ -98,9 +129,14 @@ export function parseRich(text: string): RichText {
   while (i < text.length) {
     const c = text[i]!;
     if (c === '[') {
-      if (text[i + 1] === '[') { plain += '['; i += 2; continue; }
+      if (text[i + 1] === '[') {
+        plain += '[';
+        i += 2;
+        continue;
+      }
       const end = text.indexOf(']', i);
-      if (end < 0) throw new RichTextError('[ が ] で閉じられていません（[ を文字として書くときは [[）');
+      if (end < 0)
+        throw new RichTextError('[ が ] で閉じられていません（[ を文字として書くときは [[）');
       marks.push({ at: [...plain].length, command: parseCommand(text.slice(i + 1, end)) });
       i = end + 1;
       continue;
@@ -115,11 +151,17 @@ export function parseRich(text: string): RichText {
 export function plainBgm(text: string): (string | null)[] {
   if (!text.includes('[bgm')) return [];
   try {
-    return parseRich(text).marks.flatMap(m => (m.command.cmd === 'bgm' ? [m.command.id] : []));
-  } catch { return []; }
+    return parseRich(text).marks.flatMap((m) => (m.command.cmd === 'bgm' ? [m.command.id] : []));
+  } catch {
+    return [];
+  }
 }
 
 /** 文中コマンドを取り除いた文字列（書き方が正しくなければ元のまま） */
 export function plainText(text: string): string {
-  try { return parseRich(text).plain; } catch { return text; }
+  try {
+    return parseRich(text).plain;
+  } catch {
+    return text;
+  }
 }

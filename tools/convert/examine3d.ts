@@ -7,15 +7,34 @@ import { flagArg } from './mapping.ts';
 import { convertOps } from './section.ts';
 import type { CmdOp, Entry, Step } from './types.ts';
 
-export interface X3dSection { raw: number; script: '070' | 'story'; section: number }
-export interface X3dPath {
-  parts: number[]; when: Record<string, number>; set_flags: Record<string, number>;
-  section: X3dSection | null; next_object: number | '+1' | null;
+export interface X3dSection {
+  raw: number;
+  script: '070' | 'story';
+  section: number;
 }
-export interface X3dEvent { on: string; section?: { section: number }; flag?: string; mode?: number }
-export interface X3dMode { mode: number | 'e9e' | 'luminol_tutorial'; opened_at?: { section: number }; object?: number; events: X3dEvent[] }
+export interface X3dPath {
+  parts: number[];
+  when: Record<string, number>;
+  set_flags: Record<string, number>;
+  section: X3dSection | null;
+  next_object: number | '+1' | null;
+}
+export interface X3dEvent {
+  on: string;
+  section?: { section: number };
+  flag?: string;
+  mode?: number;
+}
+export interface X3dMode {
+  mode: number | 'e9e' | 'luminol_tutorial';
+  opened_at?: { section: number };
+  object?: number;
+  events: X3dEvent[];
+}
 export interface LuminolView {
-  index: number; bg: number; scrolled: boolean;
+  index: number;
+  bg: number;
+  scrolled: boolean;
   spots: { x: number; y: number; w: number; h: number; flag: number; section: X3dSection | null }[];
 }
 export interface Examine3d {
@@ -37,7 +56,9 @@ export function givenIn(entry: Entry, section: number): number[] {
   return out;
 }
 const hasOp = (entry: Entry, s: number, op: number, a0: number, a1?: number) =>
-  cmd(entry.body[s]?.ops ?? []).some(o => o.op === op && o.args[0] === a0 && (a1 === undefined || o.args[1] === a1));
+  cmd(entry.body[s]?.ops ?? []).some(
+    (o) => o.op === op && o.args[0] === a0 && (a1 === undefined || o.args[1] === a1),
+  );
 
 /** 物と、そこから結果で続けて見せる物（携帯電話を開いた形など）。gate = その物を見せる結果 */
 export function objectChain(x: Examine3d, obj: number): { object: number; gate: number | null }[] {
@@ -46,7 +67,7 @@ export function objectChain(x: Examine3d, obj: number): { object: number; gate: 
     for (const s of x.objects[out[i]!.object]?.spots ?? []) {
       for (const p of x.results[s.result]?.paths ?? []) {
         const n = p.next_object === '+1' ? out[i]!.object + 1 : p.next_object;
-        if (n !== null && !out.some(o => o.object === n)) out.push({ object: n, gate: s.result });
+        if (n !== null && !out.some((o) => o.object === n)) out.push({ object: n, gate: s.result });
       }
     }
   }
@@ -54,7 +75,11 @@ export function objectChain(x: Examine3d, obj: number): { object: number; gate: 
 }
 
 /** 話の台本のモードの、開く区画（116 8 46 のある opened_at / 116 11 のある区画）と、その区画で加える証拠品 */
-export function modeHome(x: Examine3d, m: X3dMode, ctx: Context): { section: number; evidence: number[] } | null {
+export function modeHome(
+  x: Examine3d,
+  m: X3dMode,
+  ctx: Context,
+): { section: number; evidence: number[] } | null {
   const e = ctx.entry;
   if (m.mode === 'luminol_tutorial') return null;
   if (m.opened_at) {
@@ -63,14 +88,15 @@ export function modeHome(x: Examine3d, m: X3dMode, ctx: Context): { section: num
   }
   for (const sec of e.body) {
     if (!hasOp(e, sec.section, 116, 11)) continue;
-    const ev = givenIn(e, sec.section).filter(n => x.evidence[String(n)] === m.object);
+    const ev = givenIn(e, sec.section).filter((n) => x.evidence[String(n)] === m.object);
     if (ev.length) return { section: sec.section, evidence: ev };
   }
   return null;
 }
 
 /** この項目で証拠品を加えるか */
-const gives = (ctx: Context, n: number) => ctx.entry.body.some(s => givenIn(ctx.entry, s.section).includes(n));
+const gives = (ctx: Context, n: number) =>
+  ctx.entry.body.some((s) => givenIn(ctx.entry, s.section).includes(n));
 
 /**
  * この項目の話の台本の区画のうち、3D で調べた結果・モードの決まった区画になるもの（シーンにせず、証拠品の examine に取り込む）。
@@ -85,14 +111,20 @@ export function examineSections(ctx: Context): Set<number> {
     for (const { object } of objectChain(x, obj)) {
       for (const s of x.objects[object]?.spots ?? []) {
         for (const p of x.results[s.result]?.paths ?? []) {
-          if (p.section?.script === 'story' && p.parts.includes(ctx.part) && ctx.entry.body[p.section.section]) out.add(p.section.section);
+          if (
+            p.section?.script === 'story' &&
+            p.parts.includes(ctx.part) &&
+            ctx.entry.body[p.section.section]
+          )
+            out.add(p.section.section);
         }
       }
     }
   }
   for (const m of x.story_modes) {
     if (!modeHome(x, m, ctx)) continue;
-    for (const ev of m.events) if (ev.section && ctx.entry.body[ev.section.section]) out.add(ev.section.section);
+    for (const ev of m.events)
+      if (ev.section && ctx.entry.body[ev.section.section]) out.add(ev.section.section);
   }
   return out;
 }
@@ -110,7 +142,7 @@ export function convertExamine(ctx: Context) {
 /** 区画がフラグ（組 0, 番号）を立てるか */
 export function setsFlag(entry: Entry, s: number, flag: string): boolean {
   const [g, i] = flag.split(':').map(Number);
-  return cmd(entry.body[s]?.ops ?? []).some(o => {
+  return cmd(entry.body[s]?.ops ?? []).some((o) => {
     if (o.op !== 16) return false;
     const f = flagArg(o.args[0]!);
     return f.value && f.group === g && f.index === i;
@@ -121,32 +153,55 @@ export function setsFlag(entry: Entry, s: number, flag: string): boolean {
 export function examineWaitAt(ctx: Context, section: number): boolean {
   const x = ctx.t.examine3d;
   if (!x || ctx.inv) return false;
-  return x.story_modes.some(m => modeHome(x, m, ctx)?.section === section);
+  return x.story_modes.some((m) => modeHome(x, m, ctx)?.section === section);
 }
 
 /** 3D で調べ終えるまで待つ: つきつけの要求（正解なし）にして、法廷記録から詳しく調べてもらう */
-export const EXAMINE_WAIT: Step = { demand: '（法廷記録の証拠品を、詳しく調べてみよう）', present: {}, wrong: [] };
+export const EXAMINE_WAIT: Step = {
+  demand: '（法廷記録の証拠品を、詳しく調べてみよう）',
+  present: {},
+  wrong: [],
+};
 
 /**
  * ルミノールの説明（第 5 話 044 §18〜）: 116 6 0 の後の 21 は、ARM9 が決める説明の区画（0x02080cd8、§19）へ。
  * 116 6 1 の後の 21 は、吹きかけて反応を見つけたことにして、反応の区画（この項目にあるルミノールの反応の区画、§20）へ。
  * その先で 21 に来たら、ARM9 が決める区画（0x02082774、§22）へ移る（近似: 吹きかける操作は省く）
  */
-export function luminolTutorial(ctx: Context, section: number, gotoSteps: (t: number) => Step[]): Step[] | null {
+export function luminolTutorial(
+  ctx: Context,
+  section: number,
+  gotoSteps: (t: number) => Step[],
+): Step[] | null {
   const x = ctx.t.examine3d;
-  const ev = (on: string) => x?.story_modes.find(m => m.mode === 'luminol_tutorial')?.events.find(e => e.on === on)?.section?.section;
-  const open = ev('open'), found = ev('found');
+  const ev = (on: string) =>
+    x?.story_modes.find((m) => m.mode === 'luminol_tutorial')?.events.find((e) => e.on === on)
+      ?.section?.section;
+  const open = ev('open'),
+    found = ev('found');
   if (!x || open === undefined || found === undefined) return null;
   if (hasOp(ctx.entry, section, 116, 6, 0)) {
-    ctx.stats.gap('ルミノールの説明の画面（116 6 0）を開いたことにして、説明の区画へ進めた', section);
+    ctx.stats.gap(
+      'ルミノールの説明の画面（116 6 0）を開いたことにして、説明の区画へ進めた',
+      section,
+    );
     return gotoSteps(open);
   }
   if (!hasOp(ctx.entry, section, 116, 6, 1)) return null;
-  const spot = (x.luminol ?? []).flatMap(v => v.spots).find(sp => sp.section && ctx.entry.body[sp.section.section]?.ops.some(o => o.op === 'text'));
+  const spot = (x.luminol ?? [])
+    .flatMap((v) => v.spots)
+    .find(
+      (sp) => sp.section && ctx.entry.body[sp.section.section]?.ops.some((o) => o.op === 'text'),
+    );
   if (!spot?.section) return null;
   // 反応の区画から落ちていった先の、21 のある区画
   let s = spot.section.section;
-  for (let k = 0; k < 8 && ctx.entry.body[s] && !cmd(ctx.entry.body[s]!.ops).some(o => o.op === 21); k++) s++;
+  for (
+    let k = 0;
+    k < 8 && ctx.entry.body[s] && !cmd(ctx.entry.body[s]!.ops).some((o) => o.op === 21);
+    k++
+  )
+    s++;
   if (ctx.entry.body[s]) ctx.turnGoto.set(s, found);
   ctx.stats.gap('ルミノールの説明（116 6 1）で、吹きかける操作を省いて反応の区画へ進めた', section);
   return [{ set: { [ctx.fname(0, spot.flag)]: true } }, ...gotoSteps(spot.section.section)];

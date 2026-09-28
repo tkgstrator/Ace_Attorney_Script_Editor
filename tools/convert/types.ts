@@ -4,17 +4,26 @@
 export type Op =
   | { at: number; op: 'text'; text: string }
   | {
-    at: number; op: number; name: string; args: number[];
-    /** 「区画 + 128」を解いたもの（8/9/10/15/32/42/44/111） */
-    targets?: ({ section: number; offset: number } | null)[];
-    /** ラベルを解いたもの（54/120/122、53） */
-    target?: { section: number | null; offset: number } | null;
-  };
+      at: number;
+      op: number;
+      name: string;
+      args: number[];
+      /** 「区画 + 128」を解いたもの（8/9/10/15/32/42/44/111） */
+      targets?: ({ section: number; offset: number } | null)[];
+      /** ラベルを解いたもの（54/120/122、53） */
+      target?: { section: number | null; offset: number } | null;
+    };
 export type CmdOp = Extract<Op, { op: number }>;
 
-export interface Section { section: number; ops: Op[] }
+export interface Section {
+  section: number;
+  ops: Op[];
+}
 
-export interface ChoiceInfo { textures: number[]; text: (string | null)[] }
+export interface ChoiceInfo {
+  textures: number[];
+  text: (string | null)[];
+}
 
 export interface Entry {
   entry: number;
@@ -32,20 +41,34 @@ export interface CourtPart {
   present_table: { section: number; item: number; goto: number; flag: number | null }[];
   testimonies: { section: number; title: string; statements: number[]; end: number }[];
   cross_examinations: {
-    section: number; title: string; testimony: number; after_last: number;
+    section: number;
+    title: string;
+    testimony: number;
+    after_last: number;
     statements: {
-      section: number; text: string; press: number | null;
+      section: number;
+      text: string;
+      press: number | null;
       press_return: { op: string; goto?: number; label?: number } | null;
       present: { item: number; kind: string; goto: number; flag: number | null }[];
       next: number;
       /** 次の文への行き方（42 でフラグにより分かれる、44 で飛ぶ） */
-      next_route?: { op: string; flag?: number; if_set?: number; else?: number; goto?: number } | null;
+      next_route?: {
+        op: string;
+        flag?: number;
+        if_set?: number;
+        else?: number;
+        goto?: number;
+      } | null;
     }[];
   }[];
   present_requests: {
-    section: number; op: number; prompt: string;
+    section: number;
+    op: number;
+    prompt: string;
     correct: { item: number; goto: number; flag: number | null }[];
-    wrong: number; wrong_return: { op: string; goto?: number; label?: number } | null;
+    wrong: number;
+    wrong_return: { op: string; goto?: number; label?: number } | null;
   }[];
 }
 
@@ -59,7 +82,14 @@ export interface Tables {
   /** 名前の番号 → 文字送りの音の種類（0 標準・1 女性。sound.json の blip.name_kind） */
   blipKinds: number[];
   /** 法廷で写真の一点を指す問題（investigation.json の court_point） */
-  courtPoints?: { id: number; quad_a: number[][]; section_a: { section: number }; quad_b: number[][]; section_b: { section: number }; miss: { section: number } }[];
+  courtPoints?: {
+    id: number;
+    quad_a: number[][];
+    section_a: { section: number };
+    quad_b: number[][];
+    section_b: { section: number };
+    miss: { section: number };
+  }[];
   /** 法廷記録の名前と説明文（文字認識。tables/record_text.json） */
   recordText?: Record<string, { name: string; desc: string }>;
   /** 探偵パートの最初の場所（tables/invest_start.json） */

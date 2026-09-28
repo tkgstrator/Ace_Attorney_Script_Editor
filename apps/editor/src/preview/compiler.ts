@@ -5,7 +5,10 @@ import type { CompileRequest, CompileResponse } from './compile.worker.ts';
 export class Compiler {
   private worker: Worker | null = null;
   private serial = 0;
-  private waiting = new Map<number, { resolve: (r: CompileResult) => void; reject: (e: Error) => void }>();
+  private waiting = new Map<
+    number,
+    { resolve: (r: CompileResult) => void; reject: (e: Error) => void }
+  >();
 
   compile(text: string): Promise<CompileResult> {
     if (!this.worker) {
@@ -17,8 +20,9 @@ export class Compiler {
         if (r.ok) p?.resolve(r.result);
         else p?.reject(new Error(r.error));
       };
-      w.onerror = e => {
-        for (const p of this.waiting.values()) p.reject(new Error(e.message || 'コンパイル中にエラーが起きました'));
+      w.onerror = (e) => {
+        for (const p of this.waiting.values())
+          p.reject(new Error(e.message || 'コンパイル中にエラーが起きました'));
         this.waiting.clear();
         this.dispose();
       };

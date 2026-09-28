@@ -7,11 +7,26 @@ import type { ScreenEffects } from './effects.ts';
 import { SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
-export interface SceneTiming { typing: boolean; frame: number; blink: boolean }
+export interface SceneTiming {
+  typing: boolean;
+  frame: number;
+  blink: boolean;
+}
 
-export interface SceneViews { bg: BackgroundView; overlays: OverlayView; pan: PanView }
+export interface SceneViews {
+  bg: BackgroundView;
+  overlays: OverlayView;
+  pan: PanView;
+}
 
-export function drawScene(p: Painter, engine: Engine, b: Beat, t: SceneTiming, fx: ScreenEffects, views: SceneViews): void {
+export function drawScene(
+  p: Painter,
+  engine: Engine,
+  b: Beat,
+  t: SceneTiming,
+  fx: ScreenEffects,
+  views: SceneViews,
+): void {
   const { ctx, assets } = p;
   const { character: who, location, pose, fade, overlays } = engine.state.stage;
   const view = views.bg;
@@ -55,11 +70,17 @@ function drawPortrait(p: Painter, who: string, pose: Pose | null, b: Beat, t: Sc
   const { ctx, assets } = p;
   if (pose) {
     // 動きの指定があるときは元のゲームと同じく、話し手によらず文字送りの間は talk、止まっている間は idle
-    const img = assets.portrait?.(who, { talking: t.typing, blink: false, anim: t.typing ? pose.talk : pose.idle });
+    const img = assets.portrait?.(who, {
+      talking: t.typing,
+      blink: false,
+      anim: t.typing ? pose.talk : pose.idle,
+    });
     if (img) ctx.drawImage(img, 0, 0);
     return;
   }
-  const speaking = (b.kind === 'line' && b.speaker === who && b.color !== 'blue') || (b.kind === 'statement' && b.witness === who);
+  const speaking =
+    (b.kind === 'line' && b.speaker === who && b.color !== 'blue') ||
+    (b.kind === 'statement' && b.witness === who);
   const talking = speaking && t.typing && (t.frame >> 3) % 2 === 0;
   const img = assets.portrait?.(who, { talking, blink: t.blink }) as HTMLCanvasElement | undefined;
   if (img) ctx.drawImage(img, Math.round((SCREEN_W - img.width) / 2), SCREEN_H - img.height);

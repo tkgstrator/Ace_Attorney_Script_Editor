@@ -7,7 +7,12 @@ const ROOT = resolve(import.meta.dir, '../..');
 const ART = resolve(ROOT, 'apps/player/src/art');
 const OUT = resolve(ROOT, 'assets/generated/preview');
 /** 立ち位置ごとに、そこに立つ人物 */
-const CAST: Record<string, string> = { defense: 'naruse', prosecution: 'himuro', witness: 'torii', judge: 'judge' };
+const CAST: Record<string, string> = {
+  defense: 'naruse',
+  prosecution: 'himuro',
+  witness: 'torii',
+  judge: 'judge',
+};
 
 mkdirSync(OUT, { recursive: true });
 for (const [stand, who] of Object.entries(CAST)) {
@@ -25,6 +30,13 @@ for (const [stand, who] of Object.entries(CAST)) {
   args.push('-filter', 'point', '-resize', '300%', `${OUT}/${stand}.png`);
   const r = Bun.spawnSync(['magick', ...args]);
   if (r.exitCode !== 0) throw new Error(r.stderr.toString());
-  console.log(`${stand}: ${layers.filter(existsSync).map(f => f.replace(`${ART}/`, '')).join(' + ') || '（素材なし）'}`);
+  console.log(
+    `${stand}: ${
+      layers
+        .filter(existsSync)
+        .map((f) => f.replace(`${ART}/`, ''))
+        .join(' + ') || '（素材なし）'
+    }`,
+  );
 }
 console.log(`書き出しました: ${OUT}`);

@@ -10,7 +10,7 @@ import { ITEMS, KIND_RULES, STYLE, rawPath, type Item, type Kind } from './manif
 const ROOT = resolve(import.meta.dir, '../..');
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
-const kinds = args.filter(a => !a.startsWith('--')) as Kind[];
+const kinds = args.filter((a) => !a.startsWith('--')) as Kind[];
 
 /** 人物は、基本の絵に加えて口を開けた絵（口パク用）も作る */
 const TALK_SUFFIX = '-talk';
@@ -34,13 +34,15 @@ function promptFor(kind: Kind, items: Item[]): string {
   ];
   for (const item of items) {
     const m = missing(item);
-    const refs = (item.refs ?? []).filter(r => existsSync(resolve(ROOT, r)));
-    const refNote = refs.length ? ` Reference image(s) for camera angle, scale and style (attached): ${refs.join(', ')}.` : '';
+    const refs = (item.refs ?? []).filter((r) => existsSync(resolve(ROOT, r)));
+    const refNote = refs.length
+      ? ` Reference image(s) for camera angle, scale and style (attached): ${refs.join(', ')}.`
+      : '';
     if (m.base) lines.push(`- ${rawPath(item)}: ${item.subject}.${refNote}`);
     if (m.talk) {
       lines.push(
-        `- ${rawPath(item, TALK_SUFFIX)}: an EDIT of the image at ${rawPath(item)} (generate that one first and load it with view_image if needed).`
-        + ' Change ONLY the mouth so it is open as if talking; keep the pose, face, colors, size, position and transparent background exactly the same.',
+        `- ${rawPath(item, TALK_SUFFIX)}: an EDIT of the image at ${rawPath(item)} (generate that one first and load it with view_image if needed).` +
+          ' Change ONLY the mouth so it is open as if talking; keep the pose, face, colors, size, position and transparent background exactly the same.',
       );
     }
   }
@@ -49,20 +51,48 @@ function promptFor(kind: Kind, items: Item[]): string {
 
 async function run(kind: Kind, items: Item[]): Promise<number> {
   const prompt = promptFor(kind, items);
-  if (dryRun) { console.log(`\n==== ${kind} ====\n${prompt}`); return 0; }
+  if (dryRun) {
+    console.log(`\n==== ${kind} ====\n${prompt}`);
+    return 0;
+  }
   for (const item of items) mkdirSync(resolve(ROOT, dirname(rawPath(item))), { recursive: true });
   const log = resolve(ROOT, `assets/generated/logs/${kind}.log`);
   mkdirSync(dirname(log), { recursive: true });
   console.log(`[${kind}] 生成を開始（${items.length} 件）。ログ: ${log}`);
   // 参考画像は -i で添付する（存在するものだけ）
-  const refs = [...new Set(items.flatMap(i => i.refs ?? []))].filter(r => existsSync(resolve(ROOT, r)));
-  const attach = refs.flatMap(r => ['-i', resolve(ROOT, r)]);
-  const proc = Bun.spawn(['codex', 'exec', '--skip-git-repo-check', '-s', 'workspace-write', '-C', ROOT, ...attach, '--', prompt], {
-    stdout: Bun.file(log), stderr: Bun.file(log.replace(/\.log$/, '.err.log')), stdin: 'ignore',
-  });
+  const refs = [...new Set(items.flatMap((i) => i.refs ?? []))].filter((r) =>
+    existsSync(resolve(ROOT, r)),
+  );
+  const attach = refs.flatMap((r) => ['-i', resolve(ROOT, r)]);
+  const proc = Bun.spawn(
+    [
+      'codex',
+      'exec',
+      '--skip-git-repo-check',
+      '-s',
+      'workspace-write',
+      '-C',
+      ROOT,
+      ...attach,
+      '--',
+      prompt,
+    ],
+    {
+      stdout: Bun.file(log),
+      stderr: Bun.file(log.replace(/\.log$/, '.err.log')),
+      stdin: 'ignore',
+    },
+  );
   const code = await proc.exited;
-  const left = items.filter(i => { const m = missing(i); return m.base || m.talk; }).map(i => i.id);
-  console.log(`[${kind}] 終了（コード ${code}）${left.length ? `。まだ無いもの: ${left.join(', ')}` : '。すべてそろいました'}`);
+  const left = items
+    .filter((i) => {
+      const m = missing(i);
+      return m.base || m.talk;
+    })
+    .map((i) => i.id);
+  console.log(
+    `[${kind}] 終了（コード ${code}）${left.length ? `。まだ無いもの: ${left.join(', ')}` : '。すべてそろいました'}`,
+  );
   return code;
 }
 
@@ -77,5 +107,5 @@ if (groups.size === 0) {
   console.log('生成が必要な画像はありません。');
 } else {
   const codes = await Promise.all([...groups].map(([kind, items]) => run(kind, items)));
-  process.exit(codes.some(c => c !== 0) ? 1 : 0);
+  process.exit(codes.some((c) => c !== 0) ? 1 : 0);
 }

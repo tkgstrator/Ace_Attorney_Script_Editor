@@ -9,15 +9,41 @@ export function staticTargets(entry: Entry, section: number): number[] {
   for (const o of ops) {
     if (o.op === 'text') continue;
     const c = o as CmdOp;
-    const secs = (c.targets ?? []).flatMap(t => (t ? [t.section] : []));
+    const secs = (c.targets ?? []).flatMap((t) => (t ? [t.section] : []));
     switch (c.op) {
-      case 8: case 9: out.push(...secs); next = null; break;
-      case 10: out.push(...secs); next = null; break;
-      case 32: case 44: next = secs[0] ?? next; break;
-      case 42: out.push(...secs); next = null; break;
-      case 54: case 120: if (c.target?.section != null) out.push(c.target.section); next = null; break;
-      case 53: case 122: if (c.target?.section != null) out.push(c.target.section); break;
-      case 21: case 22: case 36: case 69: case 121: next = null; break;
+      case 8:
+      case 9:
+        out.push(...secs);
+        next = null;
+        break;
+      case 10:
+        out.push(...secs);
+        next = null;
+        break;
+      case 32:
+      case 44:
+        next = secs[0] ?? next;
+        break;
+      case 42:
+        out.push(...secs);
+        next = null;
+        break;
+      case 54:
+      case 120:
+        if (c.target?.section != null) out.push(c.target.section);
+        next = null;
+        break;
+      case 53:
+      case 122:
+        if (c.target?.section != null) out.push(c.target.section);
+        break;
+      case 21:
+      case 22:
+      case 36:
+      case 69:
+      case 121:
+        next = null;
+        break;
       default:
     }
     if (next === null && [8, 9, 10, 54, 120, 21, 22, 36, 69, 121].includes(c.op)) break;
@@ -45,13 +71,16 @@ export function staticSources(entry: Entry): Map<number, Set<number>> {
 export function localClosure(entry: Entry, start: number[], stop: Set<number>): Set<number> {
   const src = staticSources(entry);
   const inside = new Set(start);
-  for (let changed = true; changed;) {
+  for (let changed = true; changed; ) {
     changed = false;
     for (const s of [...inside]) {
       for (const t of staticTargets(entry, s)) {
         if (inside.has(t) || stop.has(t)) continue;
         const from = src.get(t) ?? new Set();
-        if ([...from].every(f => inside.has(f))) { inside.add(t); changed = true; }
+        if ([...from].every((f) => inside.has(f))) {
+          inside.add(t);
+          changed = true;
+        }
       }
     }
   }
@@ -59,19 +88,35 @@ export function localClosure(entry: Entry, start: number[], stop: Set<number>): 
   return inside;
 }
 
-type RoutedStatement = { section: number; next: number; next_route?: { op: string; flag?: number; if_set?: number; else?: number; goto?: number } | null };
+type RoutedStatement = {
+  section: number;
+  next: number;
+  next_route?: { op: string; flag?: number; if_set?: number; else?: number; goto?: number } | null;
+};
 
 /**
  * 尋問の文の並びと、それぞれが出る条件。元の尋問は「次へ」で次の区画へ進み、42 でフラグにより別の文へ分かれる
  * （ゆさぶりで文が増える場面）。分かれ目のフラグの値の組ごとに最初の文からたどり、文の並びをまとめる。
  * 返り値: 並べた文の区画と、それが出るフラグの組（すべての組で出るなら null）
  */
-export function statementRoutes(statements: RoutedStatement[]): { order: number[]; when: Map<number, Record<number, boolean>[] | null> } {
-  const bySec = new Map(statements.map(s => [s.section, s]));
-  const flags = [...new Set(statements.flatMap(s => (s.next_route?.op === 'testimony_jump' && s.next_route.flag !== undefined ? [s.next_route.flag] : [])))].slice(0, 4);
+export function statementRoutes(statements: RoutedStatement[]): {
+  order: number[];
+  when: Map<number, Record<number, boolean>[] | null>;
+} {
+  const bySec = new Map(statements.map((s) => [s.section, s]));
+  const flags = [
+    ...new Set(
+      statements.flatMap((s) =>
+        s.next_route?.op === 'testimony_jump' && s.next_route.flag !== undefined
+          ? [s.next_route.flag]
+          : [],
+      ),
+    ),
+  ].slice(0, 4);
   const combos: Record<number, boolean>[] = [];
-  for (let m = 0; m < 1 << flags.length; m++) combos.push(Object.fromEntries(flags.map((f, i) => [f, ((m >> i) & 1) === 1])));
-  const seqs = combos.map(c => {
+  for (let m = 0; m < 1 << flags.length; m++)
+    combos.push(Object.fromEntries(flags.map((f, i) => [f, ((m >> i) & 1) === 1])));
+  const seqs = combos.map((c) => {
     const seq: number[] = [];
     let cur: number | undefined = statements[0]?.section;
     while (cur !== undefined && bySec.has(cur) && !seq.includes(cur)) {
@@ -87,11 +132,13 @@ export function statementRoutes(statements: RoutedStatement[]): { order: number[
   // 並び: 各たどり方の前後関係を満たす順（初めて出た順を優先）
   const order: number[] = [];
   const all = [...new Set(seqs.flat())];
-  const before = new Map<number, Set<number>>(all.map(v => [v, new Set()]));
-  for (const seq of seqs) for (let i = 1; i < seq.length; i++) before.get(seq[i]!)!.add(seq[i - 1]!);
+  const before = new Map<number, Set<number>>(all.map((v) => [v, new Set()]));
+  for (const seq of seqs)
+    for (let i = 1; i < seq.length; i++) before.get(seq[i]!)!.add(seq[i - 1]!);
   while (order.length < all.length) {
-    const next = all.find(v => !order.includes(v) && [...before.get(v)!].every(b => order.includes(b)))
-      ?? all.find(v => !order.includes(v))!;
+    const next =
+      all.find((v) => !order.includes(v) && [...before.get(v)!].every((b) => order.includes(b))) ??
+      all.find((v) => !order.includes(v))!;
     order.push(next);
   }
   // どの文もたどれなかったもの（表だけにある文）は後ろに
@@ -128,6 +175,11 @@ export function nominationResults(entry: Entry, section: number): number[] {
   const wrong = section + 1;
   if (!entry.body[wrong]) return [];
   let end = wrong;
-  for (let t = staticTargets(entry, end); t.length === 1 && t[0] === end + 1 && entry.body[end + 1]; t = staticTargets(entry, end)) end++;
+  for (
+    let t = staticTargets(entry, end);
+    t.length === 1 && t[0] === end + 1 && entry.body[end + 1];
+    t = staticTargets(entry, end)
+  )
+    end++;
   return entry.body[end + 1] ? [wrong, end + 1] : [wrong];
 }

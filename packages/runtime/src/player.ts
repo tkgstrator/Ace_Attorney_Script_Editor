@@ -1,6 +1,18 @@
 import type { Beat, Engine } from '@gyakusai/core';
 import { createFonts } from './fonts.ts';
-import { DOT, FRAME_MS, HEIGHT, SCREEN_H, SCREEN_W, TEXT_COLORS, TIMING, TOP, UI, WIDTH, hit } from './layout.ts';
+import {
+  DOT,
+  FRAME_MS,
+  HEIGHT,
+  SCREEN_H,
+  SCREEN_W,
+  TEXT_COLORS,
+  TIMING,
+  TOP,
+  UI,
+  WIDTH,
+  hit,
+} from './layout.ts';
 import { DEFAULT_LABELS, type Labels, type PlayerOptions } from './options.ts';
 import { Painter } from './painter.ts';
 import type { AudioOut } from './audio.ts';
@@ -79,19 +91,33 @@ export class Player {
       this.#canvas.focus({ preventScroll: true });
       const b = this.#canvas.getBoundingClientRect();
       this.#syncBeat(); // 前のフレームの後にエンジンが進んでいても、最新の Beat に対して操作する
-      this.#click(Math.floor((e.clientX - b.left) / b.width * WIDTH), Math.floor((e.clientY - b.top) / b.height * HEIGHT));
+      this.#click(
+        Math.floor(((e.clientX - b.left) / b.width) * WIDTH),
+        Math.floor(((e.clientY - b.top) / b.height) * HEIGHT),
+      );
     };
     const onKey = (e: KeyboardEvent) => {
       const t = e.target;
-      if (t instanceof Element && t !== this.#canvas && t.matches('input, select, textarea, button, [contenteditable]')) return;
+      if (
+        t instanceof Element &&
+        t !== this.#canvas &&
+        t.matches('input, select, textarea, button, [contenteditable]')
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.repeat && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); return; } // 押しっぱなしで決定し続けない
+      if (e.repeat && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        return;
+      } // 押しっぱなしで決定し続けない
       this.#syncBeat();
       if (this.#key(e.key)) e.preventDefault();
     };
     this.#canvas.addEventListener('click', onClick);
     window.addEventListener('keydown', onKey);
-    this.#cleanup.push(() => this.#canvas.removeEventListener('click', onClick), () => window.removeEventListener('keydown', onKey));
+    this.#cleanup.push(
+      () => this.#canvas.removeEventListener('click', onClick),
+      () => window.removeEventListener('keydown', onKey),
+    );
 
     const loop = (t: number) => {
       const dt = Math.min(50, t - (this.#last || t));
@@ -128,32 +154,52 @@ export class Player {
 
   // ---- 文字送り・ページ送り -------------------------------------------------------
 
-  get #typing(): boolean { return this.#tw?.typing ?? false; }
-  get #lastPage(): boolean { return this.#tw?.lastPage ?? true; }
+  get #typing(): boolean {
+    return this.#tw?.typing ?? false;
+  }
+  get #lastPage(): boolean {
+    return this.#tw?.lastPage ?? true;
+  }
 
   #typewriter(text: string): Typewriter {
     return new Typewriter(text, {
-      wrap: t => this.#p.fonts.text.wrap(t, this.#textWidth),
+      wrap: (t) => this.#p.fonts.text.wrap(t, this.#textWidth),
       linesPerPage: this.#linesPerPage,
       colors: TEXT_COLORS,
       autoPause: this.engine.scenario.autoPause,
-      onCommand: c => this.#effect(c),
-      onChar: speed => { const id = this.#blip.char(speed); if (id) this.#audio?.se(id); },
+      onCommand: (c) => this.#effect(c),
+      onChar: (speed) => {
+        const id = this.#blip.char(speed);
+        if (id) this.#audio?.se(id);
+      },
     });
   }
-
 
   /** 揺れ・フラッシュ・音（台詞の途中の命令と、ステップの命令の両方から） */
   #effect(c: InlineCommand) {
     switch (c.cmd) {
-      case 'shake': this.#fx.shake(c.frames, c.strength); break;
-      case 'flash': this.#fx.flash(c.color, c.frames); break;
-      case 'se': this.#audio?.se(c.id); break;
-      case 'bgm': this.#audio?.bgm(c.id, c.frames * FRAME_MS); break;
+      case 'shake':
+        this.#fx.shake(c.frames, c.strength);
+        break;
+      case 'flash':
+        this.#fx.flash(c.color, c.frames);
+        break;
+      case 'se':
+        this.#audio?.se(c.id);
+        break;
+      case 'bgm':
+        this.#audio?.bgm(c.id, c.frames * FRAME_MS);
+        break;
       // 文の途中の人物・背景の切り替えは、その文字まで来たところで状態に反映する
-      case 'show': case 'location': this.engine.applyInline(c); break;
-      case 'blip': this.#blip.command(c.kind); break;
-      default: break; // native（未対応の元の命令）は何もしない
+      case 'show':
+      case 'location':
+        this.engine.applyInline(c);
+        break;
+      case 'blip':
+        this.#blip.command(c.kind);
+        break;
+      default:
+        break; // native（未対応の元の命令）は何もしない
     }
   }
 
@@ -169,14 +215,22 @@ export class Player {
     this.#choiceSel = 0;
     this.#inv.reset();
     if (!this.engine.canPresent) this.#record.open = false;
-    const text = beat.kind === 'line' || beat.kind === 'statement' || beat.kind === 'card' ? beat.text
-      : beat.kind === 'demand' ? beat.prompt : null;
+    const text =
+      beat.kind === 'line' || beat.kind === 'statement' || beat.kind === 'card'
+        ? beat.text
+        : beat.kind === 'demand'
+          ? beat.prompt
+          : null;
     this.#blip.reset(blipKindOf(this.engine.scenario, beat));
     this.#tw = text !== null ? this.#typewriter(text) : null;
     this.#resume.apply(this.engine, beat, this.#tw);
     if (beat.kind === 'line' && this.#tw) {
       // 選択肢を出すときは、直前の台詞の最後のページを残して表示する
-      this.#lastLine = { name: beat.name, lines: this.#tw.pages.at(-1)?.lines ?? [], color: TEXT_COLORS[beat.color] };
+      this.#lastLine = {
+        name: beat.name,
+        lines: this.#tw.pages.at(-1)?.lines ?? [],
+        color: TEXT_COLORS[beat.color],
+      };
     }
     this.#added = null;
     if (beat.kind === 'shout') this.#audio?.se(`shout_${beat.shout}`); // 吹き出しの声（効果音の ID は shout_objection など）
@@ -188,14 +242,31 @@ export class Player {
           this.#effect({ cmd: 'shake', frames: 16, strength: 0 });
           this.#lifeShow = TIMING.lifeShowFrames;
           break;
-        case 'evidence': if (ev.added) this.#added = ev.id; break;
-        case 'bgm': this.#effect({ cmd: 'bgm', id: ev.id, frames: ev.frames }); break;
-        case 'se': this.#effect({ cmd: 'se', id: ev.id }); break;
-        case 'shake': this.#effect({ cmd: 'shake', frames: ev.frames, strength: ev.strength }); break;
-        case 'flash': this.#effect({ cmd: 'flash', color: ev.color, frames: ev.frames }); break;
-        case 'fade': this.#fx.fade(ev.dir, ev.color, ev.frames); break;
-        case 'charFade': this.#fx.charFade = { ...ev, elapsed: 0 }; break;
-        case 'bgmPause': if (ev.pause) this.#audio?.pause?.(ev.frames * FRAME_MS); else this.#audio?.resume?.(ev.frames * FRAME_MS); break;
+        case 'evidence':
+          if (ev.added) this.#added = ev.id;
+          break;
+        case 'bgm':
+          this.#effect({ cmd: 'bgm', id: ev.id, frames: ev.frames });
+          break;
+        case 'se':
+          this.#effect({ cmd: 'se', id: ev.id });
+          break;
+        case 'shake':
+          this.#effect({ cmd: 'shake', frames: ev.frames, strength: ev.strength });
+          break;
+        case 'flash':
+          this.#effect({ cmd: 'flash', color: ev.color, frames: ev.frames });
+          break;
+        case 'fade':
+          this.#fx.fade(ev.dir, ev.color, ev.frames);
+          break;
+        case 'charFade':
+          this.#fx.charFade = { ...ev, elapsed: 0 };
+          break;
+        case 'bgmPause':
+          if (ev.pause) this.#audio?.pause?.(ev.frames * FRAME_MS);
+          else this.#audio?.resume?.(ev.frames * FRAME_MS);
+          break;
       }
     }
   }
@@ -210,12 +281,20 @@ export class Player {
     this.#views.pan.tick(this.engine.state.stage.pan);
     if (this.#lifeShow > 0) this.#lifeShow--;
     if (this.#blink > 0) this.#blink--;
-    else if (--this.#nextBlink <= 0) { this.#blink = 6; this.#nextBlink = 120 + Math.floor(Math.random() * 150); }
+    else if (--this.#nextBlink <= 0) {
+      this.#blink = 6;
+      this.#nextBlink = 120 + Math.floor(Math.random() * 150);
+    }
 
     const b = this.#beat;
     if (b.kind === 'shout' || b.kind === 'banner' || b.kind === 'fade' || b.kind === 'wait') {
       this.#timer += dt;
-      const ms = b.kind === 'shout' ? TIMING.shoutMs : b.kind === 'banner' ? TIMING.bannerMs : b.frames * FRAME_MS;
+      const ms =
+        b.kind === 'shout'
+          ? TIMING.shoutMs
+          : b.kind === 'banner'
+            ? TIMING.bannerMs
+            : b.frames * FRAME_MS;
       if (this.#timer >= ms) this.engine.advance();
       return;
     }
@@ -228,16 +307,44 @@ export class Player {
 
   #confirm() {
     const b = this.#beat;
-    if (this.#typing) { this.#tw?.finish(); return; }
+    if (this.#typing) {
+      this.#tw?.finish();
+      return;
+    }
     // ページ送り・選択肢の決定の音（元のゲームの SE 0x2f / 0x2b。ID は ui_page / ui_decide）
-    if (!this.#lastPage) { this.#audio?.se('ui_page'); this.#tw?.nextPage(); return; }
+    if (!this.#lastPage) {
+      this.#audio?.se('ui_page');
+      this.#tw?.nextPage();
+      return;
+    }
     switch (b.kind) {
-      case 'line': case 'statement': case 'card': this.#audio?.se('ui_page'); this.engine.advance(); break;
-      case 'banner': this.engine.advance(); break;
-      case 'demand': this.#record.show(this.engine, 'evidence'); break;
-      case 'choice': if (this.#age >= TIMING.choiceGuardMs) { this.#audio?.se('ui_decide'); this.engine.choose(this.#choiceSel); } break;
-      case 'end': case 'gameover': if (this.#age >= TIMING.endGuardMs) this.#onRestart?.(); break;
-      case 'shout': case 'investigate': case 'fade': case 'wait': break;
+      case 'line':
+      case 'statement':
+      case 'card':
+        this.#audio?.se('ui_page');
+        this.engine.advance();
+        break;
+      case 'banner':
+        this.engine.advance();
+        break;
+      case 'demand':
+        this.#record.show(this.engine, 'evidence');
+        break;
+      case 'choice':
+        if (this.#age >= TIMING.choiceGuardMs) {
+          this.#audio?.se('ui_decide');
+          this.engine.choose(this.#choiceSel);
+        }
+        break;
+      case 'end':
+      case 'gameover':
+        if (this.#age >= TIMING.endGuardMs) this.#onRestart?.();
+        break;
+      case 'shout':
+      case 'investigate':
+      case 'fade':
+      case 'wait':
+        break;
     }
   }
 
@@ -270,11 +377,20 @@ export class Player {
   #key(key: string): boolean {
     if (this.#record.open) return this.#onRecord(() => this.#record.key(this.engine, key));
     const b = this.#beat;
-    if (b.kind === 'investigate') return this.#inv.key(this.engine, b, key, () => this.#record.show(this.engine, 'evidence'));
+    if (b.kind === 'investigate')
+      return this.#inv.key(this.engine, b, key, () => this.#record.show(this.engine, 'evidence'));
     if (b.kind === 'choice' && !this.#typing) {
       const n = b.options.length;
-      if (key === 'ArrowUp') { this.#choiceSel = (this.#choiceSel + n - 1) % n; this.#audio?.se('ui_select'); return true; }
-      if (key === 'ArrowDown') { this.#choiceSel = (this.#choiceSel + 1) % n; this.#audio?.se('ui_select'); return true; }
+      if (key === 'ArrowUp') {
+        this.#choiceSel = (this.#choiceSel + n - 1) % n;
+        this.#audio?.se('ui_select');
+        return true;
+      }
+      if (key === 'ArrowDown') {
+        this.#choiceSel = (this.#choiceSel + 1) % n;
+        this.#audio?.se('ui_select');
+        return true;
+      }
     }
     if (key === 'Enter' || key === ' ') this.#confirm();
     else if ((key === 'x' || key === 'X') && this.#canOpenRecord) this.#record.show(this.engine);
@@ -286,22 +402,40 @@ export class Player {
   }
 
   #click(x: number, y: number) {
-    if (this.#record.open) { this.#onRecord(() => this.#record.click(this.engine, x, y)); return; }
+    if (this.#record.open) {
+      this.#onRecord(() => this.#record.click(this.engine, x, y));
+      return;
+    }
     const b = this.#beat;
     const recordAt = topButtonRect(this.#p, 'record');
     if (b.kind === 'investigate' && !(this.#canOpenRecord && hit(recordAt, x, y))) {
       this.#inv.click(this.engine, b, x, y, () => this.#record.show(this.engine, 'evidence'));
       return;
     }
-    if (this.#canOpenRecord && hit(recordAt, x, y)) { this.#record.show(this.engine, 'evidence'); return; }
+    if (this.#canOpenRecord && hit(recordAt, x, y)) {
+      this.#record.show(this.engine, 'evidence');
+      return;
+    }
     if (this.#onCross) {
-      if (hit(topButtonRect(this.#p, 'press'), x, y)) { this.#pressStatement(); return; }
-      if (hit(topButtonRect(this.#p, 'present'), x, y)) { this.#record.show(this.engine, 'evidence'); return; }
+      if (hit(topButtonRect(this.#p, 'press'), x, y)) {
+        this.#pressStatement();
+        return;
+      }
+      if (hit(topButtonRect(this.#p, 'present'), x, y)) {
+        this.#record.show(this.engine, 'evidence');
+        return;
+      }
     }
     if (b.kind === 'choice') {
-      if (this.#typing) { this.#confirm(); return; }
+      if (this.#typing) {
+        this.#confirm();
+        return;
+      }
       const i = b.options.findIndex((_, j) => hit(UI.choice(j, b.options.length), x, y));
-      if (i >= 0 && this.#age >= TIMING.choiceGuardMs) { this.#audio?.se('ui_decide'); this.engine.choose(i); }
+      if (i >= 0 && this.#age >= TIMING.choiceGuardMs) {
+        this.#audio?.se('ui_decide');
+        this.engine.choose(i);
+      }
       return;
     }
     this.#confirm();
@@ -327,7 +461,9 @@ export class Player {
     const p = this.#p;
     const b = this.#beat;
     const blinkOn = (this.#frame >> 4) % 2 === 0;
-    const arrow = () => { if (!this.#typing) W.nextArrow(p, this.#frame); };
+    const arrow = () => {
+      if (!this.#typing) W.nextArrow(p, this.#frame);
+    };
     const typed = () => this.#tw?.visible ?? [];
     const full = () => this.#tw?.full ?? [];
 
@@ -339,7 +475,14 @@ export class Player {
       return;
     }
 
-    drawScene(this.#p, this.engine, b, { typing: this.#typing, frame: this.#frame, blink: this.#blink > 0 }, this.#fx, this.#views);
+    drawScene(
+      this.#p,
+      this.engine,
+      b,
+      { typing: this.#typing, frame: this.#frame, blink: this.#blink > 0 },
+      this.#fx,
+      this.#views,
+    );
 
     if (b.kind === 'choice') {
       p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, '#000000', 0.45);
@@ -352,12 +495,20 @@ export class Player {
     }
 
     const stage = this.engine.state.stage;
-    if (stage.evidence && b.kind !== 'banner' && b.kind !== 'shout') W.thumbnail(p, stage.evidence, this.engine.scenario.evidence[stage.evidence], stage.evidenceRight);
+    if (stage.evidence && b.kind !== 'banner' && b.kind !== 'shout')
+      W.thumbnail(
+        p,
+        stage.evidence,
+        this.engine.scenario.evidence[stage.evidence],
+        stage.evidenceRight,
+      );
     const added = this.#added ? this.engine.scenario.evidence[this.#added] : undefined;
     if (this.#added && added) W.addedWindow(p, this.#added, added);
-    if (b.kind === 'statement' && !b.cross) p.fonts.text.draw(this.#labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
+    if (b.kind === 'statement' && !b.cross)
+      p.fonts.text.draw(this.#labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
     const gauge = stage.lifeGauge ?? (this.#onCross || b.kind === 'demand');
-    if (gauge || this.#lifeShow > 0) W.lifeMarks(p, this.engine.state.life, this.engine.scenario.maxLife, lifeTop(p));
+    if (gauge || this.#lifeShow > 0)
+      W.lifeMarks(p, this.engine.state.life, this.engine.scenario.maxLife, lifeTop(p));
     if (this.#canOpenRecord) drawTopButton(p, 'record', this.#labels);
     if (b.kind === 'statement' && b.cross) {
       drawTopButton(p, 'press', this.#labels, b.canPress);
@@ -365,14 +516,22 @@ export class Player {
     }
 
     switch (b.kind) {
-      case 'line': case 'statement': case 'demand': {
-        const color = b.kind === 'line' ? TEXT_COLORS[b.color] : b.kind === 'statement' ? TEXT_COLORS.green : TEXT_COLORS.white;
+      case 'line':
+      case 'statement':
+      case 'demand': {
+        const color =
+          b.kind === 'line'
+            ? TEXT_COLORS[b.color]
+            : b.kind === 'statement'
+              ? TEXT_COLORS.green
+              : TEXT_COLORS.white;
         if (stage.textbox !== false) W.textbox(p, b.name);
         W.bodyText(p, typed(), color);
         arrow();
         break;
       }
-      case 'wait': case 'fade':
+      case 'wait':
+      case 'fade':
         if (stage.textbox === true) W.textbox(p, null); // 枠を出したまま待つ（元のゲームの box 0 の後の待ち）
         break;
       case 'banner': {
@@ -390,9 +549,15 @@ export class Player {
         else W.bubble(p, b.shout, this.#reduceMotion ? 1 : Math.min(1, this.#timer / 120));
         break;
       }
-      case 'investigate': this.#inv.render(p, b, this.#labels, this.#frame); break;
-      case 'end': W.endScreen(p, this.#labels.end); break;
-      case 'gameover': W.endScreen(p, this.#labels.gameover); break;
+      case 'investigate':
+        this.#inv.render(p, b, this.#labels, this.#frame);
+        break;
+      case 'end':
+        W.endScreen(p, this.#labels.end);
+        break;
+      case 'gameover':
+        W.endScreen(p, this.#labels.gameover);
+        break;
     }
   }
 }

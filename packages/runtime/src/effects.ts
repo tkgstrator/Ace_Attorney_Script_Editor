@@ -13,13 +13,21 @@ export class ScreenEffects {
   #flash = 0;
   #flashColor: FlashColor = 'white';
   /** 人物をだんだん出す・消す（out のときは消える人物を覚えておく） */
-  charFade: { dir: 'in' | 'out'; frames: number; elapsed: number; character: string | null; pose: Pose | null } | null = null;
+  charFade: {
+    dir: 'in' | 'out';
+    frames: number;
+    elapsed: number;
+    character: string | null;
+    pose: Pose | null;
+  } | null = null;
   /** 動いているフェード（終わったら null。覆ったままかどうかは状態の stage.fade で決まる） */
   #fade: { dir: 'out' | 'in'; color: FadeColor; frames: number; elapsed: number } | null = null;
 
   readonly reduceMotion: boolean;
 
-  constructor(reduceMotion: boolean) { this.reduceMotion = reduceMotion; }
+  constructor(reduceMotion: boolean) {
+    this.reduceMotion = reduceMotion;
+  }
 
   shake(frames: number, strength: number): void {
     if (this.reduceMotion) return;
@@ -51,7 +59,12 @@ export class ScreenEffects {
     if (!color) return;
     const t = f ? f.elapsed / f.frames : 1;
     const alpha = f ? (f.dir === 'out' ? t : 1 - t) : 1;
-    if (alpha > 0) p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, color === 'white' ? '#ffffff' : '#000000', Math.min(1, alpha));
+    if (alpha > 0)
+      p.dim(
+        { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+        color === 'white' ? '#ffffff' : '#000000',
+        Math.min(1, alpha),
+      );
   }
 
   /** 揺れの分だけ描く位置をずらす（ctx.save() の後に呼ぶ） */
@@ -65,6 +78,10 @@ export class ScreenEffects {
   drawFlash(p: Painter): void {
     if (this.#flash <= 0) return;
     const alpha = this.#flashColor === 'red' ? 0.45 : this.#flash > 1 ? 1 : 0.5;
-    p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, this.#flashColor === 'red' ? '#ff2020' : '#ffffff', alpha);
+    p.dim(
+      { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+      this.#flashColor === 'red' ? '#ff2020' : '#ffffff',
+      alpha,
+    );
   }
 }

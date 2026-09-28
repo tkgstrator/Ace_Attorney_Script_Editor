@@ -9,7 +9,28 @@ export type Step = Record<string, unknown>;
 export const COMMAND_NAMES = Object.keys(commandSchemas) as CommandName[];
 
 /** 省略形 `人物ID: 台詞` の人物 ID として使えないキー（schema.ts の RESERVED_KEYS と同じもの） */
-const RESERVED = new Set<string>([...COMMAND_NAMES, 'text', 'color', 'then', 'else', 'when', 'by', 'present', 'wrong', 'seen', 'frames', 'strength', 'talk', 'idle', 'args', 'auto', 'nowait', 'off', 'side', 'profiles']);
+const RESERVED = new Set<string>([
+  ...COMMAND_NAMES,
+  'text',
+  'color',
+  'then',
+  'else',
+  'when',
+  'by',
+  'present',
+  'wrong',
+  'seen',
+  'frames',
+  'strength',
+  'talk',
+  'idle',
+  'args',
+  'auto',
+  'nowait',
+  'off',
+  'side',
+  'profiles',
+]);
 
 /** スキーマの説明文（describe） */
 export function commandDescription(name: CommandName): string {
@@ -71,7 +92,8 @@ export function stepKind(step: unknown): StepKind {
   if (typeof step !== 'object' || step === null || Array.isArray(step)) return 'unknown';
   const keys = Object.keys(step);
   for (const name of COMMAND_NAMES) if (keys.includes(name)) return name;
-  if (keys.length === 1 && !RESERVED.has(keys[0]!) && typeof (step as Step)[keys[0]!] === 'string') return 'shorthand';
+  if (keys.length === 1 && !RESERVED.has(keys[0]!) && typeof (step as Step)[keys[0]!] === 'string')
+    return 'shorthand';
   return 'unknown';
 }
 
@@ -119,44 +141,87 @@ export interface TemplateContext {
 export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
   const first = (list: string[], fallback: string) => list[0] ?? fallback;
   switch (name) {
-    case 'say': return makeSay({ speaker: ctx.lastSpeaker ?? ctx.characters[0] ?? null, text: '' });
-    case 'narrate': return { narrate: '' };
-    case 'set': return { set: { [first(ctx.flags, 'flag')]: true } };
-    case 'add': return { add: { [first(ctx.flags, 'count')]: 1 } };
-    case 'give': return { give: first(ctx.evidence, 'evidence') };
-    case 'take': return { take: first(ctx.evidence, 'evidence') };
-    case 'if': return { if: first(ctx.flags, 'flag'), then: [] };
-    case 'choice': return { choice: [{ text: '選択肢 1', then: [] }, { text: '選択肢 2', then: [] }] };
-    case 'demand': return { demand: '証拠品をつきつけてください', present: {}, wrong: [] };
-    case 'goto': return { goto: first(ctx.scenes, 'scene') };
-    case 'penalty': return { penalty: true };
-    case 'shout': return { shout: 'objection' };
-    case 'banner': return { banner: '' };
-    case 'card': return { card: '' };
-    case 'showEvidence': return { showEvidence: first(ctx.evidence, 'evidence') };
-    case 'show': return { show: first(ctx.characters, 'character') };
-    case 'location': return { location: null };
-    case 'investigate': return { investigate: first(ctx.places, 'place') };
-    case 'bgm': return { bgm: '' };
-    case 'se': return { se: '' };
-    case 'shake': return { shake: true };
-    case 'flash': return { flash: true };
-    case 'fade': return { fade: 'out' };
-    case 'wait': return { wait: 30 };
-    case 'native': return { native: '', args: [] };
-    case 'bgmPause': return { bgmPause: true };
-    case 'textbox': return { textbox: false };
-    case 'ui': return { ui: { record: false } };
-    case 'resume': return { resume: 'stay' };
-    case 'scroll': return { scroll: { y: -1 } };
-    case 'pan': return { pan: 0, to: first(ctx.characters, 'character') };
-    case 'overlay': return { overlay: 0 };
-    case 'random': return { random: [[], []] };
-    case 'palette': return { palette: 'grayscale' };
-    case 'giveProfile': return { giveProfile: first(ctx.characters, 'character') };
-    case 'takeProfile': return { takeProfile: first(ctx.characters, 'character') };
-    case 'end': return { end: true };
-    case 'gameover': return { gameover: true };
+    case 'say':
+      return makeSay({ speaker: ctx.lastSpeaker ?? ctx.characters[0] ?? null, text: '' });
+    case 'narrate':
+      return { narrate: '' };
+    case 'set':
+      return { set: { [first(ctx.flags, 'flag')]: true } };
+    case 'add':
+      return { add: { [first(ctx.flags, 'count')]: 1 } };
+    case 'give':
+      return { give: first(ctx.evidence, 'evidence') };
+    case 'take':
+      return { take: first(ctx.evidence, 'evidence') };
+    case 'if':
+      return { if: first(ctx.flags, 'flag'), then: [] };
+    case 'choice':
+      return {
+        choice: [
+          { text: '選択肢 1', then: [] },
+          { text: '選択肢 2', then: [] },
+        ],
+      };
+    case 'demand':
+      return { demand: '証拠品をつきつけてください', present: {}, wrong: [] };
+    case 'goto':
+      return { goto: first(ctx.scenes, 'scene') };
+    case 'penalty':
+      return { penalty: true };
+    case 'shout':
+      return { shout: 'objection' };
+    case 'banner':
+      return { banner: '' };
+    case 'card':
+      return { card: '' };
+    case 'showEvidence':
+      return { showEvidence: first(ctx.evidence, 'evidence') };
+    case 'show':
+      return { show: first(ctx.characters, 'character') };
+    case 'location':
+      return { location: null };
+    case 'investigate':
+      return { investigate: first(ctx.places, 'place') };
+    case 'bgm':
+      return { bgm: '' };
+    case 'se':
+      return { se: '' };
+    case 'shake':
+      return { shake: true };
+    case 'flash':
+      return { flash: true };
+    case 'fade':
+      return { fade: 'out' };
+    case 'wait':
+      return { wait: 30 };
+    case 'native':
+      return { native: '', args: [] };
+    case 'bgmPause':
+      return { bgmPause: true };
+    case 'textbox':
+      return { textbox: false };
+    case 'ui':
+      return { ui: { record: false } };
+    case 'resume':
+      return { resume: 'stay' };
+    case 'scroll':
+      return { scroll: { y: -1 } };
+    case 'pan':
+      return { pan: 0, to: first(ctx.characters, 'character') };
+    case 'overlay':
+      return { overlay: 0 };
+    case 'random':
+      return { random: [[], []] };
+    case 'palette':
+      return { palette: 'grayscale' };
+    case 'giveProfile':
+      return { giveProfile: first(ctx.characters, 'character') };
+    case 'takeProfile':
+      return { takeProfile: first(ctx.characters, 'character') };
+    case 'end':
+      return { end: true };
+    case 'gameover':
+      return { gameover: true };
   }
 }
 
@@ -188,18 +253,31 @@ export const isTestimony = (scene: unknown): scene is Record<string, unknown> =>
   typeof scene === 'object' && scene !== null && !Array.isArray(scene) && 'testimony' in scene;
 
 /** 1 つの ID か ID の列（give / take の値）を配列にする */
-export const idList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : []);
+export const idList = (v: unknown): string[] =>
+  Array.isArray(v)
+    ? v.filter((x): x is string => typeof x === 'string')
+    : typeof v === 'string'
+      ? [v]
+      : [];
 /** 配列を give / take の値に戻す（1 つなら文字列） */
 export const idListValue = (ids: string[]): string | string[] => (ids.length === 1 ? ids[0]! : ids);
 
 /** つきつけの表（demand・場所の present）のキーの候補 */
-export interface PresentKey { id: string; kind: 'evidence' | 'profile' }
+export interface PresentKey {
+  id: string;
+  kind: 'evidence' | 'profile';
+}
 
 /** characters のうち、人物ファイル（profile）のある人物の ID */
 export function profileIds(characters: unknown): string[] {
   if (typeof characters !== 'object' || characters === null) return [];
   return Object.entries(characters as Record<string, unknown>)
-    .filter(([, c]) => typeof c === 'object' && c !== null && typeof (c as Record<string, unknown>).profile === 'object')
+    .filter(
+      ([, c]) =>
+        typeof c === 'object' &&
+        c !== null &&
+        typeof (c as Record<string, unknown>).profile === 'object',
+    )
     .map(([id]) => id);
 }
 
@@ -207,8 +285,18 @@ export function profileIds(characters: unknown): string[] {
  * つきつけの表に選べる証拠品・人物。withProfiles なら、人物ファイル（証拠品と同じ ID の人物は、表では区別できないので除く）も。
  * used（すでにあるキー）は除く
  */
-export function presentKeyOptions(evidence: string[], profiles: string[], withProfiles: boolean, used: string[] = []): PresentKey[] {
-  const out: PresentKey[] = evidence.map(id => ({ id, kind: 'evidence' }));
-  if (withProfiles) out.push(...profiles.filter(id => !evidence.includes(id)).map(id => ({ id, kind: 'profile' as const })));
-  return out.filter(k => !used.includes(k.id));
+export function presentKeyOptions(
+  evidence: string[],
+  profiles: string[],
+  withProfiles: boolean,
+  used: string[] = [],
+): PresentKey[] {
+  const out: PresentKey[] = evidence.map((id) => ({ id, kind: 'evidence' }));
+  if (withProfiles)
+    out.push(
+      ...profiles
+        .filter((id) => !evidence.includes(id))
+        .map((id) => ({ id, kind: 'profile' as const })),
+    );
+  return out.filter((k) => !used.includes(k.id));
 }

@@ -23,7 +23,17 @@ export interface StepOps {
   drop(index: number, e: DragEvent<HTMLDivElement>): void;
 }
 
-export function StepList({ path: rawPath, steps, emptyLabel, className }: { path: Path; steps: unknown; emptyLabel?: string; className?: string }) {
+export function StepList({
+  path: rawPath,
+  steps,
+  emptyLabel,
+  className,
+}: {
+  path: Path;
+  steps: unknown;
+  emptyLabel?: string;
+  className?: string;
+}) {
   const ids = useIds();
   const { edit } = useActions();
   const list = Array.isArray(steps) ? steps : [];
@@ -45,60 +55,103 @@ export function StepList({ path: rawPath, steps, emptyLabel, className }: { path
   const dropRef = useRef(dropAt);
   dropRef.current = dropAt;
 
-  const ops = useMemo<StepOps>(() => ({
-    dragStart: index => { dragging = { list: key, index }; },
-    dragEnd: () => { dragging = null; setDropAt(null); },
-    dragOver: (index, e) => {
-      if (!dragging || dragging.list !== key) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const r = e.currentTarget.getBoundingClientRect();
-      setDropAt(e.clientY < r.top + r.height / 2 ? index : index + 1);
-    },
-    drop: (index, e) => {
-      if (!dragging || dragging.list !== key) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const at = dropRef.current ?? index;
-      const from = dragging.index;
-      const to = from < at ? at - 1 : at;
-      if (from !== to) latest.current.edit([{ op: 'move', path: latest.current.path, from, to }]);
-      dragging = null;
-      setDropAt(null);
-    },
-    insertAfter: (index, name) => insert(index + 1, name),
-    move: (index, delta) => latest.current.edit([{ op: 'move', path: latest.current.path, from: index, to: index + delta }]),
-    duplicate: index => {
-      const { list: l, path: p, edit: e } = latest.current;
-      e([{ op: 'insert', path: p, index: index + 1, value: structuredClone(l[index]) }]);
-    },
-    remove: index => latest.current.edit([{ op: 'delete', path: [...latest.current.path, index] }]),
-  }), [key]);
+  const ops = useMemo<StepOps>(
+    () => ({
+      dragStart: (index) => {
+        dragging = { list: key, index };
+      },
+      dragEnd: () => {
+        dragging = null;
+        setDropAt(null);
+      },
+      dragOver: (index, e) => {
+        if (!dragging || dragging.list !== key) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        setDropAt(e.clientY < r.top + r.height / 2 ? index : index + 1);
+      },
+      drop: (index, e) => {
+        if (!dragging || dragging.list !== key) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const at = dropRef.current ?? index;
+        const from = dragging.index;
+        const to = from < at ? at - 1 : at;
+        if (from !== to) latest.current.edit([{ op: 'move', path: latest.current.path, from, to }]);
+        dragging = null;
+        setDropAt(null);
+      },
+      insertAfter: (index, name) => insert(index + 1, name),
+      move: (index, delta) =>
+        latest.current.edit([
+          { op: 'move', path: latest.current.path, from: index, to: index + delta },
+        ]),
+      duplicate: (index) => {
+        const { list: l, path: p, edit: e } = latest.current;
+        e([{ op: 'insert', path: p, index: index + 1, value: structuredClone(l[index]) }]);
+      },
+      remove: (index) =>
+        latest.current.edit([{ op: 'delete', path: [...latest.current.path, index] }]),
+    }),
+    [key],
+  );
 
   const lazy = list.length > LAZY_FROM;
   return (
-    <div className={cn('space-y-1', className)} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropAt(null); }}>
+    <div
+      className={cn('space-y-1', className)}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropAt(null);
+      }}
+    >
       {list.length === 0 && (
-        <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">{emptyLabel ?? 'ステップがありません'}</div>
+        <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          {emptyLabel ?? 'ステップがありません'}
+        </div>
       )}
       {list.map((step, i) => (
         <Row
-          key={i} listPath={path} step={step} index={i} count={list.length} ops={ops} lazy={lazy && i >= EAGER}
+          key={i}
+          listPath={path}
+          step={step}
+          index={i}
+          count={list.length}
+          ops={ops}
+          lazy={lazy && i >= EAGER}
           drop={dropAt === i ? 'top' : dropAt === i + 1 && i === list.length - 1 ? 'bottom' : null}
         />
       ))}
-      <AddStepMenu onPick={name => insert(list.length, name)} />
+      <AddStepMenu onPick={(name) => insert(list.length, name)} />
     </div>
   );
 }
 
 /** 列の 1 行（ドロップの受け口とカード）。変わった行だけ描き直す */
-const Row = memo(function Row({ listPath, step, index, count, ops, lazy, drop }: {
-  listPath: Path; step: unknown; index: number; count: number; ops: StepOps; lazy: boolean; drop: 'top' | 'bottom' | null;
+const Row = memo(function Row({
+  listPath,
+  step,
+  index,
+  count,
+  ops,
+  lazy,
+  drop,
+}: {
+  listPath: Path;
+  step: unknown;
+  index: number;
+  count: number;
+  ops: StepOps;
+  lazy: boolean;
+  drop: 'top' | 'bottom' | null;
 }) {
   const card = <StepCard listPath={listPath} step={step} index={index} count={count} ops={ops} />;
   return (
-    <div onDragOver={e => ops.dragOver(index, e)} onDrop={e => ops.drop(index, e)} className="relative">
+    <div
+      onDragOver={(e) => ops.dragOver(index, e)}
+      onDrop={(e) => ops.drop(index, e)}
+      className="relative"
+    >
       {drop === 'top' && <DropLine top />}
       {lazy ? <Lazy pathKey={pathKey([...listPath, index])}>{card}</Lazy> : card}
       {drop === 'bottom' && <DropLine />}
@@ -114,16 +167,22 @@ const EAGER = 30;
 let observer: IntersectionObserver | null = null;
 const shows = new WeakMap<Element, () => void>();
 function observe(el: Element, show: () => void): () => void {
-  observer ??= new IntersectionObserver(entries => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      shows.get(e.target)?.();
-      observer?.unobserve(e.target);
-    }
-  }, { rootMargin: '1200px 0px' });
+  observer ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        shows.get(e.target)?.();
+        observer?.unobserve(e.target);
+      }
+    },
+    { rootMargin: '1200px 0px' },
+  );
   shows.set(el, show);
   observer.observe(el);
-  return () => { observer?.unobserve(el); shows.delete(el); };
+  return () => {
+    observer?.unobserve(el);
+    shows.delete(el);
+  };
 }
 
 /**
@@ -142,5 +201,12 @@ function Lazy({ pathKey: key, children }: { pathKey: string; children: ReactNode
 }
 
 function DropLine({ top }: { top?: boolean }) {
-  return <div className={cn('pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded bg-blue-500', top ? '-top-0.5' : '-bottom-0.5')} />;
+  return (
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded bg-blue-500',
+        top ? '-top-0.5' : '-bottom-0.5',
+      )}
+    />
+  );
 }

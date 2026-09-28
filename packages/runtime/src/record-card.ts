@@ -27,8 +27,12 @@ export interface CardContent {
 
 /** 法廷記録の詳細画面の寸法（DS 版の下画面） */
 export const RECORD_CARD: CardGeometry = {
-  icon: UI.rec.icon, info: UI.rec.info, name: UI.rec.detailName, desc: UI.rec.detailDesc,
-  descText: UI.rec.descText, nameCx: UI.rec.nameCx.detail,
+  icon: UI.rec.icon,
+  info: UI.rec.info,
+  name: UI.rec.detailName,
+  desc: UI.rec.detailDesc,
+  descText: UI.rec.descText,
+  nameCx: UI.rec.nameCx.detail,
 };
 
 /** 証拠品を受け取ったときの窓の寸法（DS 版の上画面。詳細画面より名前と説明の枠が 12 ドット広い） */
@@ -50,7 +54,8 @@ export function drawCard(p: Painter, g: CardGeometry, c: CardContent): void {
   p.rect(icon.x, icon.y, icon.w, icon.h, C.cellFill);
   c.drawIcon(icon);
   Parts.frame(p, g.info);
-  const N = g.name, D = g.desc;
+  const N = g.name,
+    D = g.desc;
   p.rect(N.x, N.y, N.w, N.h, C.nameBar);
   nameText(p, c.tab, c.label, g.nameCx, N.y, 16);
   p.rect(D.x, D.y, D.w, 1, C.descEdge);
@@ -63,7 +68,10 @@ export function drawCard(p: Painter, g: CardGeometry, c: CardContent): void {
   const d = p.fonts.desc;
   const T = g.descText;
   d.draw(d.wrap(c.description, D.x + D.w - T.x - 2).slice(0, 3), T.x, T.y - d.font.ink.top, {
-    color: C.descText, shadow: C.descEdge, shadowOffset: [0, 1], lineHeight: T.lineH,
+    color: C.descText,
+    shadow: C.descEdge,
+    shadowOffset: [0, 1],
+    lineHeight: T.lineH,
   });
 }
 
@@ -71,9 +79,18 @@ export function drawCard(p: Painter, g: CardGeometry, c: CardContent): void {
  * 名前の帯の文字（橙。フォントはタブで変わる）。DS 版と同じく、字の点の範囲の真ん中を cx に置く。
  * top から height の範囲の上下中央
  */
-export function nameText(p: Painter, tab: 'evidence' | 'profile', label: string, cx: number, top: number, height: number) {
+export function nameText(
+  p: Painter,
+  tab: 'evidence' | 'profile',
+  label: string,
+  cx: number,
+  top: number,
+  height: number,
+) {
   const t = (tab === 'profile' ? p.fonts.profileName : undefined) ?? p.fonts.name ?? p.fonts.text;
   const ink = t.inkBounds(label);
   if (!ink) return;
-  t.draw(label, Math.round(cx - (ink[0] + ink[1]) / 2), t.centerY(top, height), { color: C.nameText });
+  t.draw(label, Math.round(cx - (ink[0] + ink[1]) / 2), t.centerY(top, height), {
+    color: C.nameText,
+  });
 }

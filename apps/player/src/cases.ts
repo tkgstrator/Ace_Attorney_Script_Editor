@@ -1,9 +1,16 @@
 // 遊べる章の一覧。サンプルの事件と、元の台本から変換した章（assets/extracted/converted/、手元用・配布しない）。
 import clocktower from '../cases/clocktower.yaml?raw';
 
-const converted = import.meta.glob('../../../assets/extracted/converted/*.yaml', { query: '?raw', import: 'default' });
+const converted = import.meta.glob('../../../assets/extracted/converted/*.yaml', {
+  query: '?raw',
+  import: 'default',
+});
 
-export interface CaseEntry { id: string; label: string; load: () => Promise<string> }
+export interface CaseEntry {
+  id: string;
+  label: string;
+  load: () => Promise<string>;
+}
 
 export const CASES: CaseEntry[] = [
   { id: 'clocktower', label: 'サンプル: 時計塔の鐘', load: async () => clocktower },
@@ -16,5 +23,5 @@ export const CASES: CaseEntry[] = [
 /** URL の ?case= で選んだ章（なければ最初） */
 export function selectedCase(): CaseEntry {
   const id = new URLSearchParams(location.search).get('case');
-  return CASES.find(c => c.id === id) ?? CASES[0]!;
+  return CASES.find((c) => c.id === id) ?? CASES[0]!;
 }

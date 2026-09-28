@@ -27,43 +27,72 @@ export function SayBody({ path, step }: BodyProps) {
   const { set } = useSetter();
   const labels = useCharacterLabels();
   const v = readSay(step);
-  const color = TEXT_COLORS.find(c => c.value === v.color);
+  const color = TEXT_COLORS.find((c) => c.value === v.color);
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-1">
         <IdSelect
-          value={v.speaker} options={ids.characters} labels={labels} nullLabel="（名前なし）" aria-label="話す人物"
-          onChange={s => set(path, makeSay({ ...v, speaker: s ?? null }))}
+          value={v.speaker}
+          options={ids.characters}
+          labels={labels}
+          nullLabel="（名前なし）"
+          aria-label="話す人物"
+          onChange={(s) => set(path, makeSay({ ...v, speaker: s ?? null }))}
         />
         <NativeSelect
-          size="sm" className={cn('h-8 w-32', color?.className)} value={v.color ?? ''} aria-label="文字の色"
-          onChange={e => set(path, makeSay({ ...v, color: e.target.value || undefined }))}
+          size="sm"
+          className={cn('h-8 w-32', color?.className)}
+          value={v.color ?? ''}
+          aria-label="文字の色"
+          onChange={(e) => set(path, makeSay({ ...v, color: e.target.value || undefined }))}
         >
           <NativeSelectOption value="">色: 既定</NativeSelectOption>
-          {TEXT_COLORS.map(c => <NativeSelectOption key={c.value} value={c.value}>{c.label}</NativeSelectOption>)}
+          {TEXT_COLORS.map((c) => (
+            <NativeSelectOption key={c.value} value={c.value}>
+              {c.label}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
         {'say' in step && v.speaker && !v.color && (
-          <button type="button" className="text-[11px] text-muted-foreground underline" onClick={() => set(path, makeSay(v))}>
+          <button
+            type="button"
+            className="text-[11px] text-muted-foreground underline"
+            onClick={() => set(path, makeSay(v))}
+          >
             省略形にする
           </button>
         )}
       </div>
       <TextInput
-        multiline path={[...path, sayTextKey(step)]} value={v.text} placeholder="台詞"
-        className={cn(color?.className, v.text.startsWith('（') && !v.color && 'text-sky-700')} aria-label="台詞"
+        multiline
+        path={[...path, sayTextKey(step)]}
+        value={v.text}
+        placeholder="台詞"
+        className={cn(color?.className, v.text.startsWith('（') && !v.color && 'text-sky-700')}
+        aria-label="台詞"
       />
     </div>
   );
 }
 
 export function NarrateBody({ path, step }: BodyProps) {
-  return <TextInput multiline path={[...path, 'narrate']} value={step.narrate} placeholder="ナレーション" aria-label="ナレーション" />;
+  return (
+    <TextInput
+      multiline
+      path={[...path, 'narrate']}
+      value={step.narrate}
+      placeholder="ナレーション"
+      aria-label="ナレーション"
+    />
+  );
 }
 
 export function TextCommandBody({ path, step, name }: BodyProps & { name: 'banner' | 'card' }) {
   return (
     <TextInput
-      multiline={name === 'card'} path={[...path, name]} value={step[name]}
+      multiline={name === 'card'}
+      path={[...path, name]}
+      value={step[name]}
       placeholder={name === 'card' ? '日時・場所（改行できます）' : '帯に出す文字（例: 無罪）'}
     />
   );
@@ -79,8 +108,9 @@ export function UnknownBody({ path, step }: BodyProps) {
   return (
     <div className="space-y-1">
       <Textarea
-        className="min-h-9 resize-none py-1.5 font-mono text-xs" value={draft}
-        onChange={e => setDraft(e.target.value)}
+        className="min-h-9 resize-none py-1.5 font-mono text-xs"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
           try {
             const v = parseYaml(draft) as unknown;
@@ -91,7 +121,9 @@ export function UnknownBody({ path, step }: BodyProps) {
           }
         }}
       />
-      <p className="text-[11px] text-destructive">{error ?? 'コマンドが分かりません。YAML のまま直してください'}</p>
+      <p className="text-[11px] text-destructive">
+        {error ?? 'コマンドが分かりません。YAML のまま直してください'}
+      </p>
     </div>
   );
 }

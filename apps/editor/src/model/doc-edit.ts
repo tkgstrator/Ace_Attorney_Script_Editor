@@ -5,8 +5,17 @@
 // Change はノードそのもの（参照）を持つ。元に戻す・やり直すは必ず後ろから順に行うので、
 // ある Change を戻すときには、それより後の書き換えはすべて戻っていて、ノードは記録したときと同じ状態にある。
 import {
-  isCollection, isMap, isPair, isScalar, isSeq, Pair,
-  type Document, type Node, type Scalar, type YAMLMap, type YAMLSeq,
+  isCollection,
+  isMap,
+  isPair,
+  isScalar,
+  isSeq,
+  Pair,
+  type Document,
+  type Node,
+  type Scalar,
+  type YAMLMap,
+  type YAMLSeq,
 } from 'yaml';
 import { createNode, type Op, type Path } from './yaml-doc.ts';
 
@@ -28,33 +37,58 @@ export type Change =
 
 export function revert(c: Change): void {
   switch (c.k) {
-    case 'scalar': c.node.value = c.before; return;
-    case 'items': (c.coll.items as unknown[]).splice(c.index, c.inserted.length, ...c.removed); return;
-    case 'value': c.pair.value = c.before; return;
-    case 'key': c.pair.key = c.before; return;
-    case 'flow': c.coll.flow = c.before; return;
-    case 'contents': c.doc.contents = c.before as Node; return;
+    case 'scalar':
+      c.node.value = c.before;
+      return;
+    case 'items':
+      (c.coll.items as unknown[]).splice(c.index, c.inserted.length, ...c.removed);
+      return;
+    case 'value':
+      c.pair.value = c.before;
+      return;
+    case 'key':
+      c.pair.key = c.before;
+      return;
+    case 'flow':
+      c.coll.flow = c.before;
+      return;
+    case 'contents':
+      c.doc.contents = c.before as Node;
+      return;
   }
 }
 
 export function reapply(c: Change): void {
   switch (c.k) {
-    case 'scalar': c.node.value = c.after; return;
-    case 'items': (c.coll.items as unknown[]).splice(c.index, c.removed.length, ...c.inserted); return;
-    case 'value': c.pair.value = c.after; return;
-    case 'key': c.pair.key = c.after; return;
-    case 'flow': c.coll.flow = c.after; return;
-    case 'contents': c.doc.contents = c.after as Node; return;
+    case 'scalar':
+      c.node.value = c.after;
+      return;
+    case 'items':
+      (c.coll.items as unknown[]).splice(c.index, c.removed.length, ...c.inserted);
+      return;
+    case 'value':
+      c.pair.value = c.after;
+      return;
+    case 'key':
+      c.pair.key = c.after;
+      return;
+    case 'flow':
+      c.coll.flow = c.after;
+      return;
+    case 'contents':
+      c.doc.contents = c.after as Node;
+      return;
   }
 }
 
 const keyOf = (p: Pair) => (isScalar(p.key) ? p.key.value : p.key);
 
 export function findPair(map: YAMLMap, key: unknown): Pair | undefined {
-  return map.items.find(p => p.key === key || keyOf(p) === key);
+  return map.items.find((p) => p.key === key || keyOf(p) === key);
 }
 
-const seqIndex = (key: string | number) => (typeof key === 'number' ? key : /^\d+$/.test(key) ? Number(key) : NaN);
+const seqIndex = (key: string | number) =>
+  typeof key === 'number' ? key : /^\d+$/.test(key) ? Number(key) : NaN;
 
 /** パスの指すノード。found が false ならその場所はない（値が null の組は found: true, node: null） */
 export function lookup(doc: Document, path: Path): { found: boolean; node: unknown } {
@@ -101,18 +135,24 @@ export class DocEditor {
 
   apply(op: Op): void {
     switch (op.op) {
-      case 'set': return this.set(op.path, op.value);
+      case 'set':
+        return this.set(op.path, op.value);
       case 'delete':
         if (lookup(this.doc, op.path).found) {
           this.scopes.push(op.path.slice(0, -1));
           this.remove(op.path);
         }
         return;
-      case 'insert': return this.insert(op.path, op.index, op.value);
-      case 'move': return this.move(op.path, op.from, op.to);
-      case 'renameKey': return this.renameKey(op.path, op.from, op.to);
-      case 'relocate': return this.relocate(op.from, op.to);
-      case 'renameRefs': return this.renameRefs(op.target, op.from, op.to);
+      case 'insert':
+        return this.insert(op.path, op.index, op.value);
+      case 'move':
+        return this.move(op.path, op.from, op.to);
+      case 'renameKey':
+        return this.renameKey(op.path, op.from, op.to);
+      case 'relocate':
+        return this.relocate(op.from, op.to);
+      case 'renameRefs':
+        return this.renameRefs(op.target, op.from, op.to);
     }
   }
 
@@ -127,7 +167,11 @@ export class DocEditor {
     const existing = lookup(this.doc, path);
     this.scopes.push(this.scopeOf(path));
     // 既存のスカラーは値だけ変える（引用符の種類や行末コメントを残すため）
-    if (existing.found && isScalar(existing.node) && (value === null || typeof value !== 'object')) {
+    if (
+      existing.found &&
+      isScalar(existing.node) &&
+      (value === null || typeof value !== 'object')
+    ) {
       this.setScalar(existing.node, value);
       return;
     }
@@ -204,7 +248,8 @@ export class DocEditor {
       const p = [...path, k as string];
       if (target === 'scene' && k === 'goto') replace(pair.value, p);
       if (target === 'place' && (k === 'investigate' || k === 'to')) replace(pair.value, p);
-      if (target === 'place' && k === 'move' && isSeq(pair.value)) pair.value.items.forEach((it, i) => replace(it, [...p, i]));
+      if (target === 'place' && k === 'move' && isSeq(pair.value))
+        pair.value.items.forEach((it, i) => replace(it, [...p, i]));
       walk(pair.value, p);
     };
     const walk = (n: unknown, path: Path) => {
@@ -225,7 +270,8 @@ export class DocEditor {
    * 親の入れ物があれば（なければ末尾に足すだけなので）path だけでよい。大きなマップを丸ごと作り直さないため
    */
   private scopeOf(path: Path): Path {
-    if (lookup(this.doc, path).found || isCollection(lookup(this.doc, path.slice(0, -1)).node)) return path;
+    if (lookup(this.doc, path).found || isCollection(lookup(this.doc, path.slice(0, -1)).node))
+      return path;
     return existingPrefix(this.doc, path);
   }
 
@@ -264,7 +310,8 @@ export class DocEditor {
     }
     if (isSeq(parent)) {
       const i = seqIndex(key);
-      if (!(i >= 0 && i <= parent.items.length)) throw new Error(`列の位置が正しくありません: ${path.join('.')}`);
+      if (!(i >= 0 && i <= parent.items.length))
+        throw new Error(`列の位置が正しくありません: ${path.join('.')}`);
       this.splice(parent, i, i < parent.items.length ? 1 : 0, [node]);
       return;
     }
@@ -288,7 +335,12 @@ export class DocEditor {
     for (let n = 1; n < path.length; n++) {
       const sub = path.slice(0, n);
       const r = lookup(this.doc, sub);
-      if (!r.found || r.node === null || r.node === undefined || (isScalar(r.node) && r.node.value === null)) {
+      if (
+        !r.found ||
+        r.node === null ||
+        r.node === undefined ||
+        (isScalar(r.node) && r.node.value === null)
+      ) {
         this.setNode(sub, this.doc.createNode(typeof path[n] === 'number' ? [] : {}));
       }
     }

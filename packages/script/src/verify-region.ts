@@ -15,7 +15,11 @@ const MAX_WORK = 2_000_000;
 
 /** 真偽の値しか取らないフラグ（初めの値が真偽で、set でも真偽しか入れず、add しない） */
 export function booleanFlags(sc: CompiledScenario): Set<string> {
-  const out = new Set(Object.entries(sc.flags).filter(([, v]) => typeof v === 'boolean').map(([k]) => k));
+  const out = new Set(
+    Object.entries(sc.flags)
+      .filter(([, v]) => typeof v === 'boolean')
+      .map(([k]) => k),
+  );
   for (const scene of Object.values(sc.scenes)) {
     for (const ins of scene.program) {
       if (ins.op === 'set' && typeof ins.value !== 'boolean') out.delete(ins.flag);
@@ -29,11 +33,21 @@ export function booleanFlags(sc: CompiledScenario): Set<string> {
 function refs(e: Expr | undefined, out: Set<string>): Set<string> {
   if (!e) return out;
   switch (e.t) {
-    case 'var': out.add(e.name); break;
-    case 'call': out.add(`${e.fn === 'visited' ? 'v' : e.fn === 'seen' ? 's' : 'h'}:${e.arg}`); break;
-    case 'not': refs(e.e, out); break;
-    case 'bin': refs(e.l, out); refs(e.r, out); break;
-    case 'lit': break;
+    case 'var':
+      out.add(e.name);
+      break;
+    case 'call':
+      out.add(`${e.fn === 'visited' ? 'v' : e.fn === 'seen' ? 's' : 'h'}:${e.arg}`);
+      break;
+    case 'not':
+      refs(e.e, out);
+      break;
+    case 'bin':
+      refs(e.l, out);
+      refs(e.r, out);
+      break;
+    case 'lit':
+      break;
   }
   return out;
 }
@@ -44,26 +58,28 @@ const isBool = (bool: Set<string>, name: string) => /^[vsh]:/.test(name) || bool
 /** 値の組から式を評価する */
 function evaluate(e: Expr, val: Map<string, Value>): boolean {
   return !!evalExpr(e, {
-    variable: n => val.get(n) ?? false,
-    has: id => val.get(`h:${id}`) === true,
-    visited: id => val.get(`v:${id}`) === true,
-    seen: id => val.get(`s:${id}`) === true,
+    variable: (n) => val.get(n) ?? false,
+    has: (id) => val.get(`h:${id}`) === true,
+    visited: (id) => val.get(`v:${id}`) === true,
+    seen: (id) => val.get(`s:${id}`) === true,
   });
 }
 
 /** 式が本当に読む変数（証拠品の h: は除く）。真偽の変数だけの式なら真理値表で調べ、そうでなければ出てくる変数すべて */
 export function exprDeps(e: Expr | undefined, bool: Set<string>): string[] {
   const names = [...refs(e, new Set())];
-  const vars = names.filter(n => !n.startsWith('h:') && n !== 'life');
+  const vars = names.filter((n) => !n.startsWith('h:') && n !== 'life');
   if (!e || vars.length === 0) return vars;
-  if (names.length > MAX_VARS || !names.every(n => isBool(bool, n))) return vars;
+  if (names.length > MAX_VARS || !names.every((n) => isBool(bool, n))) return vars;
   const val = new Map<string, Value>();
-  return vars.filter(v => {
-    const others = names.filter(n => n !== v);
+  return vars.filter((v) => {
+    const others = names.filter((n) => n !== v);
     for (let m = 0; m < 1 << others.length; m++) {
       others.forEach((n, i) => val.set(n, ((m >> i) & 1) === 1));
-      val.set(v, true); const a = evaluate(e, val);
-      val.set(v, false); const b = evaluate(e, val);
+      val.set(v, true);
+      const a = evaluate(e, val);
+      val.set(v, false);
+      const b = evaluate(e, val);
       if (a !== b) return true;
     }
     return false;
@@ -72,8 +88,32 @@ export function exprDeps(e: Expr | undefined, bool: Set<string>): string[] {
 
 /** かたまりの中に置ける、止まって選ぶことも移動することもない命令（表示・音・演出・台詞など） */
 const QUIET = new Set<Instr['op']>([
-  'say', 'shout', 'banner', 'card', 'wait', 'fade', 'showEvidence', 'palette', 'giveProfile', 'takeProfile', 'pan', 'overlay',
-  'scroll', 'textbox', 'ui', 'bgmPause', 'show', 'location', 'bgm', 'se', 'shake', 'flash', 'penalty', 'set', 'jump', 'jumpUnless',
+  'say',
+  'shout',
+  'banner',
+  'card',
+  'wait',
+  'fade',
+  'showEvidence',
+  'palette',
+  'giveProfile',
+  'takeProfile',
+  'pan',
+  'overlay',
+  'scroll',
+  'textbox',
+  'ui',
+  'bgmPause',
+  'show',
+  'location',
+  'bgm',
+  'se',
+  'shake',
+  'flash',
+  'penalty',
+  'set',
+  'jump',
+  'jumpUnless',
 ]);
 
 export interface Summary {
@@ -91,20 +131,28 @@ export interface Summary {
  */
 export function summarize(program: Instr[], pc: number, bool: Set<string>): Summary | null {
   // かたまりの範囲と出口を探す（飛び先は前へ進むものだけ。後ろへ戻るものがあれば、まとめない）
-  const inside = new Set<number>(), exits = new Set<number>();
-  const read = new Set<string>(), written = new Set<string>();
+  const inside = new Set<number>(),
+    exits = new Set<number>();
+  const read = new Set<string>(),
+    written = new Set<string>();
   const todo = [pc];
   while (todo.length > 0) {
     const at = todo.pop()!;
     if (inside.has(at) || exits.has(at)) continue;
     const ins = program[at];
-    if (!ins || !QUIET.has(ins.op)) { exits.add(at); continue; }
+    if (!ins || !QUIET.has(ins.op)) {
+      exits.add(at);
+      continue;
+    }
     inside.add(at);
     if (inside.size > 5000) return null;
     if (ins.op === 'jump' || ins.op === 'jumpUnless') {
       if (ins.to <= at) return null;
       todo.push(ins.to);
-      if (ins.op === 'jumpUnless') { refs(ins.cond, read); todo.push(at + 1); }
+      if (ins.op === 'jumpUnless') {
+        refs(ins.cond, read);
+        todo.push(at + 1);
+      }
       continue;
     }
     if (ins.op === 'set') written.add(ins.flag);
@@ -114,11 +162,12 @@ export function summarize(program: Instr[], pc: number, bool: Set<string>): Summ
   const exit = [...exits][0]!;
   if (exit >= program.length) return null;
   const inputs = [...read];
-  if (inputs.length > MAX_VARS || inputs.includes('life') || !inputs.every(n => isBool(bool, n))) return null;
+  if (inputs.length > MAX_VARS || inputs.includes('life') || !inputs.every((n) => isBool(bool, n)))
+    return null;
   if ((1 << inputs.length) * inside.size > MAX_WORK) return null;
 
   // 読む変数の値の組ごとに、かたまりを実行して出口での値を求める
-  const tracked = [...new Set([...inputs, ...written])].filter(n => !n.startsWith('h:'));
+  const tracked = [...new Set([...inputs, ...written])].filter((n) => !n.startsWith('h:'));
   const IN = '\u0000入りのまま';
   const run = (m: number): (Value | string)[] => {
     const val = new Map<string, Value>();
@@ -129,20 +178,26 @@ export function summarize(program: Instr[], pc: number, bool: Set<string>): Summ
       const ins = program[at]!;
       if (ins.op === 'jump') at = ins.to;
       else if (ins.op === 'jumpUnless') at = evaluate(ins.cond, val) ? at + 1 : ins.to;
-      else { if (ins.op === 'set') val.set(ins.flag, ins.value); at++; }
+      else {
+        if (ins.op === 'set') val.set(ins.flag, ins.value);
+        at++;
+      }
     }
-    return tracked.map(n => val.get(n)!);
+    return tracked.map((n) => val.get(n)!);
   };
   const results = Array.from({ length: 1 << inputs.length }, (_, m) => run(m));
 
-  const gen: string[] = [], def: string[] = [];
+  const gen: string[] = [],
+    def: string[] = [];
   tracked.forEach((name, t) => {
     const i = inputs.indexOf(name);
-    let own = false, effect = false;
-    if (i < 0) own = results.some(r => r[t] === IN); // 書くだけの変数: どこかの道で書かなければ、入りの値が残る
+    let own = false,
+      effect = false;
+    if (i < 0) own = results.some((r) => r[t] === IN); // 書くだけの変数: どこかの道で書かなければ、入りの値が残る
     for (let m = 0; m < results.length && i >= 0; m++) {
       if ((m >> i) & 1) continue;
-      const a = results[m]!, b = results[m | (1 << i)]!;
+      const a = results[m]!,
+        b = results[m | (1 << i)]!;
       if (a[t] !== b[t]) own = true;
       if (a.some((x, k) => k !== t && x !== b[k])) effect = true;
     }

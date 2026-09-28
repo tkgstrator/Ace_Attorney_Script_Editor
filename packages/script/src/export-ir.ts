@@ -9,7 +9,7 @@ import { formatDiagnostic, loadScenario } from './load.ts';
 /** YAML のテキストから IR を作る。コンパイルできなければ、診断を添えて例外 */
 export function exportIr(source: string, file = ''): CompiledScenario {
   const { scenario, diagnostics } = loadScenario(source);
-  if (!scenario) throw new Error(diagnostics.map(d => formatDiagnostic(d, file)).join('\n'));
+  if (!scenario) throw new Error(diagnostics.map((d) => formatDiagnostic(d, file)).join('\n'));
   return scenario;
 }
 

@@ -9,29 +9,58 @@ import { IdSelect, useCharacterLabels, useEvidenceLabels } from '../fields.tsx';
 import { IconButton } from './StepCard.tsx';
 import { StepList } from './StepList.tsx';
 
-export function PresentMap({ path, value, label = 'つきつけ', profiles = false }: { path: Path; value: unknown; label?: string; profiles?: boolean }) {
+export function PresentMap({
+  path,
+  value,
+  label = 'つきつけ',
+  profiles = false,
+}: {
+  path: Path;
+  value: unknown;
+  label?: string;
+  profiles?: boolean;
+}) {
   const ids = useIds();
   const { edit } = useActions();
   const evidenceLabels = useEvidenceLabels();
   const characterLabels = useCharacterLabels();
-  const characters = useEditorState(s => s.data?.characters);
-  const map = typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const characters = useEditorState((s) => s.data?.characters);
+  const map =
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
   const keys = Object.keys(map);
   const all = presentKeyOptions(ids.evidence, profileIds(characters), profiles);
-  const unused = all.filter(k => !keys.includes(k.id));
+  const unused = all.filter((k) => !keys.includes(k.id));
   const labels = { ...characterLabels, ...evidenceLabels };
-  const kindOf = (id: string) => all.find(k => k.id === id)?.kind;
+  const kindOf = (id: string) => all.find((k) => k.id === id)?.kind;
   return (
     <div className="space-y-2">
-      {keys.map(k => (
-        <div key={k} className="rounded-md border border-dashed border-amber-400/70 p-2" data-path={JSON.stringify([...path, k])}>
+      {keys.map((k) => (
+        <div
+          key={k}
+          className="rounded-md border border-dashed border-amber-400/70 p-2"
+          data-path={JSON.stringify([...path, k])}
+        >
           <div className="mb-1 flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">{label}{kindOf(k) === 'profile' ? '（人物ファイル）' : ''}:</span>
+            <span className="text-xs text-muted-foreground">
+              {label}
+              {kindOf(k) === 'profile' ? '（人物ファイル）' : ''}:
+            </span>
             <IdSelect
-              value={k} options={all.map(o => o.id)} labels={labels} aria-label="証拠品・人物"
-              onChange={to => { if (to && to !== k) edit([{ op: 'renameKey', path, from: k, to }]); }}
+              value={k}
+              options={all.map((o) => o.id)}
+              labels={labels}
+              aria-label="証拠品・人物"
+              onChange={(to) => {
+                if (to && to !== k) edit([{ op: 'renameKey', path, from: k, to }]);
+              }}
             />
-            <IconButton title="消す" className="ml-auto hover:text-destructive" onClick={() => edit([{ op: 'delete', path: [...path, k] }])}>
+            <IconButton
+              title="消す"
+              className="ml-auto hover:text-destructive"
+              onClick={() => edit([{ op: 'delete', path: [...path, k] }])}
+            >
               <Trash2 />
             </IconButton>
           </div>
@@ -40,13 +69,21 @@ export function PresentMap({ path, value, label = 'つきつけ', profiles = fal
       ))}
       {unused.length > 0 && (
         <NativeSelect
-          size="sm" className="h-7 w-56 text-xs" value="" aria-label={profiles ? 'つきつける証拠品・人物を追加' : 'つきつける証拠品を追加'}
-          onChange={e => { if (e.target.value) edit([{ op: 'set', path: [...path, e.target.value], value: [] }]); }}
+          size="sm"
+          className="h-7 w-56 text-xs"
+          value=""
+          aria-label={profiles ? 'つきつける証拠品・人物を追加' : 'つきつける証拠品を追加'}
+          onChange={(e) => {
+            if (e.target.value) edit([{ op: 'set', path: [...path, e.target.value], value: [] }]);
+          }}
         >
-          <NativeSelectOption value="">＋ {label}の{profiles ? '証拠品・人物' : '証拠品'}を追加…</NativeSelectOption>
-          {unused.map(o => (
+          <NativeSelectOption value="">
+            ＋ {label}の{profiles ? '証拠品・人物' : '証拠品'}を追加…
+          </NativeSelectOption>
+          {unused.map((o) => (
             <NativeSelectOption key={o.id} value={o.id}>
-              {o.kind === 'profile' ? '人物: ' : ''}{labels[o.id] ?? o.id}（{o.id}）
+              {o.kind === 'profile' ? '人物: ' : ''}
+              {labels[o.id] ?? o.id}（{o.id}）
             </NativeSelectOption>
           ))}
         </NativeSelect>

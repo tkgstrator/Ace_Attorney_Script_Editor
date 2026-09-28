@@ -55,28 +55,129 @@ const FRAMING: Record<string, string> = {
 
 export const ITEMS: Item[] = [
   // 人物（弁護側は右向き、検察側は左向き、証人と裁判長は正面）
-  { id: 'naruse', kind: 'character', subject: 'a 24-year-old rookie male defense attorney with spiky dark navy hair, earnest determined eyes, blue suit, white shirt, red tie, a small golden sunflower badge on the lapel, body turned slightly to the right', refs: [FRAMING.defense!] },
-  { id: 'himuro', kind: 'character', subject: 'a cool 32-year-old male prosecutor with neatly swept silver hair, thin rectangular glasses, sharp cold eyes, dark maroon three-piece suit with a white cravat, arms folded, body turned slightly to the left', refs: [FRAMING.prosecution!] },
-  { id: 'torii', kind: 'character', subject: 'a 58-year-old male witness with short gray hair, a thick gray mustache, a shifty smug smile, brown jacket, cream shirt and green tie, hands clasped in front of his chest, facing the viewer', refs: [FRAMING.witness!] },
-  { id: 'judge', kind: 'character', subject: 'an elderly bald male judge with a large bushy white beard and white side hair, kind but stern eyes, black judicial robe with white collar, facing the viewer', refs: [FRAMING.judge!] },
+  {
+    id: 'naruse',
+    kind: 'character',
+    subject:
+      'a 24-year-old rookie male defense attorney with spiky dark navy hair, earnest determined eyes, blue suit, white shirt, red tie, a small golden sunflower badge on the lapel, body turned slightly to the right',
+    refs: [FRAMING.defense!],
+  },
+  {
+    id: 'himuro',
+    kind: 'character',
+    subject:
+      'a cool 32-year-old male prosecutor with neatly swept silver hair, thin rectangular glasses, sharp cold eyes, dark maroon three-piece suit with a white cravat, arms folded, body turned slightly to the left',
+    refs: [FRAMING.prosecution!],
+  },
+  {
+    id: 'torii',
+    kind: 'character',
+    subject:
+      'a 58-year-old male witness with short gray hair, a thick gray mustache, a shifty smug smile, brown jacket, cream shirt and green tie, hands clasped in front of his chest, facing the viewer',
+    refs: [FRAMING.witness!],
+  },
+  {
+    id: 'judge',
+    kind: 'character',
+    subject:
+      'an elderly bald male judge with a large bushy white beard and white side hair, kind but stern eyes, black judicial robe with white collar, facing the viewer',
+    refs: [FRAMING.judge!],
+  },
   // 背景（立ち位置ごと）
-  { id: 'defense', kind: 'background', subject: 'the defense side of a courtroom: warm brown wooden wall panels with vertical grooves, a high wooden wainscot, soft light from above', refs: [FRAMING.defense!] },
-  { id: 'prosecution', kind: 'background', subject: 'the prosecution side of a courtroom: dark purple-gray wooden wall panels with vertical grooves, cold light, slightly gloomy mood', refs: [FRAMING.prosecution!] },
-  { id: 'witness', kind: 'background', subject: 'the witness area of a courtroom: a dark blue-gray stone brick wall with two tall wooden pillars on the sides', refs: [FRAMING.witness!] },
-  { id: 'judge', kind: 'background', subject: 'the judge area of a courtroom: dark red wooden wall with vertical slats and a large round golden emblem of balance scales high on the wall', refs: [FRAMING.judge!] },
+  {
+    id: 'defense',
+    kind: 'background',
+    subject:
+      'the defense side of a courtroom: warm brown wooden wall panels with vertical grooves, a high wooden wainscot, soft light from above',
+    refs: [FRAMING.defense!],
+  },
+  {
+    id: 'prosecution',
+    kind: 'background',
+    subject:
+      'the prosecution side of a courtroom: dark purple-gray wooden wall panels with vertical grooves, cold light, slightly gloomy mood',
+    refs: [FRAMING.prosecution!],
+  },
+  {
+    id: 'witness',
+    kind: 'background',
+    subject:
+      'the witness area of a courtroom: a dark blue-gray stone brick wall with two tall wooden pillars on the sides',
+    refs: [FRAMING.witness!],
+  },
+  {
+    id: 'judge',
+    kind: 'background',
+    subject:
+      'the judge area of a courtroom: dark red wooden wall with vertical slats and a large round golden emblem of balance scales high on the wall',
+    refs: [FRAMING.judge!],
+  },
   // 手前（人物の前に置く机）
-  { id: 'defense', kind: 'foreground', subject: 'a long polished brown wooden courtroom counsel desk with a lighter top edge', refs: [FRAMING.defense!, 'assets/generated/raw/background/defense.png'] },
-  { id: 'prosecution', kind: 'foreground', subject: 'a long dark purple-brown wooden courtroom counsel desk with a lighter top edge', refs: [FRAMING.prosecution!, 'assets/generated/raw/background/prosecution.png'] },
-  { id: 'witness', kind: 'foreground', subject: 'a wooden courtroom witness stand, slightly narrower than the canvas and centered, with a light wooden top rail', refs: [FRAMING.witness!, 'assets/generated/raw/background/witness.png'] },
-  { id: 'judge', kind: 'foreground', subject: 'a tall heavy dark wooden judge bench spanning the whole width, with a small gavel and sound block on top', refs: [FRAMING.judge!, 'assets/generated/raw/background/judge.png'] },
+  {
+    id: 'defense',
+    kind: 'foreground',
+    subject: 'a long polished brown wooden courtroom counsel desk with a lighter top edge',
+    refs: [FRAMING.defense!, 'assets/generated/raw/background/defense.png'],
+  },
+  {
+    id: 'prosecution',
+    kind: 'foreground',
+    subject: 'a long dark purple-brown wooden courtroom counsel desk with a lighter top edge',
+    refs: [FRAMING.prosecution!, 'assets/generated/raw/background/prosecution.png'],
+  },
+  {
+    id: 'witness',
+    kind: 'foreground',
+    subject:
+      'a wooden courtroom witness stand, slightly narrower than the canvas and centered, with a light wooden top rail',
+    refs: [FRAMING.witness!, 'assets/generated/raw/background/witness.png'],
+  },
+  {
+    id: 'judge',
+    kind: 'foreground',
+    subject:
+      'a tall heavy dark wooden judge bench spanning the whole width, with a small gavel and sound block on top',
+    refs: [FRAMING.judge!, 'assets/generated/raw/background/judge.png'],
+  },
   // 証拠品
-  { id: 'badge', kind: 'evidence', subject: "a small round golden lawyer's lapel badge shaped like a sunflower with a tiny balance scale engraved in the center" },
-  { id: 'autopsy', kind: 'evidence', subject: 'a stapled autopsy report of two off-white paper sheets with a folded corner, rows of unreadable gray lines, and a red circular ink stamp' },
-  { id: 'photo', kind: 'evidence', subject: 'a printed photograph with a white border, tilted slightly, showing a small town plaza in the morning with a tall stone clock tower' },
-  { id: 'repair', kind: 'evidence', subject: 'a brown clipboard holding a maintenance work order sheet, with a small silver wrench lying diagonally across the lower part' },
-  { id: 'clock', kind: 'evidence', subject: 'a wooden mantel clock with a cream dial, the hands stopped at 9:15, and small brass feet' },
-  { id: 'keys', kind: 'evidence', subject: 'a metal key ring holding three keys, one shiny new brass key and two worn silver keys' },
+  {
+    id: 'badge',
+    kind: 'evidence',
+    subject:
+      "a small round golden lawyer's lapel badge shaped like a sunflower with a tiny balance scale engraved in the center",
+  },
+  {
+    id: 'autopsy',
+    kind: 'evidence',
+    subject:
+      'a stapled autopsy report of two off-white paper sheets with a folded corner, rows of unreadable gray lines, and a red circular ink stamp',
+  },
+  {
+    id: 'photo',
+    kind: 'evidence',
+    subject:
+      'a printed photograph with a white border, tilted slightly, showing a small town plaza in the morning with a tall stone clock tower',
+  },
+  {
+    id: 'repair',
+    kind: 'evidence',
+    subject:
+      'a brown clipboard holding a maintenance work order sheet, with a small silver wrench lying diagonally across the lower part',
+  },
+  {
+    id: 'clock',
+    kind: 'evidence',
+    subject:
+      'a wooden mantel clock with a cream dial, the hands stopped at 9:15, and small brass feet',
+  },
+  {
+    id: 'keys',
+    kind: 'evidence',
+    subject:
+      'a metal key ring holding three keys, one shiny new brass key and two worn silver keys',
+  },
 ];
 
 /** 生成した元画像の置き場所（リポジトリのルートから） */
-export const rawPath = (item: Item, suffix = '') => `assets/generated/raw/${item.kind}/${item.id}${suffix}.png`;
+export const rawPath = (item: Item, suffix = '') =>
+  `assets/generated/raw/${item.kind}/${item.id}${suffix}.png`;

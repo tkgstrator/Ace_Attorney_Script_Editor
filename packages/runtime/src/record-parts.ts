@@ -11,20 +11,36 @@ const cache = new Map<string, Run[]>();
 /** 横の並びを塗る（計算した結果は名前ごとに覚えておく） */
 function runs(p: Painter, key: string, make: () => Run[]) {
   let rs = cache.get(key);
-  if (!rs) { rs = make(); cache.set(key, rs); }
+  if (!rs) {
+    rs = make();
+    cache.set(key, rs);
+  }
   for (const r of rs) p.rect(r.x, r.y, r.w, 1, r.color);
 }
 
 /** 形を塗る */
-const paint = (p: Painter, key: string, shape: () => Shape, style: ShapeStyle) => runs(p, key, () => shapeRuns(shape(), style));
+const paint = (p: Painter, key: string, shape: () => Shape, style: ShapeStyle) =>
+  runs(p, key, () => shapeRuns(shape(), style));
 
 /** 茶色のボタン（白 → 濃い灰の縁、上の内側に明るい線） */
 const BUTTON: ShapeStyle = {
-  edges: [C.btnOuter, C.btnEdge], fill: C.btnFill,
-  inner: { top: C.btnLight, bottom: C.btnDark, left: C.btnSide, right: C.btnSideR, slant: C.btnDark },
+  edges: [C.btnOuter, C.btnEdge],
+  fill: C.btnFill,
+  inner: {
+    top: C.btnLight,
+    bottom: C.btnDark,
+    left: C.btnSide,
+    right: C.btnSideR,
+    slant: C.btnDark,
+  },
 };
 /** 明るい灰色の帯（縁は 1 ドットの灰色、斜めの辺には中間の色） */
-const PLATE: ShapeStyle = { edges: [C.plateEdge], fill: C.plate, aa: C.plateAa, screenInside: true };
+const PLATE: ShapeStyle = {
+  edges: [C.plateEdge],
+  fill: C.plate,
+  aa: C.plateAa,
+  screenInside: true,
+};
 
 // ---- 形 --------------------------------------------------------------------------
 
@@ -39,14 +55,23 @@ function topPlateBottom(x: number, present: boolean): number {
 /** 下の帯の、各列の上端。「もどる」の所だけ上に伸びる */
 const bottomPlateTop = (x: number) => (x <= 65 ? 160 : x <= 78 ? x + 95 : 174);
 
-const switchTab = (): Shape => spansOf(0, 29, y => (y === 0 ? [178, 254] : y === 29 ? [191, 254] : [y <= 15 ? 177 : y + 162, 255]));
-const presentBtn = (): Shape => spansOf(0, 29, y => (y === 0 ? [90, 165] : y <= 15 ? [89, 166] : [89 + (y - 15), 166 - (y - 15)]));
-const backBtn = (): Shape => spansOf(162, 191, y => (y === 162 ? [1, 64] : y === 191 ? [1, 77] : [0, Math.min(65 + (y - 163), 78)]));
+const switchTab = (): Shape =>
+  spansOf(0, 29, (y) =>
+    y === 0 ? [178, 254] : y === 29 ? [191, 254] : [y <= 15 ? 177 : y + 162, 255],
+  );
+const presentBtn = (): Shape =>
+  spansOf(0, 29, (y) =>
+    y === 0 ? [90, 165] : y <= 15 ? [89, 166] : [89 + (y - 15), 166 - (y - 15)],
+  );
+const backBtn = (): Shape =>
+  spansOf(162, 191, (y) =>
+    y === 162 ? [1, 64] : y === 191 ? [1, 77] : [0, Math.min(65 + (y - 163), 78)],
+  );
 
 /** 赤い縦長のボタン（一覧のページ送り・詳細の前後）。角は 2 段で丸める。right は右端に置くもの（左右が逆） */
 function sideBar(r: Rect, right: boolean): Shape {
   const [a, b] = right ? [1, 2] : [2, 1];
-  return spansOf(r.y, r.y + r.h - 1, y => {
+  return spansOf(r.y, r.y + r.h - 1, (y) => {
     const k = Math.min(y - r.y, r.y + r.h - 1 - y);
     if (k === 0) return [r.x + a, r.x + r.w - 1 - b];
     if (k === 1) return [r.x + a - 1, r.x + r.w - b];
@@ -89,22 +114,42 @@ export function topBar(p: Painter, present: boolean) {
     }
     return out;
   });
-  paint(p, `plateTop${present}`, () => ({ x0: 0, y0: 0, x1: SCREEN_W - 1, y1: 31, inside: (x, y) => y <= topPlateBottom(x, present) }), PLATE);
+  paint(
+    p,
+    `plateTop${present}`,
+    () => ({
+      x0: 0,
+      y0: 0,
+      x1: SCREEN_W - 1,
+      y1: 31,
+      inside: (x, y) => y <= topPlateBottom(x, present),
+    }),
+    PLATE,
+  );
 }
 
 /** 下の帯 */
 export function bottomBar(p: Painter) {
-  paint(p, 'plateBottom', () => ({ x0: 0, y0: 160, x1: SCREEN_W - 1, y1: 191, inside: (x, y) => y >= bottomPlateTop(x) }), PLATE);
+  paint(
+    p,
+    'plateBottom',
+    () => ({ x0: 0, y0: 160, x1: SCREEN_W - 1, y1: 191, inside: (x, y) => y >= bottomPlateTop(x) }),
+    PLATE,
+  );
 }
 
 export const drawSwitchTab = (p: Painter) => paint(p, 'switchTab', switchTab, BUTTON);
-export const drawBackButton = (p: Painter) => paint(p, 'back', backBtn, { ...BUTTON, inner: { ...BUTTON.inner, right: C.btnSide, slant: C.btnLight2 } });
+export const drawBackButton = (p: Painter) =>
+  paint(p, 'back', backBtn, {
+    ...BUTTON,
+    inner: { ...BUTTON.inner, right: C.btnSide, slant: C.btnLight2 },
+  });
 
 /** 「つきつける」のボタン。後ろに薄い ▲ の印 */
 export function drawPresentButton(p: Painter) {
   paint(p, 'present', presentBtn, { ...BUTTON, inner: { ...BUTTON.inner, left: C.btnSideR } });
   for (let y = 4; y <= 25; y++) {
-    const k = Math.round((y - 4) * 2 / 3);
+    const k = Math.round(((y - 4) * 2) / 3);
     p.rect(127 - k, y, k * 2 + 1, 1, C.btnLight);
   }
 }
@@ -113,7 +158,8 @@ export function drawPresentButton(p: Painter) {
 export function sideButton(p: Painter, r: Rect, dir: 'left' | 'right', arrow = true) {
   const right = r.x + r.w / 2 > SCREEN_W / 2;
   paint(p, `side${r.x},${r.y},${r.h}`, () => sideBar(r, right), {
-    edges: [C.btnOuter, C.sideEdge], fill: C.sideFill,
+    edges: [C.btnOuter, C.sideEdge],
+    fill: C.sideFill,
     inner: { top: C.btnLight, bottom: C.sideDark, left: C.sideInner, right: C.sideInner },
   });
   if (!arrow) return;
@@ -147,7 +193,13 @@ export function frame(p: Painter, r: Rect) {
   p.rect(x, y + 1, 1, h - 1, C.frameWhite);
   p.rect(x + w - 1, y, 1, h, C.frameWhite);
   p.rect(x, y + h - 1, w, 1, C.frameWhite);
-  for (const [cx, cy] of [[x + 1, y + 1], [x + w - 1, y + 1], [x + 1, y + h - 1], [x + w - 1, y + h - 1]] as const) p.rect(cx, cy, 1, 1, C.frameCorner);
+  for (const [cx, cy] of [
+    [x + 1, y + 1],
+    [x + w - 1, y + 1],
+    [x + 1, y + h - 1],
+    [x + w - 1, y + h - 1],
+  ] as const)
+    p.rect(cx, cy, 1, 1, C.frameCorner);
 }
 
 /** 一覧の空きのマス（くぼんだ枠） */
@@ -164,12 +216,18 @@ export function emptyCell(p: Painter, c: Rect) {
 export function frieze(p: Painter, y: number) {
   const rows: [string, string, string][] = [
     [C.friezeHi, C.friezeLineTop, C.friezeTop],
-    ...Array.from({ length: 4 }, () => [C.friezeHi2, C.friezeLine, C.frieze] as [string, string, string]),
+    ...Array.from(
+      { length: 4 },
+      () => [C.friezeHi2, C.friezeLine, C.frieze] as [string, string, string],
+    ),
     [C.friezeHi2, C.friezeLineTop, C.friezeBottom],
   ];
   rows.forEach(([hi, line, base], i) => {
     p.rect(0, y + i, SCREEN_W, 1, base);
-    for (let x = 0; x < SCREEN_W; x += 16) { p.rect(x, y + i, 1, 1, hi); p.rect(x + 1, y + i, 1, 1, line); }
+    for (let x = 0; x < SCREEN_W; x += 16) {
+      p.rect(x, y + i, 1, 1, hi);
+      p.rect(x + 1, y + i, 1, 1, line);
+    }
   });
 }
 
@@ -183,7 +241,13 @@ export function panel(p: Painter) {
 // ---- DS 版の部品の絵（Assets.ui）があるとき ----------------------------------------
 
 /** 部品の絵を (x, y) に置く。flipX / flipY で反転、wide で横 2 倍。絵がなければ何もせず false */
-export function putUi(p: Painter, part: UiPart, x: number, y: number, o: { flipX?: boolean; flipY?: boolean; wide?: boolean } = {}): boolean {
+export function putUi(
+  p: Painter,
+  part: UiPart,
+  x: number,
+  y: number,
+  o: { flipX?: boolean; flipY?: boolean; wide?: boolean } = {},
+): boolean {
   const img = p.assets.ui?.(part);
   if (!img) return false;
   const { width: w, height: h } = img as { width: number; height: number };

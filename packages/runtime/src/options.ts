@@ -14,9 +14,18 @@ export type UiPart =
   /** 下の帯の「もどる」の右の斜めの角（16×32。上下左右を反転して置く） */
   | 'frameCorner'
   /** 左上の題の札（「証拠品」「人物」「ファイル」各 32×32）と、その右端の斜め（16×32） */
-  | 'titleEvidence' | 'titleProfile' | 'titleFile' | 'titleEnd'
+  | 'titleEvidence'
+  | 'titleProfile'
+  | 'titleFile'
+  | 'titleEnd'
   /** 茶色のボタン（80×32）: もどる・▶人物ファイル・▶証拠品ファイル・つきつける（詳細の上）・法廷記録・ゆさぶる・つきつける（尋問） */
-  | 'back' | 'toProfile' | 'toEvidence' | 'present' | 'record' | 'press' | 'presentCross';
+  | 'back'
+  | 'toProfile'
+  | 'toEvidence'
+  | 'present'
+  | 'record'
+  | 'press'
+  | 'presentCross';
 
 /** 画像の供給元。返せないものは undefined にすれば、仮の表示になる */
 export interface Assets {
@@ -25,14 +34,20 @@ export interface Assets {
   /** 人物の手前に重ねる画像（証言台や机など）。key は background と同じ */
   foreground?(key: string): CanvasImageSource | undefined;
   /** 重ね絵（元のゲームの 47 anim など）。frame は出してからのフレーム数。x, y は画面上の左上 */
-  overlay?(id: string, frame: number): { image: CanvasImageSource; x: number; y: number } | undefined;
+  overlay?(
+    id: string,
+    frame: number,
+  ): { image: CanvasImageSource; x: number; y: number } | undefined;
   /** 法廷の視点の流しに使う全景（横長の絵）と、種類ごとの 1 フレームずつの表 */
   panorama?(): CanvasImageSource | undefined;
   panFrames?(type: number): PanFrame[] | undefined;
   /** 画面より大きい背景の、最初の表示位置（左上からのドット。なければ (0, 0)。縦長の背景は下端から見せるものがある） */
   backgroundStart?(key: string): [number, number] | undefined;
   /** 立ち絵。画面の下端・中央に合わせて描く */
-  portrait?(character: string, frame: { talking: boolean; blink: boolean; anim?: number | string }): CanvasImageSource | undefined;
+  portrait?(
+    character: string,
+    frame: { talking: boolean; blink: boolean; anim?: number | string },
+  ): CanvasImageSource | undefined;
   /**
    * 証拠品のアイコン。size は描く大きさ（一覧では 32、詳細や小窓では 64）。
    * 返した画像が size と違う大きさなら、size に合わせて拡大・縮小して描く

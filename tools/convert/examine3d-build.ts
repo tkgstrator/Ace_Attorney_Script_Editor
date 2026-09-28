@@ -5,9 +5,19 @@ import { convertOps } from './section.ts';
 import { bgWidth } from './investigation.ts';
 import type { Entry, Step, Tables } from './types.ts';
 
-export interface ExamineEntry { spot: string; when?: string; then: Step[] }
+export interface ExamineEntry {
+  spot: string;
+  when?: string;
+  then: Step[];
+}
 /** 場所の調べる所（YAML の places.<ID>.examine の 1 つ） */
-export interface PlaceExamine { id: string; name: string; area: [number, number, number, number]; when: string; then: Step[] }
+export interface PlaceExamine {
+  id: string;
+  name: string;
+  area: [number, number, number, number];
+  when: string;
+  then: Step[];
+}
 
 /** ルミノール試薬（法廷記録の番号 144、第 5 話の 2 日目から） */
 const LUMINOL_ITEM = 144;
@@ -31,7 +41,10 @@ function steps070(b: Build, s: number, depth = 0): Step[] {
   if (!c?.entry.body[s] || depth > 4) return [{ native: 'item070', args: [s] }];
   const hit = b.done070.get(s);
   if (hit) return hit;
-  const out = convertOps(c, s, c.entry.body[s]!.ops, { menuReturn: [], gotoSteps: t => steps070(b, t, depth + 1) });
+  const out = convertOps(c, s, c.entry.body[s]!.ops, {
+    menuReturn: [],
+    gotoSteps: (t) => steps070(b, t, depth + 1),
+  });
   b.done070.set(s, out);
   return out;
 }
@@ -46,8 +59,8 @@ function firstText(entry: Entry | undefined, s: number, depth = 0): string | nul
     if (text.length >= 14) break;
   }
   if (text) return text.slice(0, 14);
-  const j = ops.find(o => o.op === 42);
-  const t = j && j.op !== 'text' ? j.targets?.[1]?.section ?? j.args[2]! - 128 : null;
+  const j = ops.find((o) => o.op === 42);
+  const t = j && j.op !== 'text' ? (j.targets?.[1]?.section ?? j.args[2]! - 128) : null;
   return t !== null && depth < 3 ? firstText(entry, t, depth + 1) : null;
 }
 
@@ -55,7 +68,8 @@ function firstText(entry: Entry | undefined, s: number, depth = 0): string | nul
 function condOf(b: Build, p: X3dPath): string | null {
   const cs: string[] = [];
   const ks = [...b.partIndex].filter(([part]) => p.parts.includes(part)).map(([, k]) => k);
-  if (b.partFlag && ks.length < b.partIndex.size) cs.push(`(${ks.map(k => `${b.partFlag} == ${k}`).join(' or ')})`);
+  if (b.partFlag && ks.length < b.partIndex.size)
+    cs.push(`(${ks.map((k) => `${b.partFlag} == ${k}`).join(' or ')})`);
   for (const [f, v] of Object.entries(p.when)) {
     const [g, i] = f.split(':').map(Number);
     const name = b.ctxs[0]!.fname(g!, i!);
@@ -65,13 +79,19 @@ function condOf(b: Build, p: X3dPath): string | null {
 }
 
 /** 話の台本の区画を取り込んだ項目（結果のパートに合うもの） */
-const storyCtx = (b: Build, p: X3dPath, s: number) => b.ctxs.find(c => p.parts.includes(c.part) && c.examineSteps.has(s));
+const storyCtx = (b: Build, p: X3dPath, s: number) =>
+  b.ctxs.find((c) => p.parts.includes(c.part) && c.examineSteps.has(s));
 
 /** 1 つの結果（のパートごとの道）のステップ。モードの決まった区画（開いたとき・閉じたとき）も前後に足す */
-function resultSteps(b: Build, r: number, object: number, label: { text: string | null }): Step[] | null {
+function resultSteps(
+  b: Build,
+  r: number,
+  object: number,
+  label: { text: string | null },
+): Step[] | null {
   const branches: { cond: string | null; body: Step[] }[] = [];
   for (const p of b.x.results[r]?.paths ?? []) {
-    if (![...b.partIndex.keys()].some(k => p.parts.includes(k))) continue;
+    if (![...b.partIndex.keys()].some((k) => p.parts.includes(k))) continue;
     const body: Step[] = [];
     const flags: Record<string, boolean> = {};
     for (const [f, v] of Object.entries(p.set_flags)) {
@@ -100,7 +120,8 @@ function resultSteps(b: Build, r: number, object: number, label: { text: string 
   // 条件のない道を最後（else）に
   branches.sort((a, c) => Number(a.cond === null) - Number(c.cond === null));
   let out: Step[] = branches.at(-1)!.cond === null ? branches.pop()!.body : [];
-  for (const br of branches.reverse()) out = [{ if: br.cond!, then: br.body, ...(out.length ? { else: out } : {}) }];
+  for (const br of branches.reverse())
+    out = [{ if: br.cond!, then: br.body, ...(out.length ? { else: out } : {}) }];
   return out;
 }
 
@@ -108,12 +129,21 @@ function resultSteps(b: Build, r: number, object: number, label: { text: string 
  * モード（話の台本から 3D の画面を開いたとき）の決まった区画:
  * pre = 開いたとき・カーソルを乗せたとき（財布の説明）、post = 閉じたとき（結果の後に閉じたことにする）
  */
-function modeExtra(b: Build, c: Context, at: 'pre' | 'post', object: number, p: X3dPath, story: Context | undefined): Step[] {
+function modeExtra(
+  b: Build,
+  c: Context,
+  at: 'pre' | 'post',
+  object: number,
+  p: X3dPath,
+  story: Context | undefined,
+): Step[] {
   const out: Step[] = [];
   for (const m of b.x.story_modes) {
     const home = modeHome(b.x, m, c);
     if (!home) continue;
-    const objs = home.evidence.flatMap(n => objectChain(b.x, b.x.evidence[String(n)] ?? -1).map(o => o.object));
+    const objs = home.evidence.flatMap((n) =>
+      objectChain(b.x, b.x.evidence[String(n)] ?? -1).map((o) => o.object),
+    );
     if (!objs.includes(object)) continue;
     for (const ev of m.events) {
       const s = ev.section?.section;
@@ -121,19 +151,41 @@ function modeExtra(b: Build, c: Context, at: 'pre' | 'post', object: number, p: 
       const steps = c.examineSteps.get(s)!;
       const sec = p.section;
       const isStory = !!story && sec?.script === 'story';
-      if (at === 'pre') { if ((ev.on === 'open' || ev.on === 'hover') && isStory) out.push(...steps); continue; }
-      if (ev.on === 'back') { c.stats.gap('3D で見つける前にやめたときの区画（携帯電話の「もどる」）は使わない', s); continue; }
+      if (at === 'pre') {
+        if ((ev.on === 'open' || ev.on === 'hover') && isStory) out.push(...steps);
+        continue;
+      }
+      if (ev.on === 'back') {
+        c.stats.gap('3D で見つける前にやめたときの区画（携帯電話の「もどる」）は使わない', s);
+        continue;
+      }
       if (ev.on !== 'close' && ev.on !== 'close_with_flag') continue;
       // 116 11: その物を調べ終えたら閉じる
-      if (m.mode === 'e9e') { if (object === m.object) out.push(...steps); continue; }
+      if (m.mode === 'e9e') {
+        if (object === m.object) out.push(...steps);
+        continue;
+      }
       // 説明（財布）: 結果を見た後（モード 2）に閉じる
-      if (ev.mode === 2) { if (isStory) out.push(...steps); continue; }
+      if (ev.mode === 2) {
+        if (isStory) out.push(...steps);
+        continue;
+      }
       // 携帯電話: フラグが立っていれば閉じたときの区画 / ナイフ: フラグが立つと自動で閉じる
-      const flag = ev.flag ?? m.events.find(e => e.on === 'auto_close')?.flag;
-      if (flag && (p.set_flags[flag] === 1 || (isStory && setsFlag(story!.entry, sec!.section, flag)))) out.push(...steps);
+      const flag = ev.flag ?? m.events.find((e) => e.on === 'auto_close')?.flag;
+      if (
+        flag &&
+        (p.set_flags[flag] === 1 || (isStory && setsFlag(story!.entry, sec!.section, flag)))
+      )
+        out.push(...steps);
     }
   }
-  if (out.length) c.stats.gap(at === 'pre' ? '3D の画面を開いたときの説明を、調べた結果の前に出した' : '3D の画面を閉じたときの区画を、調べた結果の後に続けた', -1);
+  if (out.length)
+    c.stats.gap(
+      at === 'pre'
+        ? '3D の画面を開いたときの説明を、調べた結果の前に出した'
+        : '3D の画面を閉じたときの区画を、調べた結果の後に続けた',
+      -1,
+    );
   return out;
 }
 
@@ -142,7 +194,11 @@ function modeExtra(b: Build, c: Context, at: 'pre' | 'post', object: number, p: 
  * その物を開いた後（フラグ x3d_open物）だけ選べる
  */
 export function buildExamine(
-  t: Tables, ctxs: Context[], evidence: number[], item070: Entry | null, partFlag: string | null,
+  t: Tables,
+  ctxs: Context[],
+  evidence: number[],
+  item070: Entry | null,
+  partFlag: string | null,
 ): { examine: Map<number, ExamineEntry[]>; luminol: Map<string, PlaceExamine[]> } {
   const out = new Map<number, ExamineEntry[]>();
   const x = t.examine3d;
@@ -175,7 +231,8 @@ export function buildExamine(
   if (c070) {
     for (const [k, v] of c070.flags) if (!ctxs[0]!.flags.has(k)) ctxs[0]!.flags.set(k, v);
     ctxs[0]!.stats.merge(c070.stats);
-    if (c070.pieces.size || c070.referenced.size) ctxs[0]!.stats.gap('項目 070 の区画の途中・別の区画への移動（取り込めない）', -1);
+    if (c070.pieces.size || c070.referenced.size)
+      ctxs[0]!.stats.gap('項目 070 の区画の途中・別の区画への移動（取り込めない）', -1);
   }
   return { examine: out, luminol };
 }
@@ -191,23 +248,37 @@ function buildLuminol(b: Build): Map<string, PlaceExamine[]> {
   for (const ctx of b.ctxs) {
     if (!ctx.inv || ctx.pfx !== ctx.gpfx) continue; // 探偵パートの組の最初の項目（場所を作る所）だけ
     for (const pl of ctx.inv.places as { id: number; bg: number; bg_file?: string }[]) {
-      const views = (b.x.luminol ?? []).filter(v => v.bg === pl.bg);
+      const views = (b.x.luminol ?? []).filter((v) => v.bg === pl.bg);
       const scale = 256 / bgWidth(pl.bg_file);
       const list: PlaceExamine[] = [];
       for (const v of views) {
         for (const sp of v.spots) {
           const x0 = (sp.x + (v.scrolled && scale < 1 ? 256 : 0)) * scale;
-          const area: [number, number, number, number] = [Math.floor(x0), sp.y, Math.max(1, Math.round(sp.w * scale)), sp.h];
+          const area: [number, number, number, number] = [
+            Math.floor(x0),
+            sp.y,
+            Math.max(1, Math.round(sp.w * scale)),
+            sp.h,
+          ];
           const flag = ctx.fname(0, sp.flag);
           list.push({
-            id: `${ctx.placeId(pl.id)}_luminol${sp.flag}`, name: 'ルミノールの反応', area, when: `${has} and not ${flag}`,
-            then: [{ set: { [flag]: true } }, ...(sp.section ? steps070(b, sp.section.section) : [])],
+            id: `${ctx.placeId(pl.id)}_luminol${sp.flag}`,
+            name: 'ルミノールの反応',
+            area,
+            when: `${has} and not ${flag}`,
+            then: [
+              { set: { [flag]: true } },
+              ...(sp.section ? steps070(b, sp.section.section) : []),
+            ],
           });
         }
       }
       if (list.length) {
         out.set(ctx.placeId(pl.id), list);
-        ctx.stats.gap('ルミノールの反応の場所を、試薬を持っているときだけ先に調べられる所にした（元は吹きかける別の画面）', -1);
+        ctx.stats.gap(
+          'ルミノールの反応の場所を、試薬を持っているときだけ先に調べられる所にした（元は吹きかける別の画面）',
+          -1,
+        );
       }
     }
   }

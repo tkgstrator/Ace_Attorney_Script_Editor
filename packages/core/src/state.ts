@@ -7,21 +7,25 @@ import type { CompiledScenario, GameState } from './types.ts';
 /** 条件式から状態（ライフ・フラグ・証拠品・訪問・調べた印）を読む */
 export function stateEnv(get: () => GameState): ExprEnv {
   return {
-    variable: name => {
+    variable: (name) => {
       if (name === 'life') return get().life;
       const v = get().flags[name];
       if (v === undefined) throw new EngineError(`未定義のフラグです: ${name}`);
       return v;
     },
-    has: id => get().evidence.includes(id),
-    visited: id => get().visited.includes(id),
-    seen: id => get().seen.includes(id),
+    has: (id) => get().evidence.includes(id),
+    visited: (id) => get().visited.includes(id),
+    seen: (id) => get().seen.includes(id),
   };
 }
 
 export function initialState(scenario: CompiledScenario): GameState {
   return {
-    scene: scenario.startScene, pc: 0, mode: 'run', phase: 'intro', statement: 0,
+    scene: scenario.startScene,
+    pc: 0,
+    mode: 'run',
+    phase: 'intro',
+    statement: 0,
     flags: { ...scenario.flags },
     evidence: [...scenario.startEvidence],
     life: scenario.maxLife,
@@ -29,8 +33,21 @@ export function initialState(scenario: CompiledScenario): GameState {
     seen: [],
     profiles: [...(scenario.startProfiles ?? allProfiles(scenario))],
     stage: {
-      character: null, location: null, evidence: null, bgm: null, fade: null, pose: null,
-      textbox: null, bgmPaused: false, recordLocked: false, lifeGauge: null, scroll: null, pan: null, overlays: [], evidenceRight: false, palette: 'normal',
+      character: null,
+      location: null,
+      evidence: null,
+      bgm: null,
+      fade: null,
+      pose: null,
+      textbox: null,
+      bgmPaused: false,
+      recordLocked: false,
+      lifeGauge: null,
+      scroll: null,
+      pan: null,
+      overlays: [],
+      evidenceRight: false,
+      palette: 'normal',
     },
     vars: {},
     inspectFrom: null,

@@ -13,7 +13,10 @@ export class PanView {
 
   /** 1 フレーム進める */
   tick(pan: object | null): void {
-    if (pan !== this.#pan) { this.#pan = pan; this.#k = 0; }
+    if (pan !== this.#pan) {
+      this.#pan = pan;
+      this.#k = 0;
+    }
     if (pan && this.#k < PAN_FRAMES) this.#k++;
   }
 
@@ -27,14 +30,22 @@ export class PanView {
     const f: PanFrame | undefined = frames[Math.min(this.#k, frames.length) - 1];
     if (!f) return false;
     if (f.bgX === null) drawBackground();
-    else { p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000'); ctx.drawImage(pano, f.bgX, 0, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H); }
+    else {
+      p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
+      ctx.drawImage(pano, f.bgX, 0, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H);
+    }
     // 人物: 流す前の人物か、行き先の人物（今の状態）を、原点の x を char_x に合わせて描く
     const who = f.char === 'departing' ? pan.from.character : engine.state.stage.character;
     const pose = f.char === 'departing' ? pan.from.pose : engine.state.stage.pose;
     if (who) {
-      const img = assets.portrait?.(who, { talking: typing, blink: false, ...(pose ? { anim: typing ? pose.talk : pose.idle } : {}) });
+      const img = assets.portrait?.(who, {
+        talking: typing,
+        blink: false,
+        ...(pose ? { anim: typing ? pose.talk : pose.idle } : {}),
+      });
       if (img) {
-        const w = (img as { width: number }).width, h = (img as { height: number }).height;
+        const w = (img as { width: number }).width,
+          h = (img as { height: number }).height;
         // 動きの指定がある立ち絵は画面の大きさ（原点が中央）、ない立ち絵は下端・中央に合わせる
         if (pose) ctx.drawImage(img, f.charX - SCREEN_W / 2, 0);
         else ctx.drawImage(img, Math.round(f.charX - w / 2), SCREEN_H - h);

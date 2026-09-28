@@ -7,15 +7,32 @@ import { colorName, escapeText, inline, type TextColor } from './mapping.ts';
 import type { Stats } from './stats.ts';
 import type { Step } from './types.ts';
 
-interface OpenSay { speaker: string | null; text: string; color: TextColor; card: boolean; speakerNo: number }
+interface OpenSay {
+  speaker: string | null;
+  text: string;
+  color: TextColor;
+  card: boolean;
+  speakerNo: number;
+}
 
 /** 区画に入るたびに戻る値（engine.json の section_entry_reset） */
 export interface TextState {
-  color: TextColor; speed: number; speaker: number; align: number;
+  color: TextColor;
+  speed: number;
+  speaker: number;
+  align: number;
   /** 文字送りの音の種類（0 標準・1 女性・2 タイプライター）と、鳴らすか（66） */
-  blip: number; blipOn: boolean;
+  blip: number;
+  blipOn: boolean;
 }
-export const resetState = (): TextState => ({ color: 'white', speed: 3, speaker: 0, align: 0, blip: 0, blipOn: true });
+export const resetState = (): TextState => ({
+  color: 'white',
+  speed: 3,
+  speaker: 0,
+  align: 0,
+  blip: 0,
+  blipOn: true,
+});
 export const BLIP_NAMES = ['male', 'female', 'typewriter'] as const;
 
 export class Writer {
@@ -40,28 +57,41 @@ export class Writer {
   /** 名前の番号 → その人物の文字送りの音の種類（台詞の頭で違えば [blip] を付ける） */
   blipOf: (n: number) => number = () => 0;
 
-  constructor(stats: Stats, section: number, speakerId: (n: number) => string | null, dropCards = false) {
+  constructor(
+    stats: Stats,
+    section: number,
+    speakerId: (n: number) => string | null,
+    dropCards = false,
+  ) {
     this.stats = stats;
     this.section = section;
     this.speakerId = speakerId;
     this.dropCards = dropCards;
   }
 
-  get open(): boolean { return this.#say !== null; }
+  get open(): boolean {
+    return this.#say !== null;
+  }
   /** 文中コマンドを書けるか（文の途中・ページの終わりの部分の前） */
-  get inlineable(): boolean { return this.#say !== null && !this.#tail; }
+  get inlineable(): boolean {
+    return this.#say !== null && !this.#tail;
+  }
 
   /** 文字を足す。台詞が始まっていなければ始める */
   text(s: string) {
     if (!this.#say) {
       const speakerNo = this.st.speaker;
       this.#say = {
-        speaker: this.speakerId(speakerNo), speakerNo, text: '', color: this.st.color,
+        speaker: this.speakerId(speakerNo),
+        speakerNo,
+        text: '',
+        color: this.st.color,
         card: this.st.align === 1 && speakerNo === 0,
       };
       if (this.st.speed !== 3) this.#say.text += inline.speed(this.st.speed);
       if (!this.#say.card) {
-        if (this.st.blip !== this.blipOf(speakerNo)) this.#say.text += `[blip ${BLIP_NAMES[this.st.blip] ?? 'male'}]`;
+        if (this.st.blip !== this.blipOf(speakerNo))
+          this.#say.text += `[blip ${BLIP_NAMES[this.st.blip] ?? 'male'}]`;
         if (!this.st.blipOn) this.#say.text += '[blip off]';
       }
       this.absorb = 0;
@@ -83,12 +113,17 @@ export class Writer {
   }
 
   /** ページの終わりの部分に入った（この後に文は無い） */
-  enterTail() { if (this.#say) this.#tail = true; }
+  enterTail() {
+    if (this.#say) this.#tail = true;
+  }
 
   /** 待つ。文中なら [wait]、そうでなければ wait ステップ（直前のフェード・吹き出しの長さに含まれる分は捨てる） */
   wait(n: number) {
     if (n <= 0) return;
-    if (this.inline(inline.wait(n))) { this.stats.hit('wait', 'inline'); return; }
+    if (this.inline(inline.wait(n))) {
+      this.stats.hit('wait', 'inline');
+      return;
+    }
     if (this.absorb > 0) {
       const used = Math.min(this.absorb, n);
       this.absorb -= used;
@@ -110,7 +145,8 @@ export class Writer {
 
   /** 文字送りの音の種類（48）・鳴らすか（66） */
   blip(kind: number | null, on?: boolean) {
-    const cmd = kind !== null ? `[blip ${BLIP_NAMES[kind] ?? 'male'}]` : `[blip ${on ? 'on' : 'off'}]`;
+    const cmd =
+      kind !== null ? `[blip ${BLIP_NAMES[kind] ?? 'male'}]` : `[blip ${on ? 'on' : 'off'}]`;
     if (this.#say && !this.#tail) this.#say.text += cmd;
     if (kind !== null) this.st.blip = kind;
     if (on !== undefined) this.st.blipOn = on;
@@ -132,7 +168,8 @@ export class Writer {
     this.#say = null;
     this.#tail = false;
     if (say && emit) {
-      if (how === 'keep') this.stats.gap('問いを残したまま選択肢を出す（7 page_nowait）', this.section);
+      if (how === 'keep')
+        this.stats.gap('問いを残したまま選択肢を出す（7 page_nowait）', this.section);
       this.out.push(...this.sayStep(say, how === 'auto'));
     }
     this.out.push(...this.#deferred);
@@ -145,12 +182,24 @@ export class Writer {
     const text = say.text.replace(/(\[color white\])+$/, '');
     if (say.card) {
       if (this.dropCards) return [];
-      if (auto) this.stats.gap('ボタンを待たずに消える日時・場所の表示（card に auto が無い）', this.section);
+      if (auto)
+        this.stats.gap(
+          'ボタンを待たずに消える日時・場所の表示（card に auto が無い）',
+          this.section,
+        );
       return [{ card: plain(text) }];
     }
     const thought = /^[（(]/.test(plain(text));
     const needColor = say.color !== 'white' || thought;
-    if (needColor || auto) return [{ say: say.speaker, text, ...(needColor ? { color: say.color } : {}), ...(auto ? { auto: true } : {}) }];
+    if (needColor || auto)
+      return [
+        {
+          say: say.speaker,
+          text,
+          ...(needColor ? { color: say.color } : {}),
+          ...(auto ? { auto: true } : {}),
+        },
+      ];
     if (say.speaker === null) return [{ narrate: text }];
     return [{ [say.speaker]: text }];
   }
@@ -158,5 +207,5 @@ export class Writer {
 
 /** 文中コマンドを外した文字列（[[ は [ に戻す） */
 export function plain(text: string): string {
-  return text.replace(/\[\[|\[[^\]]*\]/g, m => (m === '[[' ? '[' : ''));
+  return text.replace(/\[\[|\[[^\]]*\]/g, (m) => (m === '[[' ? '[' : ''));
 }

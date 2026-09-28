@@ -18,9 +18,11 @@ self.onmessage = (e: MessageEvent<VerifyRequest>) => {
   let res: VerifyResponse;
   try {
     const { scenario } = loadScenario(text);
-    if (!scenario) res = { id, ok: false, error: 'コンパイルに失敗しているため、チェックできません' };
+    if (!scenario)
+      res = { id, ok: false, error: 'コンパイルに失敗しているため、チェックできません' };
     else {
-      const onProgress = (states: number) => self.postMessage({ id, progress: states } satisfies VerifyResponse);
+      const onProgress = (states: number) =>
+        self.postMessage({ id, progress: states } satisfies VerifyResponse);
       const result = verifyScenario(scenario, { onProgress, progressEvery: 20_000 });
       res = { id, ok: true, result, ms: performance.now() - started };
     }

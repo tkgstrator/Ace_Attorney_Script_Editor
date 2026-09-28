@@ -33,7 +33,12 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 function normalize([x, y, w, h]: Area): Area {
   const nx = clamp(Math.round(w < 0 ? x + w : x), 0, W - 1);
   const ny = clamp(Math.round(h < 0 ? y + h : y), 0, H - 1);
-  return [nx, ny, clamp(Math.round(Math.abs(w)), 1, W - nx), clamp(Math.round(Math.abs(h)), 1, H - ny)];
+  return [
+    nx,
+    ny,
+    clamp(Math.round(Math.abs(w)), 1, W - nx),
+    clamp(Math.round(Math.abs(h)), 1, H - ny),
+  ];
 }
 
 export function AreaCanvas({ background, items, selected, onSelect, onChange, onCreate }: Props) {
@@ -43,7 +48,7 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
 
   useEffect(() => {
     let alive = true;
-    void getAssets().then(a => {
+    void getAssets().then((a) => {
       const ctx = canvas.current?.getContext('2d');
       if (!alive || !ctx) return;
       ctx.imageSmoothingEnabled = false;
@@ -53,7 +58,9 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
       setHasImage(img !== undefined);
       if (img) ctx.drawImage(img, 0, 0, W, H);
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [background]);
 
   const point = (e: PointerEvent): [number, number] => {
@@ -87,7 +94,10 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
       setDrag({ ...drag, area: [drag.start[0], drag.start[1], dx, dy] });
     } else if (drag.mode === 'move') {
       const [x, y, w, h] = drag.origin;
-      setDrag({ ...drag, area: [clamp(Math.round(x + dx), 0, W - w), clamp(Math.round(y + dy), 0, H - h), w, h] });
+      setDrag({
+        ...drag,
+        area: [clamp(Math.round(x + dx), 0, W - w), clamp(Math.round(y + dy), 0, H - h), w, h],
+      });
     } else {
       const [x, y, w, h] = drag.origin;
       setDrag({ ...drag, area: [x, y, Math.max(1, w + dx), Math.max(1, h + dy)] });
@@ -105,17 +115,33 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
     setDrag(null);
   };
 
-  const shown = items.map((it, i) => (drag && drag.mode !== 'draw' && drag.index === i ? { ...it, area: normalize(drag.area) } : it));
+  const shown = items.map((it, i) =>
+    drag && drag.mode !== 'draw' && drag.index === i ? { ...it, area: normalize(drag.area) } : it,
+  );
 
   return (
-    <div className="relative w-fit select-none rounded border bg-muted" style={{ width: W * SCALE, height: H * SCALE }}>
-      <canvas ref={canvas} width={W} height={H} className="absolute inset-0 size-full [image-rendering:pixelated]" />
+    <div
+      className="relative w-fit select-none rounded border bg-muted"
+      style={{ width: W * SCALE, height: H * SCALE }}
+    >
+      <canvas
+        ref={canvas}
+        width={W}
+        height={H}
+        className="absolute inset-0 size-full [image-rendering:pixelated]"
+      />
       {!hasImage && (
-        <div className="absolute inset-0 grid place-items-center text-xs text-white/80">背景「{background}」の絵がありません</div>
+        <div className="absolute inset-0 grid place-items-center text-xs text-white/80">
+          背景「{background}」の絵がありません
+        </div>
       )}
       <svg
-        className="absolute inset-0 size-full cursor-crosshair" viewBox={`0 0 ${W} ${H}`}
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => setDrag(null)}
+        className="absolute inset-0 size-full cursor-crosshair"
+        viewBox={`0 0 ${W} ${H}`}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={() => setDrag(null)}
       >
         {shown.map((it, i) => {
           const [x, y, w, h] = it.area;
@@ -123,20 +149,51 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
           return (
             <g key={i} data-area={i} className="cursor-move">
               <rect
-                x={x} y={y} width={w} height={h} strokeWidth={on ? 1 : 0.75}
-                className={cn(on ? 'fill-amber-400/30 stroke-amber-400' : 'fill-sky-400/15 stroke-sky-300')}
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                strokeWidth={on ? 1 : 0.75}
+                className={cn(
+                  on ? 'fill-amber-400/30 stroke-amber-400' : 'fill-sky-400/15 stroke-sky-300',
+                )}
               />
-              <text x={x + 2} y={y + 7} className="fill-white text-[6px] font-bold" style={{ paintOrder: 'stroke', stroke: '#000', strokeWidth: 1.5 }}>
+              <text
+                x={x + 2}
+                y={y + 7}
+                className="fill-white text-[6px] font-bold"
+                style={{ paintOrder: 'stroke', stroke: '#000', strokeWidth: 1.5 }}
+              >
                 {i + 1}. {it.label}
               </text>
-              {on && <rect data-handle x={x + w - 4} y={y + h - 4} width={5} height={5} className="cursor-nwse-resize fill-amber-400" />}
+              {on && (
+                <rect
+                  data-handle
+                  x={x + w - 4}
+                  y={y + h - 4}
+                  width={5}
+                  height={5}
+                  className="cursor-nwse-resize fill-amber-400"
+                />
+              )}
             </g>
           );
         })}
-        {drag?.mode === 'draw' && (() => {
-          const [x, y, w, h] = normalize(drag.area);
-          return <rect x={x} y={y} width={w} height={h} className="fill-emerald-400/25 stroke-emerald-400" strokeWidth={0.75} strokeDasharray="2 1" />;
-        })()}
+        {drag?.mode === 'draw' &&
+          (() => {
+            const [x, y, w, h] = normalize(drag.area);
+            return (
+              <rect
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                className="fill-emerald-400/25 stroke-emerald-400"
+                strokeWidth={0.75}
+                strokeDasharray="2 1"
+              />
+            );
+          })()}
       </svg>
     </div>
   );

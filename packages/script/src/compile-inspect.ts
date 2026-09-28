@@ -15,7 +15,9 @@ export const INSPECT_CANCEL = 'やめる';
  * 返すのは examine を除いた証拠品の定義（inspect にシーンの ID を入れたもの）
  */
 export function compileInspect(
-  ctx: PlaceContext, evidence: RawScenario['evidence'], scenes: Record<string, Scene>,
+  ctx: PlaceContext,
+  evidence: RawScenario['evidence'],
+  scenes: Record<string, Scene>,
 ): Record<string, EvidenceDef> {
   const out: Record<string, EvidenceDef> = {};
   for (const [id, raw] of Object.entries(evidence)) {

@@ -26,7 +26,9 @@ export class InvestigationUI {
     this.#since = performance.now();
   }
 
-  get #guarded(): boolean { return performance.now() - this.#since < GUARD_MS; }
+  get #guarded(): boolean {
+    return performance.now() - this.#since < GUARD_MS;
+  }
 
   /** 別の Beat になったら、メニューのトップに戻す */
   reset(): void {
@@ -38,14 +40,17 @@ export class InvestigationUI {
   }
 
   #list(b: InvestigateBeat): string[] {
-    return this.view === 'move' ? b.move.map(m => m.name) : b.talk.map(t => t.topic);
+    return this.view === 'move' ? b.move.map((m) => m.name) : b.talk.map((t) => t.topic);
   }
 
   /** メニューのボタンを選んだとき。つきつけるは法廷記録を開く */
   #action(engine: Engine, b: InvestigateBeat, i: number, openRecord: () => void) {
     if (!this.#enabled(b)[i]) return;
     const a = ACTIONS[i]!;
-    if (a === 'present') { openRecord(); return; }
+    if (a === 'present') {
+      openRecord();
+      return;
+    }
     this.#switch(a);
   }
 
@@ -65,7 +70,10 @@ export class InvestigationUI {
       else return false;
       return true;
     }
-    if (back) { this.#switch('menu'); return true; }
+    if (back) {
+      this.#switch('menu');
+      return true;
+    }
     if (this.view === 'examine') {
       const step = UI.cursorStep;
       const c = this.#cursor;
@@ -91,7 +99,10 @@ export class InvestigationUI {
       if (i >= 0) this.#action(engine, b, i, openRecord);
       return;
     }
-    if (hit(UI.invBack, x, y)) { this.#switch('menu'); return; }
+    if (hit(UI.invBack, x, y)) {
+      this.#switch('menu');
+      return;
+    }
     if (this.#guarded) return;
     if (this.view === 'examine') {
       this.#cursor = { x, y };
@@ -124,20 +135,33 @@ export class InvestigationUI {
     if (this.view === 'examine') {
       W.textbox(p, null);
       const hint = p.fonts.text;
-      hint.draw(labels.examineHint, UI.invBack.x + UI.invBack.w + 8, W.textTop(p) + TOP.lineH / 2, { color: '#ffffff' });
+      hint.draw(labels.examineHint, UI.invBack.x + UI.invBack.w + 8, W.textTop(p) + TOP.lineH / 2, {
+        color: '#ffffff',
+      });
       p.tab(UI.invBack, 'tr', labels.back);
       cursor(p, this.#cursor.x, this.#cursor.y, blinkOn ? '#ffffff' : '#f0a020');
       return;
     }
     p.dim({ x: 0, y: 0, w: SCREEN_W, h: SCREEN_H }, '#000000', 0.45);
-    W.choiceButtons(p, this.#list(b), this.#sel, blinkOn, this.view === 'talk' ? b.talk.map(x => x.seen) : []);
+    W.choiceButtons(
+      p,
+      this.#list(b),
+      this.#sel,
+      blinkOn,
+      this.view === 'talk' ? b.talk.map((x) => x.seen) : [],
+    );
     p.tab(UI.invBack, 'tr', labels.back);
   }
 }
 
 /** 調べるときのカーソル（十字）。背景の上でも見えるよう黒い縁を付ける */
 function cursor(p: Painter, x: number, y: number, color: string) {
-  const arms: [number, number, number, number][] = [[x - 9, y, 6, 1], [x + 4, y, 6, 1], [x, y - 9, 1, 6], [x, y + 4, 1, 6]];
+  const arms: [number, number, number, number][] = [
+    [x - 9, y, 6, 1],
+    [x + 4, y, 6, 1],
+    [x, y - 9, 1, 6],
+    [x, y + 4, 1, 6],
+  ];
   for (const [ax, ay, w, h] of arms) p.rect(ax - 1, ay - 1, w + 2, h + 2, '#000000');
   for (const [ax, ay, w, h] of arms) p.rect(ax, ay, w, h, color);
 }

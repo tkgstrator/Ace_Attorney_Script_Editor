@@ -32,7 +32,10 @@ function tokenize(src: string): Token[] {
   let i = 0;
   while (i < src.length) {
     const c = src[i]!;
-    if (/\s/.test(c)) { i++; continue; }
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
     const at = i;
     if (/[0-9]/.test(c)) {
       const m = /^[0-9]+(\.[0-9]+)?/.exec(src.slice(i))!;
@@ -55,7 +58,7 @@ function tokenize(src: string): Token[] {
       i += w.length;
       continue;
     }
-    const op = OPS.find(o => src.startsWith(o, i));
+    const op = OPS.find((o) => src.startsWith(o, i));
     if (!op) throw new ExprSyntaxError(`使えない文字です: ${c}`, at);
     out.push({ k: 'op', v: op, at });
     i += op.length;
@@ -68,7 +71,10 @@ export function parseExpr(src: string): Expr {
   const toks = tokenize(src);
   let p = 0;
   const peek = () => toks[p]!;
-  const isOp = (v: string) => { const t = peek(); return t.k === 'op' && t.v === v; };
+  const isOp = (v: string) => {
+    const t = peek();
+    return t.k === 'op' && t.v === v;
+  };
   const expectOp = (v: string) => {
     if (!isOp(v)) throw new ExprSyntaxError(`「${v}」が必要です`, peek().at);
     p++;
@@ -86,13 +92,20 @@ export function parseExpr(src: string): Expr {
 
   const primary = (): Expr => {
     const t = peek();
-    if (t.k === 'num') { p++; return { t: 'lit', v: t.v }; }
-    if (t.k === 'str') { p++; return { t: 'lit', v: t.v }; }
+    if (t.k === 'num') {
+      p++;
+      return { t: 'lit', v: t.v };
+    }
+    if (t.k === 'str') {
+      p++;
+      return { t: 'lit', v: t.v };
+    }
     if (t.k === 'id') {
       p++;
       if (t.v === 'true' || t.v === 'false') return { t: 'lit', v: t.v === 'true' };
       if (isOp('(')) {
-        if (t.v !== 'has' && t.v !== 'visited' && t.v !== 'seen') throw new ExprSyntaxError(`未知の関数です: ${t.v}`, t.at);
+        if (t.v !== 'has' && t.v !== 'visited' && t.v !== 'seen')
+          throw new ExprSyntaxError(`未知の関数です: ${t.v}`, t.at);
         p++;
         const a = peek();
         if (a.k !== 'id') throw new ExprSyntaxError(`${t.v}() の中には ID を書いてください`, a.at);
@@ -102,10 +115,24 @@ export function parseExpr(src: string): Expr {
       }
       return { t: 'var', name: t.v };
     }
-    if (isOp('(')) { p++; const e = or(); expectOp(')'); return e; }
-    if (isOp('!')) { p++; return { t: 'not', e: primary() }; }
-    if (isOp('-')) { p++; return { t: 'bin', op: '-', l: { t: 'lit', v: 0 }, r: primary() }; }
-    throw new ExprSyntaxError(t.k === 'eof' ? '式が途中で終わっています' : '式として読めません', t.at);
+    if (isOp('(')) {
+      p++;
+      const e = or();
+      expectOp(')');
+      return e;
+    }
+    if (isOp('!')) {
+      p++;
+      return { t: 'not', e: primary() };
+    }
+    if (isOp('-')) {
+      p++;
+      return { t: 'bin', op: '-', l: { t: 'lit', v: 0 }, r: primary() };
+    }
+    throw new ExprSyntaxError(
+      t.k === 'eof' ? '式が途中で終わっています' : '式として読めません',
+      t.at,
+    );
   };
   const sum = binary(['+', '-'], primary);
   const cmp = binary(['==', '!=', '<', '<=', '>', '>='], sum);
@@ -118,12 +145,29 @@ export function parseExpr(src: string): Expr {
 }
 
 /** 式が参照している変数名・証拠品・シーンを集める（検証用） */
-export function exprRefs(e: Expr, out = { vars: [] as string[], evidence: [] as string[], scenes: [] as string[], seen: [] as string[] }) {
+export function exprRefs(
+  e: Expr,
+  out = {
+    vars: [] as string[],
+    evidence: [] as string[],
+    scenes: [] as string[],
+    seen: [] as string[],
+  },
+) {
   switch (e.t) {
-    case 'var': out.vars.push(e.name); break;
-    case 'call': ({ has: out.evidence, visited: out.scenes, seen: out.seen })[e.fn].push(e.arg); break;
-    case 'not': exprRefs(e.e, out); break;
-    case 'bin': exprRefs(e.l, out); exprRefs(e.r, out); break;
+    case 'var':
+      out.vars.push(e.name);
+      break;
+    case 'call':
+      ({ has: out.evidence, visited: out.scenes, seen: out.seen })[e.fn].push(e.arg);
+      break;
+    case 'not':
+      exprRefs(e.e, out);
+      break;
+    case 'bin':
+      exprRefs(e.l, out);
+      exprRefs(e.r, out);
+      break;
   }
   return out;
 }
@@ -138,23 +182,36 @@ export interface ExprEnv {
 
 export function evalExpr(e: Expr, env: ExprEnv): Value {
   switch (e.t) {
-    case 'lit': return e.v;
-    case 'var': return env.variable(e.name);
-    case 'call': return env[e.fn](e.arg);
-    case 'not': return !evalExpr(e.e, env);
+    case 'lit':
+      return e.v;
+    case 'var':
+      return env.variable(e.name);
+    case 'call':
+      return env[e.fn](e.arg);
+    case 'not':
+      return !evalExpr(e.e, env);
     case 'bin': {
       if (e.op === '&&') return !!evalExpr(e.l, env) && !!evalExpr(e.r, env);
       if (e.op === '||') return !!evalExpr(e.l, env) || !!evalExpr(e.r, env);
-      const l = evalExpr(e.l, env), r = evalExpr(e.r, env);
+      const l = evalExpr(e.l, env),
+        r = evalExpr(e.r, env);
       switch (e.op) {
-        case '==': return l === r;
-        case '!=': return l !== r;
-        case '<': return l < r;
-        case '<=': return l <= r;
-        case '>': return l > r;
-        case '>=': return l >= r;
-        case '+': return typeof l === 'number' && typeof r === 'number' ? l + r : String(l) + String(r);
-        case '-': return Number(l) - Number(r);
+        case '==':
+          return l === r;
+        case '!=':
+          return l !== r;
+        case '<':
+          return l < r;
+        case '<=':
+          return l <= r;
+        case '>':
+          return l > r;
+        case '>=':
+          return l >= r;
+        case '+':
+          return typeof l === 'number' && typeof r === 'number' ? l + r : String(l) + String(r);
+        case '-':
+          return Number(l) - Number(r);
       }
     }
   }

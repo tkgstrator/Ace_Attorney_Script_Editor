@@ -1,4 +1,4 @@
-# gyakusai
+# Ace Attorney Script Editor
 
 逆転裁判風の法廷アドベンチャーを作るための TypeScript フレームワーク。
 シナリオは YAML で書き、ブラウザで遊べる。
@@ -10,7 +10,7 @@
 ```bash
 bun install
 bun run dev        # サンプル事件「時計塔の鐘」を起動（表示された URL を開く）
-bun run editor     # 逆裁エディタを起動（apps/player/cases/*.yaml を直接編集・保存）
+bun run editor     # エディタを起動（apps/player/cases/*.yaml を直接編集・保存）
 bun run test       # テスト（Vitest）
 bun run typecheck  # 型チェック
 bun run check apps/player/cases/clocktower.yaml   # シナリオの検証
