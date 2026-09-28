@@ -82,6 +82,8 @@ bun tools/sprites/process.ts             # 画面用のドット絵に縮め、D
   差分コマはベースで使った色だけで描く（方法は `tools/sprites/SPEC.md` §2「取り込むときの減色」）。
 - 立ち絵の決まり（キャンバス・色数・輪郭・動き・差分コマ・スプライトシート）は `tools/sprites/SPEC.md`、
   立ち位置ごとの置き方は `tools/sprites/STAND_SPEC.md`。
+- 公式（DS 版）の画像の仕様（背景・机・吹き出し・証拠品・フォントなどの大きさ・色数・形式・置き方）は
+  [docs/official-assets.md](docs/official-assets.md)。数値は `uv run python tools/assets/measure.py` で測り直せる（手元のデータが要る）。
 
 生成した立ち絵は、決まりを守っているかを機械で確かめる（`process.ts` の最後にも自動で走る）。
 
