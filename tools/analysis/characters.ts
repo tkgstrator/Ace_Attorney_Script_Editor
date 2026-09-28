@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type CharStats, collect, NOT_PERSON } from './charstats.ts';
 import { type Episode, GAME_NAME, type Game, loadEpisodes } from './corpus.ts';
+import { collectProfiles, renderProfiles } from './profiles.ts';
 import { type Counter, f, median, pct, table } from './stats.ts';
 
 const args = process.argv.slice(2);
@@ -19,6 +20,7 @@ const END = '<!-- auto:end -->';
 const eps = await loadEpisodes();
 const epByKey = new Map<string, Episode>(eps.map((e) => [e.key, e]));
 const { stats, all } = collect(eps);
+const profiles = collectProfiles(eps);
 const targets = [...stats.values()]
   .filter((s) => s.lines >= MIN && !NOT_PERSON.test(s.id))
   .sort((a, b) => b.lines - a.lines);
@@ -171,6 +173,7 @@ function render(s: CharStats): string {
   );
   out.push(`- 使われた動きの番号の数（作品ごとの番号の種類）: ${s.poses.size}`);
   if (s.stand.size) out.push(`- 立ち位置: ${[...s.stand].join('、')}`);
+  out.push(`\n${renderProfiles(profiles.get(s.id))}`);
   return out.join('\n');
 }
 
