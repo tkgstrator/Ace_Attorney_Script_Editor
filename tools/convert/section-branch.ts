@@ -1,7 +1,9 @@
 // 流れを分ける命令（ラベルへの移動・選択肢・写真の一点を指す・下画面の遊び・つきつけの要求）のステップ。section.ts から使う。
 import type { Context } from './context.ts';
+import { luminolTutorial } from './examine3d.ts';
 import { nominationResults, orphanSections } from './flow.ts';
 import { native } from './mapping.ts';
+import { minigamePick } from './minigames.ts';
 import type { Memory } from './ops.ts';
 import { answerFlag, answerSets, lockAnswers } from './ops23.ts';
 import { convertOps } from './section.ts';
@@ -15,6 +17,32 @@ export function labelGoto(ctx: Context, o: CmdOp, gotoSteps: (t: number) => Step
   ctx.referenced.add(t.section);
   ctx.pieces.add(`${t.section}:${t.offset}`);
   return [{ goto: ctx.sid(t.section, t.offset) }];
+}
+
+/** 21 player_turn の代わりに移る先（遊びの結果の後・ルミノールの説明の後など、ARM9 が決める行き先）。無ければ null */
+export function turnSteps(
+  ctx: Context,
+  section: number,
+  gotoSteps: (t: number) => Step[],
+): Step[] | null {
+  const steps = ctx.turnSteps.get(section);
+  if (steps) return steps;
+  const turn = ctx.turnGoto.get(section);
+  return turn !== undefined ? gotoSteps(turn) : luminolTutorial(ctx, section, gotoSteps);
+}
+
+/** DS 版の下画面の遊び: 範囲を選ぶ形にできるもの（minigames.ts）はその形、ほかは結果の選択肢（近似）。作れたら true */
+export function minigameStep(
+  ctx: Context,
+  section: number,
+  [kind, arg]: [number, number],
+  gotoSteps: (t: number) => Step[],
+  out: Step[],
+): boolean {
+  return (
+    minigamePick(ctx, section, kind, arg, gotoSteps, out) ||
+    minigameChoice(ctx, section, kind, gotoSteps, out)
+  );
 }
 
 /**

@@ -1,7 +1,7 @@
 // 区画（または区画の一部）を、シナリオのステップ列にする。流れを変える命令（ページ・飛ぶ・選択肢・つきつけ・終わり）もここ。
 // 選択肢・つきつけの要求などのステップの形は section-branch.ts。
 import type { Context } from './context.ts';
-import { EXAMINE_WAIT, examineWaitAt, luminolTutorial } from './examine3d.ts';
+import { EXAMINE_WAIT, examineWaitAt } from './examine3d.ts';
 import { nested } from './flow.ts';
 import { nextDayPlace as nextDay0 } from './investigation.ts';
 import { ifFlagArg, inlineOf, native } from './mapping.ts';
@@ -11,8 +11,9 @@ import {
   demandSteps,
   labelGoto,
   lockDemand,
-  minigameChoice,
+  minigameStep,
   pointSteps,
+  turnSteps,
 } from './section-branch.ts';
 import type { How } from './stats.ts';
 import type { CmdOp, Op, Step } from './types.ts';
@@ -63,7 +64,8 @@ export function convertOps(
   let dayEnd = false;
   /** 一日の終わり（52）の後に移る場所（2・3 は 52 の引数。無ければ推測する） */
   let dayPlace: number | null = null;
-  let minigame: number | null = null;
+  /** 下画面の遊び（116 の種類と引数） */
+  let minigame: [number, number] | null = null;
   let i = 0;
 
   const textFollows = (from: number) => {
@@ -277,8 +279,8 @@ export function convertOps(
         );
         return finish(ctx, section, ops, i, out());
       }
-      case 116: // 下画面の画面。9 = 指紋などの遊び、10 = 人物の指名（第 5 話）。結果の区画は ARM9 の未解明の表
-        if (a[0] === 9 || a[0] === 10) minigame = a[0]!;
+      case 116: // 下画面の画面。9 = 指紋の遊び（引数は版）、10 = 人物の指名（第 5 話）。minigames.ts
+        if (a[0] === 9 || a[0] === 10) minigame = [a[0]!, a[1] ?? 0];
         hands.put(native(o.name, a));
         break;
       case 52: // 下画面の画面（セーブ）を待つ。探偵パートでは一日の終わり
@@ -292,21 +294,18 @@ export function convertOps(
         break;
       case 21:
       case 69:
-      case 121:
+      case 121: {
         if (mem.lockPresent && o.op === 21) {
           flow(o);
           out().push(lockDemand(ctx, section, w.close('auto', false), mem, gotoSteps));
           return finish(ctx, section, ops, i, out());
         }
         w.close('auto');
-        if (o.op === 21) {
-          const turn = ctx.turnGoto.get(section);
-          const lum = turn === undefined ? luminolTutorial(ctx, section, gotoSteps) : null;
-          if (turn !== undefined || lum) {
-            flow(o);
-            out().push(...(lum ?? gotoSteps(turn!)));
-            return finish(ctx, section, ops, i, out());
-          }
+        const turn = o.op === 21 ? turnSteps(ctx, section, gotoSteps) : null;
+        if (turn) {
+          flow(o);
+          out().push(...turn);
+          return finish(ctx, section, ops, i, out());
         }
         if (o.op === 21 && examineWaitAt(ctx, section)) {
           flow(o);
@@ -317,9 +316,10 @@ export function convertOps(
           out().push(EXAMINE_WAIT);
           return finish(ctx, section, ops, i, out());
         }
-        // 116 8 n の直後の 21 も、下画面の遊び（字を書くなど）の結果待ち
-        if (ops[i - 1]?.op === 116 && (ops[i - 1] as CmdOp).args[0] === 8) minigame = 8;
-        if (minigame !== null && minigameChoice(ctx, section, minigame, gotoSteps, out())) {
+        // 116 8 n の直後の 21 も、下画面の遊び（映像・字を書くなど）の結果待ち
+        if (ops[i - 1]?.op === 116 && (ops[i - 1] as CmdOp).args[0] === 8)
+          minigame = [8, (ops[i - 1] as CmdOp).args[1] ?? 0];
+        if (minigame && minigameStep(ctx, section, minigame, gotoSteps, out())) {
           flow(o);
           return finish(ctx, section, ops, i, out());
         }
@@ -342,6 +342,7 @@ export function convertOps(
           out().push(native(o.name, []));
         }
         return finish(ctx, section, ops, i, out());
+      }
       case 73: // 2・3: ゲームの終わり（game+8 = 1。最終話の最後、スタッフロールへ）
       case 22:
         if (o.op === 73 && ctx.t.game === 'aa1') simpleOp(o, ctx, hands, mem, section);

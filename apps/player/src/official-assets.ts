@@ -24,6 +24,12 @@ const anyBgUrls = import.meta.glob(
   ],
   { eager: true, query: '?url', import: 'default' },
 ) as Record<string, string>;
+// 動画の場面（第 5 話の防犯カメラの映像。pick の絵のキー movie2_0494 など。tools/rom/tbl_minigames.py が書き出す）
+const movieUrls = import.meta.glob('../../../assets/extracted/data/movie/clip*/*.png', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>;
 const bgTableGlob = import.meta.glob(
   [
     '../../../assets/extracted/tables/bg_render.json',
@@ -202,6 +208,18 @@ function numberedBackground(key: string, game: OfficialGame): HTMLImageElement |
   return undefined;
 }
 
+const movieFrames = new Map<string, HTMLImageElement | null>();
+/** 'movie2_0494'（動画 2 の 494 コマ目）を遅延読み込みで解決する（蘇る逆転だけ） */
+function movieFrame(key: string, game: OfficialGame): HTMLImageElement | undefined {
+  const m = /^movie(\d+)_(\d+)$/.exec(key);
+  if (!m || game !== 'aa1') return undefined;
+  if (movieFrames.has(key)) return movieFrames.get(key) ?? undefined;
+  movieFrames.set(key, null);
+  const url = movieUrls[`../../../assets/extracted/data/movie/clip${m[1]}/${m[2]}.png`];
+  if (url) void load(url).then((img) => movieFrames.set(key, img));
+  return undefined;
+}
+
 /** 立ち位置 → 背景の画像の URL（蘇る逆転は data/tail/bg の bgNNN_、2・3 は背景の番号の画像） */
 function standUrls(game: OfficialGame): [string, string][] {
   if (game === 'aa1')
@@ -258,7 +276,10 @@ export async function loadOfficialAssets(
     ...fallback,
     shout: (kind) => shouts.get(kind) ?? fallback.shout?.(kind),
     background: (key) =>
-      backgrounds.get(key) ?? numberedBackground(key, game) ?? fallback.background?.(key),
+      backgrounds.get(key) ??
+      numberedBackground(key, game) ??
+      movieFrame(key, game) ??
+      fallback.background?.(key),
     foreground: (key) => desks.get(key),
     portrait: (id, frame) => {
       const a = anims.get(id);
