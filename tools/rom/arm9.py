@@ -11,9 +11,9 @@
     uv run tools/rom/arm9.py <rom.nds> words <番地> <個数>              # u32 を並べて表示
     uv run tools/rom/arm9.py <rom.nds> halves <番地> <個数>             # u16 を並べて表示
 
-ARM9 は圧縮されておらず（モジュールの情報で compressed end = 0）、オーバーレイも無い。
-0x020cb040 からの 0x14e0 バイトは ITCM（0x01ff8000）、続く 0xc60 バイトは DTCM（0x027c0000）へ
-起動時に写される（autoload）。ここではそれらの番地でも読めるようにしてある。
+ARM9 は圧縮されておらず（モジュールの情報で compressed end = 0）、オーバーレイも無い（蘇る逆転・2・3 とも）。
+autoload（ITCM 0x01ff8000・DTCM 0x027c0000 へ起動時に写す部分）の位置はモジュールの情報（0x2106c0de の手前）から読み、
+それらの番地でも読めるようにしてある。蘇る逆転は 0x020cb040 から 0x14e0 バイト → ITCM、0xc60 バイト → DTCM。
 """
 import os
 import struct
@@ -31,10 +31,11 @@ class Arm9:
     def __init__(self, rom: bytes):
         self.img = _arm9(rom)
         self.regions: list[tuple[int, bytes]] = [(BASE, self.img)]
-        # autoload の一覧（本体の末尾近く、0x020cd180〜）
-        src = 0x020cb040
-        for i in range(2):
-            dst, size, _bss = struct.unpack_from('<3I', self.img, 0xcd180 + i * 12)
+        # autoload の一覧（モジュールの情報: 一覧の始め・終わり、写す元の始め）
+        m = self.img.find(struct.pack('<2I', 0xDEC00621, 0x2106C0DE))
+        lst, lst_end, src = struct.unpack_from('<3I', self.img, m - 0x1c)
+        for i in range((lst_end - lst) // 12):
+            dst, size, _bss = struct.unpack_from('<3I', self.img, lst - BASE + i * 12)
             o = src - BASE
             self.regions.append((dst, self.img[o:o + size]))
             src += size
