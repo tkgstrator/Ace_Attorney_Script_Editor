@@ -13,7 +13,7 @@ import {
 import type { z } from 'zod';
 import { Builder } from './builder.ts';
 import { compileInspect } from './compile-inspect.ts';
-import { collectLocks, lockFlags, lockOutScenes } from './compile-lock.ts';
+import { collectLocks, emitEnd, lockEndScenes, lockFlags, lockOutScenes } from './compile-lock.ts';
 import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
 import { makeStepCompiler } from './compile-step.ts';
 import { compileTestimony } from './compile-testimony.ts';
@@ -272,7 +272,7 @@ export function compile(raw: unknown): CompileResult {
         if (next !== undefined) {
           b.emit({ op: 'goto', scene: next });
           referencedScenes.add(next);
-        } else b.emit({ op: 'end' });
+        } else emitEnd(b, locks);
       }
       scenes[id] = { kind: 'dialogue', id, program: b.code };
       return;
@@ -290,6 +290,7 @@ export function compile(raw: unknown): CompileResult {
       program: [{ op: 'gameover' }],
     };
   }
+  Object.assign(scenes, lockEndScenes(locks));
 
   // ---- 到達性・未使用の警告 ----
   for (const id of [...sceneIds, ...placeIds]) {

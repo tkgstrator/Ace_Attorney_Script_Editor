@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
-import { type Finding, verifyScenario } from '../verify.ts';
+import { type Finding, lockEndMessage, verifyScenario } from '../verify.ts';
 
 const bin = fileURLToPath(new URL('../../../../target/release/aa-verify', import.meta.url));
 const sample = readFileSync(
@@ -227,6 +227,9 @@ parts:
     // 2 つ目の錠の正解を持っていないと、挑戦は抜け出せる（やめる）が、話題が開かずに詰む
     const noPhoto = yaml.replace('evidence: [magatama, news, photo]', 'evidence: [magatama, news]');
     expect(same(noPhoto).findings.some((f) => f.severity === 'error')).toBe(true);
+    // 話題の中身が解除を待たないと、ロックを外さないままクリアできる（両方で報告する）
+    const open = yaml.replace('- if: unlocked\n', '- if: unlocked or not unlocked\n');
+    expect(same(open).findings.map((f) => f.message)).toEqual([lockEndMessage('lock0')]);
     // 尋問で人物ファイルをつきつける・選択肢で挑戦をやめる（quitLock）
     const lock23 = readFileSync(
       fileURLToPath(new URL('../fixtures/lock23.yaml', import.meta.url)),

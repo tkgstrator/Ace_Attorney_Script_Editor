@@ -95,3 +95,14 @@ fn 尋問で人物ファイルをつきつけられる() {
     }
     assert_eq!(skip(&mut e), BeatKind::End);
 }
+
+#[test]
+fn ロックを外さないままクリアできると報告する() {
+    // psyche-lock.yaml の話題の中身を、解除を待たないようにしたもの（if: unlocked or not unlocked）
+    let text = std::fs::read_to_string(format!("{}/tests/data/psyche-lock-open.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let m = load(&text).unwrap();
+    let r = verify_complete(&m, CompleteOptions { limit: 100_000, liveness: true, ts_exact: false, parts: true, confirm: None, progress: None }).unwrap();
+    let msgs: Vec<&String> = r.findings.iter().map(|f| &f.message).collect();
+    assert_eq!(msgs, vec!["サイコ・ロック「lock0」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）"]);
+    assert!(r.findings[0].error);
+}

@@ -1,10 +1,10 @@
 // サイコ・ロックとライフのゲージ（逆転裁判2・3 の遊び）のテスト
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { type Beat, Engine, LOCK_CURRENT } from '@gyakusai/core';
+import { type Beat, Engine, LOCK_CURRENT, lockEndScene } from '@gyakusai/core';
 import { describe, expect, it } from 'vitest';
 import { loadScenario } from '../load.ts';
-import { verifyScenario } from '../verify.ts';
+import { lockEndMessage, verifyScenario } from '../verify.ts';
 
 const yaml = readFileSync(
   fileURLToPath(new URL('../fixtures/psyche-lock.yaml', import.meta.url)),
@@ -98,6 +98,22 @@ describe('サイコ・ロック', () => {
 
   it('整合性チェック: 詰みがなく、ライフが尽きたときのシーンは「たどり着かない」に出さない', () => {
     expect(verifyScenario(load()).findings).toEqual([]);
+  });
+
+  it('ロックを外さないままクリアできる台本は、整合性チェックが報告する（ロックが先へ進むのを止めていない）', () => {
+    // 話題の中身が解除を待たない（元のゲームでは、解除の台本が話題を切り替えるまで先の話は出ない）
+    const open = yaml.replace('- if: unlocked\n', '- if: unlocked or not unlocked\n');
+    const sc = load(open);
+    expect(Object.keys(sc.scenes)).toContain(lockEndScene('lock0'));
+    expect(verifyScenario(sc).findings).toEqual([
+      { severity: 'error', message: lockEndMessage('lock0') },
+    ]);
+    // 遊ぶときは、印のシーンを通って end になる
+    const e = new Engine(sc);
+    const b = skip(e);
+    e.talk(b.kind === 'investigate' ? b.talk[0]!.id : '');
+    expect(skip(e).kind).toBe('end');
+    expect(e.state.scene).toBe(lockEndScene('lock0'));
   });
 
   it('quitLock（選択肢の「やめる」など）で挑戦をやめ、quit のシーンへ行く', () => {
