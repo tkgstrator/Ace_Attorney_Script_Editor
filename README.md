@@ -9,13 +9,15 @@
 
 ```bash
 bun install
-bun run dev        # サンプル事件「時計塔の鐘」を起動（表示された URL を開く）
-bun run editor     # エディタを起動（apps/player/cases/*.yaml を直接編集・保存）
-bun run test       # テスト（Vitest）
+bun run dev        # player（サンプル事件「時計塔の鐘」）と editor を同時に起動（表示された URL を開く）
+bun run editor     # editor だけ起動したいとき
+bun run test       # テスト（Vitest。tools/convert 配下などは bun:test で書かれているので bun test も使う）
 bun run typecheck  # 型チェック
 bun run check apps/player/cases/clocktower.yaml   # シナリオの検証
 target/release/aa-verify --complete <シナリオ.yaml>  # 整合性チェックの Rust 版（crates/aa-verify/README.md）
 bun run schema     # エディタ補完用の JSON Schema を書き出す
+bunx biome check .          # フォーマット・lint（.editorconfig 準拠、biome-plugins の GritQL ルールを含む）
+bunx biome format --write . # フォーマットだけ直す
 ```
 
 ## 構成
@@ -51,6 +53,17 @@ YAML ─(script: 検証・コンパイル)→ CompiledScenario ─(core: Engine)
 - 文字送りや演出の状態は runtime だけが持ち、エンジンには入れない。
 
 シナリオの書き方は [docs/scenario.md](docs/scenario.md)、台詞の文体（カタカナ表記）は [docs/katakana.md](docs/katakana.md) を参照。
+
+## コード規約
+
+フォーマット・lint は Biome（`biome.json`）。[qtmleap/biome-plugins](https://github.com/qtmleap/biome-plugins)
+（git submodule、`biome-plugins/`）の GritQL ルールで `??` フォールバックや `as` 型アサーションなどを警告する。
+既存コードの違反は残したままにしてあるので、新しく書くコードから従う。
+
+JSON を実行時に読み込む箇所（`verify-font.ts` が読む `katakana-style.json` など）は zod で `parse` し、
+型注釈だけに頼らない。
+
+テストは各パッケージ・ツールのソースと同じ階層の `__tests__/`（例: `packages/script/src/__tests__/`）に置く。
 
 ## ドット絵の素材
 

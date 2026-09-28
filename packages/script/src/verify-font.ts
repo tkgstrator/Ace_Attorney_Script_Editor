@@ -2,8 +2,11 @@
 // あくまで「そのまま描けるか」のハードなチェック。docs/katakana.md の対応表はカタカナが好まれる
 // という演出上の好みで、字自体は存在することが多いので混同しないこと（詳しくは docs/katakana.md）。
 // PixelMplus（既定のフォールバックフォント）を使う分にはこの制約はない。
-import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+// node:fs・node:url はプロパティアクセスした時点で解決される（load() が呼ばれない限り触れない）。
+// apps/editor・apps/player はブラウザから loadScenario() 経由でこのファイルを import するので、
+// トップレベルで named import すると Vite が node:fs を externalize してクラッシュする。
+import * as nodeFs from 'node:fs';
+import * as nodeUrl from 'node:url';
 import { plainText } from '@gyakusai/core';
 import { z } from 'zod';
 import type { Diagnostic, Path } from './compile.ts';
@@ -27,9 +30,6 @@ const ALIASES: Record<string, string> = {
   '?': '？',
 };
 
-const KANJI_FILE = fileURLToPath(new URL('../../../docs/available-kanji.txt', import.meta.url));
-const STYLE_FILE = fileURLToPath(new URL('./katakana-style.json', import.meta.url));
-
 const StyleEntrySchema = z.strictObject({
   kanji: z.string(),
   katakana: z.string(),
@@ -43,8 +43,11 @@ let cache: { chars: Set<string>; style: StyleEntry[] } | null = null;
 /** 遅延読み込み（呼ばれるまで docs/available-kanji.txt を読まない）。無ければチェックしない */
 function load(): { chars: Set<string>; style: StyleEntry[] } | null {
   if (cache) return cache;
-  if (!existsSync(KANJI_FILE)) return null;
-  const kanji = readFileSync(KANJI_FILE, 'utf8').replace(/\n/g, '');
+  const kanjiFile = nodeUrl.fileURLToPath(
+    new URL('../../../docs/available-kanji.txt', import.meta.url),
+  );
+  if (!nodeFs.existsSync(kanjiFile)) return null;
+  const kanji = nodeFs.readFileSync(kanjiFile, 'utf8').replace(/\n/g, '');
   const chars = new Set([...LAYOUT, ...kanji]);
   // 半角の印字可能文字（0x20〜0x7E）は常に使えるものとする。schema.ts の Id（英数字・_）や
   // Cond（条件式。==・and など）は台詞ではなく参照・式なので、そもそも見た目に出ない
@@ -57,8 +60,9 @@ function load(): { chars: Set<string>; style: StyleEntry[] } | null {
     const code = c.codePointAt(0)!;
     if (code >= 0x21 && code <= 0x7e) chars.add(String.fromCodePoint(code + 0xfee0));
   }
-  const style: StyleEntry[] = existsSync(STYLE_FILE)
-    ? StyleFileSchema.parse(JSON.parse(readFileSync(STYLE_FILE, 'utf8')))
+  const styleFile = nodeUrl.fileURLToPath(new URL('./katakana-style.json', import.meta.url));
+  const style: StyleEntry[] = nodeFs.existsSync(styleFile)
+    ? StyleFileSchema.parse(JSON.parse(nodeFs.readFileSync(styleFile, 'utf8')))
     : [];
   cache = { chars, style };
   return cache;
