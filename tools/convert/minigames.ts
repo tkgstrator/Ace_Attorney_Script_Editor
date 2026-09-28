@@ -239,6 +239,11 @@ function safe(ctx: Context, mg: Minigames, section: number, out: Step[]): boolea
     '金庫の暗証番号（116 8 52）を、ボタンの絵の上の範囲を 1 字ずつ選ぶ形にした',
     section,
   );
+  // ボタンの絵: 区画で最後に出した背景（060 §156 は 200）。無ければ今の背景
+  const bgOp = ctx.entry.body[section]!.ops.findLast(
+    (o) => o.op !== 'text' && o.op === 27 && o.args[0]! < 0x1000,
+  );
+  const bg = bgOp && bgOp.op !== 'text' ? bgOp.args[0] : undefined;
   const judge: Step[] = [
     { wait: 60 },
     {
@@ -266,7 +271,11 @@ function safe(ctx: Context, mg: Minigames, section: number, out: Step[]): boolea
       return [{ name: b.label, area: [...b.area] as Area, then: [...wrong, ...next] }];
     });
     ctx.extraScenes.set(id(k), [
-      { pick: `暗証番号を入力する　${'●'.repeat(k)}${'○'.repeat(n - k)}`, areas },
+      {
+        pick: `暗証番号を入力する　${'●'.repeat(k)}${'○'.repeat(n - k)}`,
+        ...(bg !== undefined ? { images: [`bg${bg}`] } : {}),
+        areas,
+      },
     ]);
   }
   out.push({ set: { [miss]: 0 } }, { goto: id(0) });
