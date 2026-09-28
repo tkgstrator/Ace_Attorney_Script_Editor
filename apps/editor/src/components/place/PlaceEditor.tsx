@@ -80,7 +80,7 @@ export function PlaceEditor({ path, id, place }: { path: Path; id: string; place
 
       <Section title={`調べる（${examine.length}）`}>
         <p className="text-xs text-muted-foreground">
-          背景の上をドラッグすると新しい範囲を描きます。範囲はドラッグで移動、右下の角で大きさを変えられます。重なっているときは先に書いたものが優先です。
+          背景の上をドラッグすると新しい範囲を描きます。範囲はドラッグで移動、右下の角で大きさを変えられます。重なっているときは先に書いたものが優先です。座標は背景の座標で、横長の背景は全体を縮めて表示します（点線は画面の幅。ゲームでは調べる間に背景をスクロールします）。
         </p>
         <AreaCanvas
           background={background}
