@@ -1,0 +1,83 @@
+# 逆転裁判2・3 の遊び: 尋問で人物ファイルをつきつける・サイコ・ロックの挑戦中の選択肢で「やめる」（quitLock）。
+# 整合性チェックの TS 版と Rust 版の一致を確かめる用（crates/aa-verify/tests/data/lock23.json はこれを IR にしたもの）
+id: lock23
+title: 2・3 の遊び
+player: me
+life: 80
+defaults: { autoShow: false }
+psycheLock: { keys: [magatama], heal: 40 }
+characters:
+  me: { name: 私 }
+  larry: { name: 矢張, profile: { name: 矢張 政志, description: 幼なじみ } }
+  judge: { name: 裁判長 }
+evidence:
+  magatama: { name: 勾玉, description: 心の錠が見える }
+  map: { name: 地図, description: 見取り図 }
+flags:
+  defined: false
+  open: false
+start: { scene: intro, evidence: [magatama, map], profiles: [larry] }
+parts:
+  - id: inv
+    kind: investigation
+    title: 探偵パート
+    scenes:
+      intro:
+        - investigate: room
+      lock_start:
+        - larry: 知らねえよ。
+        - lifeRisk: 10
+        - choice:
+            - text: 左を指す
+              then:
+                - breakLock: true
+                - set: { open: true }
+                - investigate: room
+            - text: ほかの所を指す
+              then:
+                - penalty: risk
+                - goto: lock_start
+            - text: やめる
+              then:
+                - quitLock: true
+      lock_quit:
+        - me: 今はやめておこう。
+        - investigate: room
+    places:
+      room:
+        name: 部屋
+        person: larry
+        enter:
+          - if: not defined
+            then:
+              - set: { defined: true }
+              - psycheLock: lock0
+                locks: 1
+                person: larry
+                place: room
+                start: lock_start
+                quit: lock_quit
+        talk:
+          - topic: 法廷へ
+            when: open
+            then:
+              - goto: trial
+  - id: court
+    kind: trial
+    title: 法廷
+    scenes:
+      trial:
+        testimony: 見たこと
+        witness: larry
+        statements:
+          - text: オレは何も見てない。
+            press:
+              - larry: 本当だって。
+            present:
+              larry:
+                - judge: 人物ファイルですか。
+                - end: true
+              map:
+                - judge: 地図ですね。
+        wrong:
+          - judge: 違います。

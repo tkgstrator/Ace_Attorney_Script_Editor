@@ -1,0 +1,15 @@
+[package]
+name = "aa-rom"
+description = "逆転裁判 蘇る逆転（AGYJ）の ROM から素材を取り出す（ファイルに触らず、バイト列 → バイト列）"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+png = "0.17"
+serde_json = { version = "1", features = ["preserve_order"] }
+unicode-normalization = "0.1"
+encoding_rs = "0.8"
+rustfft = "6"
+gif = "0.13"

@@ -1,0 +1,32 @@
+node_modules/
+dist/
+.DS_Store
+assets/extracted/
+assets/roms/
+target/
+assets/extracted-rs/
+assets/extracted-py/
+crates/aa-wasm/pkg/
+
+# === Python (tools/rom, tools/sprites) ===
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+
+# === Bun / Node ===
+*.tsbuildinfo
+coverage/
+.turbo/
+
+# === Act (GitHub Actions local runner) ===
+.secrets
+!.secrets.example
+
+# === 立ち絵の取り込み・チェックの出力（tools/sprites が作り直す） ===
+assets/generated/check/
+assets/generated/sheets/
+assets/generated/unpatched/

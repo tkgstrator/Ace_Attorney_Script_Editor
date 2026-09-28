@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>逆裁サンプル</title>
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+<main class="page">
+  <header>
+    <h1 id="title">逆裁</h1>
+    <p class="keys">
+      <kbd>クリック</kbd>/<kbd>Enter</kbd> 進む
+      <kbd>X</kbd> 法廷記録
+      尋問中: <kbd>←</kbd><kbd>→</kbd> 証言の前後　<kbd>Z</kbd> ゆさぶる　
+      法廷記録: <kbd>Enter</kbd> 詳細・つきつける　<kbd>R</kbd> 人物ファイル
+    </p>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="screen" tabindex="0" aria-label="ゲーム画面"></canvas>
+  </div>
+  <section class="debug" aria-label="デバッグ">
+    <div class="group">
+      <span class="label">操作</span>
+      <div class="row">
+        <button type="button" id="restart">最初から</button>
+        <button type="button" id="save">セーブ</button>
+        <button type="button" id="load">ロード</button>
+      </div>
+      <div class="row">
+        <button type="button" id="export">書き出す</button>
+        <button type="button" id="import">読み込む</button>
+      </div>
+      <label class="row">シーンへ移動
+        <select id="jump"></select>
+      </label>
+      <label class="row">章
+        <select id="case"></select>
+      </label>
+      <label class="row">絵
+        <select id="art">
+          <option value="official">DS 版（取り出したもの）</option>
+          <option value="generated">生成したドット絵</option>
+        </select>
+      </label>
+      <label class="row">画面の幅
+        <select id="aspect">
+          <option value="4:3">4:3（DS 版と同じ）</option>
+          <option value="16:9">16:9</option>
+        </select>
+      </label>
+      <label class="row"><input type="checkbox" id="markers" checked />調べられる所に目印を出す</label>
+      <p id="message" class="muted" role="status"></p>
+    </div>
+    <div class="group">
+      <span class="label">現在地</span>
+      <dl id="where"></dl>
+    </div>
+    <div class="group">
+      <span class="label">フラグ</span>
+      <dl id="flags"></dl>
+    </div>
+    <div class="group">
+      <span class="label">法廷記録</span>
+      <ul id="evidence"></ul>
+    </div>
+  </section>
+  <section id="diagnostics" class="diagnostics" hidden aria-label="シナリオの診断"></section>
+</main>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

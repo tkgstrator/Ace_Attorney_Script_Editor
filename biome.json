@@ -1,0 +1,58 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!.claude", "!.devcontainer", "!biome-plugins"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "plugins": [
+    "./biome-plugins/no-let.grit",
+    "./biome-plugins/no-new-date.grit",
+    "./biome-plugins/no-nullish-coalescing.grit",
+    "./biome-plugins/no-or-fallback.grit",
+    "./biome-plugins/no-type-assertion.grit",
+    "./biome-plugins/no-while-loop.grit",
+    "./biome-plugins/no-bare-z-string.grit",
+    "./biome-plugins/no-tri-state-z-array.grit",
+    "./biome-plugins/no-tri-state-z-boolean.grit",
+    "./biome-plugins/prefer-z-nonempty.grit",
+    "./biome-plugins/prefer-z-safe-parse.grit",
+    "./biome-plugins/prefer-z-url.grit",
+    "./biome-plugins/prefer-z-uuid.grit"
+  ]
+}

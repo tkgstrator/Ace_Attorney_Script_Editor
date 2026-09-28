@@ -1,0 +1,17 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "player",
+			"runtimeExecutable": "bunx",
+			"runtimeArgs": ["vite", "apps/player", "--port", "5317", "--strictPort"],
+			"port": 5317
+		},
+		{
+			"name": "editor",
+			"runtimeExecutable": "bunx",
+			"runtimeArgs": ["vite", "apps/editor", "--port", "5318", "--strictPort"],
+			"port": 5318
+		}
+	]
+}

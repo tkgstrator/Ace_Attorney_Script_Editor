@@ -1,0 +1,92 @@
+# サイコ・ロックとライフのゲージ（逆転裁判2・3 の遊び）。整合性チェックの TS 版と Rust 版の一致も確かめる用
+id: lock
+title: サイコ・ロック
+player: me
+life: 80
+defaults: { autoShow: false }
+psycheLock: { keys: [magatama], heal: 40 }
+characters:
+  me: { name: 私 }
+  nodoka: { name: のどか }
+evidence:
+  magatama: { name: 勾玉, description: 心の錠が見える }
+  news: { name: 新聞記事, description: 事故の記事 }
+  photo: { name: 写真, description: 姉の写真 }
+start:
+  scene: intro
+  evidence: [magatama, news, photo]
+parts:
+  - id: inv
+    kind: investigation
+    title: 探偵パート
+    scenes:
+      intro:
+        - me: 話を聞きに行こう。
+        - investigate: room
+      lock_start:
+        - nodoka: 何も知りませんけど。
+        - goto: lock_q1
+      lock_q1:
+        - lifeRisk: 10
+        - demand: 証拠を見せてください。
+          by: nodoka
+          giveUp: true
+          present:
+            news:
+              - breakLock: true
+              - nodoka: そ、それは……
+              - goto: lock_q2
+          wrong:
+            - nodoka: 関係ありませんね。
+            - penalty: risk
+      lock_q2:
+        - lifeRisk: 20
+        - demand: まだ何か？
+          by: nodoka
+          giveUp: true
+          present:
+            photo:
+              - breakLock: true
+              - nodoka: ……お姉さんのことです。
+              - set: { unlocked: true }
+              - investigate: room
+          wrong:
+            - penalty: risk
+      lock_quit:
+        - me: 今はやめておこう。
+        - investigate: room
+      lock_out:
+        - me: もう無理だ……。
+        - investigate: room
+      trial:
+        - me: これで法廷へ行ける。
+        - end: true
+    places:
+      room:
+        name: 部屋
+        person: nodoka
+        enter:
+          - if: not defined
+            then:
+              - set: { defined: true }
+              - psycheLock: lock0
+                locks: 2
+                person: nodoka
+                place: room
+                start: lock_start
+                quit: lock_quit
+                gaugeOut: lock_out
+        talk:
+          - id: sister
+            topic: お姉さんのこと
+            locked: not unlocked
+            then:
+              - if: unlocked
+                then:
+                  - nodoka: 姉は看護師でした。
+                  - goto: trial
+                else:
+                  - nodoka: 話したくありません。
+flags:
+  defined: false
+  unlocked: false

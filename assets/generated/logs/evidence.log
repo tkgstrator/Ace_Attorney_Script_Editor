@@ -1,0 +1,9 @@
+お役目かんりょ～～☆ built-in image_genで5枚をそれぞれ生成して、指定の場所に保存したよ。ImageMagickで全画像のアルファチャンネルと透明な背景を確認済みなのです♪
+
+- [assets/generated/raw/evidence/badge.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/evidence/badge.png)
+- [assets/generated/raw/evidence/autopsy.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/evidence/autopsy.png)
+- [assets/generated/raw/evidence/photo.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/evidence/photo.png)
+- [assets/generated/raw/evidence/repair.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/evidence/repair.png)
+- [assets/generated/raw/evidence/keys.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/evidence/keys.png)
+
+各画像には、指定された品物の描写と、共通のレトロなピクセルアート・透明背景・文字なしの条件を個別の生成プロンプトに入れたよ。

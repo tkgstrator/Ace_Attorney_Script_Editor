@@ -1,0 +1,6 @@
+法廷の背景４枚を、内蔵の image_gen でそれぞれ別に生成して配置したよ〜！　目視で構図を確認し、ImageMagick でも全枚が 4:3（1448×1086）の不透明な PNG であることを確かめたのです♪
+
+- [assets/generated/raw/background/defense.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/background/defense.png)
+- [assets/generated/raw/background/prosecution.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/background/prosecution.png)
+- [assets/generated/raw/background/witness.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/background/witness.png)
+- [assets/generated/raw/background/judge.png](/Users/devonly/Developer/personal/AceAttorney/assets/generated/raw/background/judge.png)
