@@ -23,6 +23,8 @@ export interface StepContext
   checkScene(id: string, path: Path): void;
   checkText(text: string, path?: Path): void;
   checkInlineRefs(text: string, path: Path): void;
+  /** 今コンパイルしているシーンが裁判編のものか（つきつけの「くらえ！」は裁判編だけで出す） */
+  inTrial(): boolean;
 }
 
 /** ステップ列の変換（compileSteps）と、見当違いのつきつけの反応の変換（compileWrong）を作る */
@@ -43,6 +45,7 @@ export function makeStepCompiler(ctx: StepContext) {
     checkInlineRefs,
     cond,
     presentKind,
+    inTrial,
   } = ctx;
 
   // ---- ステップ列 → 命令列 ----
@@ -204,12 +207,12 @@ export function makeStepCompiler(ctx: StepContext) {
             ins.profiles ??= {};
             ins.profiles[ev] = b.pc;
           } else ins.options[ev] = b.pc;
-          b.emit({ op: 'shout', kind: 'takethat', by: player });
+          if (inTrial()) b.emit({ op: 'shout', kind: 'takethat', by: player });
           compileSteps(body, [...path, 'present', ev], b);
           exits.push(b.emit({ op: 'jump', to: -1 }));
         }
         ins.wrong = b.pc;
-        b.emit({ op: 'shout', kind: 'takethat', by: player });
+        if (inTrial()) b.emit({ op: 'shout', kind: 'takethat', by: player });
         compileWrong(s.wrong, [...path, 'wrong'], b);
         b.emit({ op: 'jump', to: at });
         for (const j of exits) patch(b, j, b.pc);

@@ -92,7 +92,7 @@ places:
       - topic: 時計塔の鐘
         when: seen(night)      # 条件を満たすと話題に出る
         then: [ ... ]
-    present:                   # つきつける（その場所の人物に）。前に「くらえ！」が自動で入る
+    present:                   # つきつける（その場所の人物に）。探索編なので「くらえ！」は出ない
       photo: [ ... ]           # 証拠品 ID
       torii: [ ... ]           # 人物 ID（人物ファイルをつきつけたとき）
     presentWrong: [ ... ]      # ほかの証拠品・人物ファイル（省略すると「特に反応はなかった。」）
@@ -205,7 +205,7 @@ scenes:
 | `- give: keys` / `- take: keys` | 証拠品を加える / 外す（配列も可） |
 | `- if: 条件`<br>`  then: [...]`<br>`  else: [...]` | 条件分岐 |
 | `- choice:`<br>`    - text: 選択肢`<br>`      when: 条件`<br>`      then: [...]` | 選択肢。then の後は次のステップへ進む |
-| `- demand: 問いかけ`<br>`  present: { clock: [...] }`<br>`  wrong: [...]` | 証拠品のつきつけ要求。不正解なら wrong の後にもう一度。present に人物 ID を書くと、人物ファイルもつきつけられる（`profiles: true` なら、正解が証拠品だけでも人物ファイルを見せられる。人物ファイルの見当違いも wrong） |
+| `- demand: 問いかけ`<br>`  present: { clock: [...] }`<br>`  wrong: [...]` | 証拠品のつきつけ要求。不正解なら wrong の後にもう一度。裁判編なら、つきつけた後に「くらえ！」が自動で入る（探索編では入らない）。present に人物 ID を書くと、人物ファイルもつきつけられる（`profiles: true` なら、正解が証拠品だけでも人物ファイルを見せられる。人物ファイルの見当違いも wrong） |
 | `- goto: scene` | シーン移動 |
 | `- penalty: true` / `- penalty: 3` | ライフを減らす。0 になると gameover シーンへ |
 | `- shout: objection`<br>`  by: himuro` | 吹き出し（objection / hold / takethat）。by の既定は player |

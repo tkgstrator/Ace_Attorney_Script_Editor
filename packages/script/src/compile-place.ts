@@ -58,16 +58,14 @@ export function seenIds(id: string, raw: RawPlace): string[] {
  */
 export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path: Path): PlaceScene {
   const b = new Builder();
-  const block = (steps: unknown, p: Path, before?: () => void): number => {
+  const block = (steps: unknown, p: Path): number => {
     const pc = b.pc;
-    before?.();
     ctx.compileSteps(steps, p, b);
     b.emit({ op: 'menu' });
     return pc;
   };
   const when = (src: string | undefined, p: Path) =>
     src !== undefined ? ctx.cond(src, p) : undefined;
-  const takeThat = () => b.emit({ op: 'shout', kind: 'takethat', by: ctx.player });
 
   const person = typeof raw.person === 'string' ? [{ id: raw.person }] : (raw.person ?? []);
   const scene: PlaceScene = {
@@ -136,15 +134,15 @@ export function compilePlace(ctx: PlaceContext, id: string, raw: RawPlace, path:
 
   for (const [ev, steps] of Object.entries(raw.present ?? {})) {
     const kind = ctx.presentKind(ev, [...path, 'present', ev]);
-    const pc = block(steps, [...path, 'present', ev], takeThat);
+    const pc = block(steps, [...path, 'present', ev]);
     if (kind === 'profile') {
       scene.presentProfile ??= {};
       scene.presentProfile[ev] = pc;
     } else scene.present[ev] = pc;
   }
   scene.presentWrong = raw.presentWrong
-    ? block(raw.presentWrong, [...path, 'presentWrong'], takeThat)
-    : block([{ narrate: '特に反応はなかった。' }], [...path, 'presentWrong'], takeThat);
+    ? block(raw.presentWrong, [...path, 'presentWrong'])
+    : block([{ narrate: '特に反応はなかった。' }], [...path, 'presentWrong']);
 
   (raw.move ?? []).forEach((m, i) => {
     const to = typeof m === 'string' ? m : m.to;
