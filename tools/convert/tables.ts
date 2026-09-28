@@ -50,6 +50,11 @@ export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1
   const recordText = existsSync(rtPath)
     ? readJson<{ items: Record<string, { name: string; desc: string }> }>(rtPath).items
     : undefined;
+  const profPath = join(dir, 'profiles.json');
+  const profiles =
+    game !== 'aa1' && existsSync(profPath)
+      ? readJson<{ items: NonNullable<Tables['profiles']> }>(profPath).items
+      : undefined;
   const startPath = join(dir, 'invest_start.json');
   const investStart = existsSync(startPath)
     ? readJson<{ start: Record<string, number> }>(startPath).start
@@ -78,14 +83,17 @@ export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1
     blipKinds,
     courtPoints,
     recordText,
+    profiles,
     examine3d,
     minigames,
   };
 }
 
-/** 英語の名札から人物の ID を作る（例: Phoenix → phoenix）。使えなければ空 */
+/** 英語の名札から人物の ID を作る（例: Phoenix → phoenix、Desirée → desiree）。使えなければ空 */
 export function slug(en: string): string {
   const s = en
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
