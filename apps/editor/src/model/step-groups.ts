@@ -28,6 +28,7 @@ const KIND_GROUP: Record<Exclude<StepKind, 'unknown' | 'native'>, StepGroup> = {
   choice: 'branch',
   demand: 'branch',
   pick: 'branch',
+  nominate: 'branch',
   random: 'branch',
   show: 'effect',
   showEvidence: 'effect',

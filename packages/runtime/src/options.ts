@@ -87,6 +87,7 @@ export const DEFAULT_LABELS = {
   talk: '話す',
   examineHint: 'どこを調べる？',
   pickHint: 'どこを選ぶ？',
+  nominateHint: 'だれを選ぶ？',
   testifying: '証言中',
   end: 'おしまい',
   gameover: 'ゲームオーバー',

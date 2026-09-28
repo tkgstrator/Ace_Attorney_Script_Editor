@@ -36,6 +36,7 @@ export const COMMAND_LABELS: Record<CommandName, string> = {
   choice: '選択肢',
   demand: 'つきつけ要求',
   pick: '範囲を選ぶ',
+  nominate: '人物を選ぶ',
   goto: 'シーン移動',
   penalty: 'ペナルティ',
   shout: '吹き出し',
@@ -162,6 +163,11 @@ export function stepTemplate(name: CommandName, ctx: TemplateContext): Step {
     case 'pick':
       // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
       return { pick: '', areas: [{ area: [96, 64, 64, 64], then: [] }], miss: [] };
+    case 'nominate': {
+      const people = (ctx.profiles?.length ? ctx.profiles : ctx.characters).slice(0, 8);
+      const answer = people[0] ?? first(ctx.characters, 'character');
+      return { nominate: '', people: people.length ? people : [answer], present: { [answer]: [] } };
+    }
     case 'goto':
       return { goto: first(ctx.scenes, 'scene') };
     case 'penalty':

@@ -104,6 +104,26 @@ export function makeCommands<S extends z.ZodType>(steps: S) {
           .describe('「やめる」を出す。選んだら実行して次のステップへ（省略すると出さない）'),
       })
       .describe('絵の上の範囲を選ぶ（DS 版の指紋・映像などの遊び。探索編の「調べる」と同じ操作）'),
+    nominate: z
+      .strictObject({
+        nominate: z.string().describe('案内の文（テキストの枠に出す。空なら既定の案内）'),
+        people: z
+          .array(Id)
+          .min(1)
+          .max(8)
+          .describe('並べる人物 ID（顔の絵。4 人ずつ 2 段に、左上から順に。顔の絵がなければ名前）'),
+        present: z
+          .record(Id, steps)
+          .describe(
+            '正解の人物 ID（people のどれか）→ 選んだときのステップ。then の後、次のステップへ',
+          ),
+        wrong: steps
+          .optional()
+          .describe(
+            'ほかの人物を選んだとき。実行後にもう一度選ばせる（省略すると何もせず選び直す）',
+          ),
+      })
+      .describe('人物を選ぶ（DS 版の第 5 話の指紋の照合・人物の指名。顔の並びから 1 人を選ぶ）'),
     goto: z.strictObject({ goto: Id }).describe('別のシーンへ移る'),
     penalty: z
       .strictObject({

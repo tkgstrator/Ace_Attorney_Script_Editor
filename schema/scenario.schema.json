@@ -1072,6 +1072,47 @@
           {
             "type": "object",
             "properties": {
+              "nominate": {
+                "type": "string",
+                "description": "案内の文（テキストの枠に出す。空なら既定の案内）"
+              },
+              "people": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "description": "並べる人物 ID（顔の絵。4 人ずつ 2 段に、左上から順に。顔の絵がなければ名前）"
+              },
+              "present": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "description": "正解の人物 ID（people のどれか）→ 選んだときのステップ。then の後、次のステップへ"
+              },
+              "wrong": {
+                "description": "ほかの人物を選んだとき。実行後にもう一度選ばせる（省略すると何もせず選び直す）",
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": [
+              "nominate",
+              "people",
+              "present"
+            ],
+            "additionalProperties": false,
+            "description": "人物を選ぶ（DS 版の第 5 話の指紋の照合・人物の指名。顔の並びから 1 人を選ぶ）"
+          },
+          {
+            "type": "object",
+            "properties": {
               "goto": {
                 "type": "string",
                 "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"

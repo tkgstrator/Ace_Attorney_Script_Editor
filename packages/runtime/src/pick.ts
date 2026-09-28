@@ -1,6 +1,7 @@
 // 絵の上の範囲を選ぶ（pick。DS 版の指紋・映像などの遊び）の表示と入力。探索編の「調べる」と同じカーソル・目印で選ぶ。
 // 絵が複数あるときは早戻し・早送り（L・R キーか右下のボタン）で切り替える（元のゲームの映像の操作の代わり）。
-// 絵が無ければ今の背景の上で選ぶ（範囲は背景の座標なので、スクロールした位置を足して当たりを調べる）
+// 絵が無ければ今の背景の上で選ぶ（範囲は背景の座標なので、スクロールした位置を足して当たりを調べる）。
+// 範囲に人物があれば（nominate）、顔を並べて選ぶ（pick-people.ts）
 import { type Beat, type Engine, pickMarkers, plainText } from '@gyakusai/core';
 import type { BackgroundView } from './background.ts';
 import { drawExamineMarkers } from './examine-markers.ts';
@@ -8,6 +9,7 @@ import { cursor } from './investigation.ts';
 import { hit, SCREEN_H, SCREEN_W, UI } from './layout.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
+import { drawPeople, isPeople, movePeople, personAt } from './pick-people.ts';
 import * as W from './widgets.ts';
 
 type PickBeat = Extract<Beat, { kind: 'pick' }>;
@@ -17,12 +19,15 @@ const GUARD_MS = 250;
 export class PickUI {
   /** 今見せている絵（Beat の images の番号） */
   image = 0;
+  /** 人物を選ぶときの、選んでいる人物（Beat の areas の番号） */
+  person = 0;
   #cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 - 24 };
   #since = 0;
 
   /** 別の Beat になったら、最初の絵に戻す */
   reset(): void {
     this.image = 0;
+    this.person = 0;
     this.#since = performance.now();
   }
 
@@ -47,6 +52,12 @@ export class PickUI {
 
   key(engine: Engine, b: PickBeat, key: string, bg?: BackgroundView): boolean {
     if ((key === 'Enter' || key === ' ') && this.#guarded) return true;
+    if (isPeople(b)) {
+      if (key === 'Enter' || key === ' ') engine.pick(this.person);
+      else if (key.startsWith('Arrow')) this.person = movePeople(this.person, b.areas.length, key);
+      else return false;
+      return true;
+    }
     const step = UI.cursorStep;
     const c = this.#cursor;
     if (key === 'ArrowLeft') c.x = Math.max(0, c.x - step);
@@ -62,6 +73,13 @@ export class PickUI {
   }
 
   click(engine: Engine, b: PickBeat, x: number, y: number, bg?: BackgroundView): void {
+    if (isPeople(b)) {
+      const i = personAt(b, x, y);
+      if (i === null) return;
+      this.person = i;
+      if (!this.#guarded) engine.pick(i);
+      return;
+    }
     if (b.quit && hit(UI.invBack, x, y)) {
       engine.pickQuit();
       return;
@@ -89,8 +107,13 @@ export class PickUI {
     frame: number,
     markers: { reduceMotion: boolean } | null,
     bg?: BackgroundView,
+    sc?: Engine['scenario'],
   ): void {
     const blinkOn = (frame >> 4) % 2 === 0;
+    if (sc && isPeople(b)) {
+      drawPeople(p, b, sc, this.person, plainText(b.prompt) || labels.nominateHint, blinkOn);
+      return;
+    }
     const key = b.images[this.image];
     if (key !== undefined) {
       p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');

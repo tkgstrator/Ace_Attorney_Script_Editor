@@ -28,6 +28,7 @@ const TEXT_KEYS = new Set([
   'card',
   'demand',
   'pick',
+  'nominate',
   'testimony',
   'topic',
   'name',
