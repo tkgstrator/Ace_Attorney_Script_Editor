@@ -122,11 +122,8 @@ export function op23(o: CmdOp, ctx: Context, h: Hands, mem: Memory, section: num
     }
     case 96: {
       mem.answers = { list: [{ item: a[1]!, goto: a[2]! - 128 }], wrong: a[3]! - 128 };
-      // 正解を決めてから挑戦中のつきつけへ飛ぶ区画が複数あれば、どれを通ったかを覚える
-      const ops = ctx.entry.body[section]?.ops ?? [];
-      const to = ops.map(jumpTarget).find((t) => t !== null);
-      if (to != null && answerSetters(ctx, to).length > 1)
-        put({ set: { [answerFlag(ctx)]: section } });
+      // 挑戦中のつきつけの正解の候補が複数あれば、どの区画の 96 を最後に通ったかを覚える
+      if (needsAnswerFlag(ctx, section)) put({ set: { [answerFlag(ctx)]: section } });
       st.hit(o.name, 'structure');
       return true;
     }
@@ -198,9 +195,38 @@ export function answerSetters(ctx: Context, target: number): number[] {
 /** どの区画の正解を使うか（数のフラグ。区画の番号） */
 export const answerFlag = (ctx: Context): string => ctx.flag(`${ctx.gpfx}lockans`, -1);
 
-/** 正解の区画ごとの表（answerSetters が 2 つ以上のとき） */
+const hasOp = (ctx: Context, section: number, op: number): boolean =>
+  (ctx.entry.body[section]?.ops ?? []).some((o) => o.op === op);
+
+/**
+ * 挑戦中のつきつけ（82 のある区画 target）で使いうる正解の表を決めた区画。正解の表はロックの枠（game+0x268 + 枠 × 0x28 の
+ * +0x18〜+0x20）にあり、最後に実行した 96 / 97 の中身になる（YG3J 0x02057ce0 / 0x02057d64、比べるのは 0x0208a198）。
+ * target 自身に 96 があればそれだけ。無ければ、96 を実行してから target へ飛ぶ区画と、target の前で最も近い 96 の区画
+ * （逆転裁判3 の第 5 話 §121 → 写真の一点を指す → 当たり §228（96 で正解を変える）/ 外れ → §122 など）
+ */
+export function answerCandidates(ctx: Context, target: number): number[] {
+  if (hasOp(ctx, target, 96)) return [target];
+  const out = new Set(answerSetters(ctx, target));
+  for (let s = target - 1; s >= 0; s--)
+    if (hasOp(ctx, s, 96)) {
+      out.add(s);
+      break;
+    }
+  return [...out].sort((x, y) => x - y);
+}
+
+/** この区画の 96 が、どれかの挑戦中のつきつけの候補の 1 つ（候補が 2 つ以上）か */
+function needsAnswerFlag(ctx: Context, section: number): boolean {
+  return ctx.entry.body.some((sec) => {
+    if (!hasOp(ctx, sec.section, 82)) return false;
+    const c = answerCandidates(ctx, sec.section);
+    return c.length > 1 && c.includes(section);
+  });
+}
+
+/** 正解の区画ごとの表（answerCandidates が 2 つ以上のとき） */
 export function answerSets(ctx: Context, target: number): { section: number; ans: Answers }[] {
-  const setters = answerSetters(ctx, target);
+  const setters = answerCandidates(ctx, target);
   if (setters.length < 2) return [];
   return setters.flatMap((s) => {
     const ans = answersIn(ctx.entry.body[s]?.ops ?? []);

@@ -239,7 +239,7 @@ export function buildPlaces(
     inv.talk.forEach((entry: Record<string, any>) => {
       if (entry.place !== P) return;
       const k = (entry.person as number) & 0x1fff;
-      const own = ctx.flag(`${ctx.gpfx}talk_${entry.id}`, !!entry.active);
+      const own = ctx.talkFlag(entry.id as number);
       const before = earlier.get(k) ?? [];
       const flag = and([own, ...before.map((f) => `not ${f}`)]);
       earlier.set(k, [...before, own]);

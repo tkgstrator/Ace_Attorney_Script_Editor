@@ -20,6 +20,8 @@ export class Shared {
   readonly nameIds = new Map<number, string>();
   /** 人物ファイルとして使う法廷記録の番号（つきつけの表で証拠品と区別する） */
   readonly profileRecords = new Set<number>();
+  /** 章の中で法廷記録に入りうる番号（空なら調べない。単体の変換・テスト用） */
+  readonly chapterRecords = new Set<number>();
   /** サイコ・ロック（79）を使ったか（章に psycheLock の keys を書く） */
   lockKeys = false;
   /** 章の中で人物ファイルとして使う法廷記録の番号（1 回目の変換で集めたもの。2・3 の見当違いの人物ファイル用） */
@@ -186,6 +188,16 @@ export class Context {
   flag(name: string, init: boolean | number = false): string {
     if (!this.flags.has(name)) this.flags.set(name, init);
     return name;
+  }
+
+  /**
+   * 話題の項目 id を使うか（talk_項目）のフラグ。初期値は表の active（どこで最初に読んでも同じにする。
+   * 以前は着いたときの条件で先に読むと false になり、逆転裁判3 の第 5 話で春美のロックの話題 §111 を飛ばして
+   * 解除の後の話題 §117 が出ていた）
+   */
+  talkFlag(id: number): string {
+    const talk = (this.inv?.talk ?? []) as { id: number; active?: boolean }[];
+    return this.flag(`${this.gpfx}talk_${id}`, !!talk.find((t) => t.id === id)?.active);
   }
 
   /** 区画 → シーン ID */
