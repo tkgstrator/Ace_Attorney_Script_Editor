@@ -104,6 +104,8 @@ export interface Tables {
    * tools/rom/record_profiles.py。null = 台詞の無い人物）
    */
   profiles?: Record<string, { name_image: number; name_en: string; name_id: number | null }>;
+  /** 人物 ID の対応表（tools/convert/character-ids.json のこのゲームの分。無ければ番号から仮の ID を作る） */
+  ids?: import('./character-ids.ts').IdTable;
   /** 探偵パートの最初の場所（tables/invest_start.json） */
   investStart?: Record<string, number>;
   court: {

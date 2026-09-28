@@ -1,6 +1,7 @@
 // assets/extracted の表を読み、人物・証拠品・音の ID を決める。
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { loadIdTables } from './character-ids.ts';
 import type { Entry, Tables } from './types.ts';
 
 export const ROOT = resolve(import.meta.dir, '../..');
@@ -84,6 +85,7 @@ export function loadTables(dir = join(EXTRACTED, 'tables'), game: GameKey = 'aa1
     courtPoints,
     recordText,
     profiles,
+    ids: loadIdTables()[game],
     examine3d,
     minigames,
   };
