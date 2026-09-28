@@ -20,13 +20,13 @@ export type Beat =
   | { kind: 'choice'; options: string[]; inspect?: string[] }
   /**
    * 絵の上の範囲を選ぶ（pick）。areas は今選べる範囲（Engine.pick の番号の順）。images が空なら今の背景の上。
-   * miss: 範囲の外も選べる、quit: やめられる
+   * miss: 範囲の外も選べる、quit: やめられる。person: 人物を選ぶ（nominate）ときの、その範囲に顔を出す人物 ID
    */
   | {
       kind: 'pick';
       prompt: string;
       images: string[];
-      areas: { area: Area; image: number | null }[];
+      areas: { area: Area; image: number | null; person?: string }[];
       miss: boolean;
       quit: boolean;
     }

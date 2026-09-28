@@ -106,7 +106,7 @@ export function renderScreen(h: PlayerHost) {
       h.inv.render(p, b, h.labels, h.frame, h.markers, h.views.bg);
       break;
     case 'pick':
-      h.pick.render(p, b, h.labels, h.frame, h.markers, h.views.bg);
+      h.pick.render(p, b, h.labels, h.frame, h.markers, h.views.bg, h.engine.scenario);
       break;
     case 'end':
       W.endScreen(p, h.labels.end);

@@ -120,6 +120,8 @@ export interface PickOption {
   image?: number;
   /** エディタ・報告での表示名 */
   name?: string;
+  /** 人物を選ぶ（nominate）ときの、この範囲に顔を出す人物 ID（表示側は絵の代わりに顔を並べる） */
+  person?: string;
 }
 
 export interface Statement {

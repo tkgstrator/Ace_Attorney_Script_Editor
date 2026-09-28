@@ -203,6 +203,31 @@ ${topics.map((i) => `        - text: 話題${i}\n          when: not t${i}\n    
     expect(same(pick('glove and false')).findings.length).toBeGreaterThan(0);
   });
 
+  it('人物を選ぶ（nominate）の正解・外れも、TS 版と同じく試す', () => {
+    const nominate = (answer: string) =>
+      tiny(
+        '  tries: 0',
+        `
+  s:
+    - nominate: だれ？
+      people: [a, b]
+      present:
+        ${answer}:
+          - end: true
+      wrong:
+        - add: { tries: 1 }
+        - if: tries > 1
+          then:
+            - goto: dead
+  dead:
+    - a: 抜け出せない
+    - goto: dead`,
+      ).replace('  a: { name: A }\n', '  a: { name: A }\n  b: { name: B }\n');
+    // 外れを 2 回選ぶと詰む（どちらの人物が正解でも同じ）
+    expect(same(nominate('a')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+    expect(same(nominate('b')).findings.filter((f) => f.severity === 'error')).toHaveLength(1);
+  });
+
   it('証拠品を詳しく調べて手に入る証拠品も、TS 版と同じく扱う', () => {
     const yaml = `
 id: t

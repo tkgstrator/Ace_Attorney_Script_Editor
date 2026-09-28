@@ -113,6 +113,14 @@ export function findRefs(data: unknown, target: RefTarget, id: string): Ref[] {
           });
         steps(s.miss, at('miss'));
         return steps(s.quit, at('quit'));
+      case 'nominate':
+        list(s.people, at('people'), 'character');
+        if (isRec(s.present))
+          for (const [k, v] of Object.entries(s.present)) {
+            if (target === 'character' && k === id) out.push({ how: 'key', path: at('present') });
+            steps(v, [...at('present'), k]);
+          }
+        return steps(s.wrong, at('wrong'));
       case 'demand':
         presentKeys(s.present, at('present'), true);
         steps(s.wrong, at('wrong'));

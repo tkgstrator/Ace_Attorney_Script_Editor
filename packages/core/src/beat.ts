@@ -123,7 +123,9 @@ export function instrBeat(scenario: CompiledScenario, ins: Instr, s: GameState, 
         prompt: interpolate(ins.prompt, s),
         images: ins.images,
         areas: shown.flatMap((o) =>
-          o.kind === 'area' && o.area ? [{ area: o.area, image: o.image ?? null }] : [],
+          o.kind === 'area' && o.area
+            ? [{ area: o.area, image: o.image ?? null, ...(o.person ? { person: o.person } : {}) }]
+            : [],
         ),
         miss: shown.some((o) => o.kind === 'miss'),
         quit: shown.some((o) => o.kind === 'quit'),
