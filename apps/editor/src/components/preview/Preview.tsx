@@ -1,16 +1,15 @@
 // 右: プレビュー。編集中の YAML をコンパイルした結果の診断と、実際に遊べる画面と、整合性チェック。
 // 「ゲーム」「整合性チェック」「診断」はそれぞれ隠せる。どれも、どの版（編集の version）の内容かを持ち、
 // 今の編集より古ければそう書く。章を切り替えたら作り直す（App で key に章の名前を渡す）
-import { type CompiledScenario, Engine } from '@gyakusai/core';
+// 再読み込みでは、遊んでいた状態（セーブデータと同じもの）を新しい内容に持ち込み、同じ場面の続きから遊ぶ
+import { type CompiledScenario, Engine, type RestoreResult, restoreEngine } from '@gyakusai/core';
 import { fitCanvas, loadFonts, Player } from '@gyakusai/runtime';
-import { Loader2, Play, RefreshCw, RotateCcw } from 'lucide-react';
-import { memo, useEffect, useId, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { memo, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { getAssets, getAudio, getDsFont } from '@/preview/assets.ts';
 import type { Compiled } from '@/preview/use-compile.ts';
 import { Diagnostics } from './Diagnostics.tsx';
+import { PlayControls, type Restart } from './PlayControls.tsx';
 import { usePanels } from './panels.ts';
 import { VerifyPanel } from './VerifyPanel.tsx';
 
@@ -53,28 +52,39 @@ export const Preview = memo(function Preview({
   const [auto, setAuto] = useState(false);
   const [from, setFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 再読み込みで何が起きたか（続きから・シーンの始めから・最初から） */
+  const [notice, setNotice] = useState<{ text: string; warn: boolean; detail: string[] } | null>(
+    null,
+  );
   /** ゲームで動いている内容の版 */
   const [playing, setPlaying] = useState<number | null>(null);
   const [panels, toggle] = usePanels();
-  const autoId = useId();
   const result = compiled?.result ?? null;
   const scenario = result?.scenario ?? null;
   // 最後に正しくコンパイルできたもの（エラーの間も遊べるように）
   const lastGood = useRef<Good | null>(null);
   if (scenario && compiled) lastGood.current = { scenario, version: compiled.version };
 
-  /** エンジンを作り直して、指定のシーン（なければ最初）から始める */
-  const restart = (g: Good | null, scene: string | null) => {
+  /** エンジンを作り直して、how のとおりに始める（続きから・最初から・シーンの頭から） */
+  const restart = (g: Good | null, how: Restart) => {
     const p = player.current;
     if (!p || !g) return;
     try {
-      const engine = new Engine(g.scenario);
-      if (scene) {
-        if (!g.scenario.scenes[scene])
-          throw new Error(`シーン「${scene}」はコンパイル結果にありません`);
-        engine.jumpTo(scene);
+      if (how.kind === 'continue' || how.kind === 'jump') {
+        const prev = { scenario: p.engine.scenario, state: p.engine.state };
+        const r = restoreEngine(g.scenario, prev, how.kind === 'jump' ? { scene: how.scene } : {});
+        p.setEngine(r.engine);
+        setNotice(describe(how, r.result, r.scene, r.notes));
+      } else {
+        const engine = new Engine(g.scenario);
+        if (how.kind === 'scene') {
+          if (!g.scenario.scenes[how.scene])
+            throw new Error(`シーン「${how.scene}」はコンパイル結果にありません`);
+          engine.jumpTo(how.scene);
+        }
+        p.setEngine(engine);
+        setNotice(null);
       }
-      p.setEngine(engine);
       setPlaying(g.version);
       setError(null);
     } catch (e) {
@@ -106,7 +116,7 @@ export const Preview = memo(function Preview({
         assets,
         audio: getAudio(),
         ...fonts,
-        onRestart: () => restartRef.current(lastGood.current, null),
+        onRestart: () => restartRef.current(lastGood.current, { kind: 'start' }),
       });
       setPlaying(g.version);
       setReady(true);
@@ -119,16 +129,18 @@ export const Preview = memo(function Preview({
     };
   }, [hasGood]);
 
-  // コンパイルし直したら（自動再読み込みがオンなら）作り直す
+  // コンパイルし直したら（自動再読み込みがオンなら）、遊んでいた場面の続きから作り直す
   // biome-ignore lint/correctness/useExhaustiveDependencies: 新しい結果が来たときだけ
   useEffect(() => {
-    if (ready && auto && scenario) restartRef.current(lastGood.current, from);
+    if (ready && auto && scenario) restartRef.current(lastGood.current, { kind: 'continue' });
   }, [scenario, ready]);
 
-  /** 今の内容でコンパイルし直して、scene から（null なら最初から）遊ぶ */
-  const reload = async (scene: string | null) => {
+  /** 今の内容でコンパイルし直して、how のとおりに遊ぶ */
+  const reload = async (how: Restart) => {
+    if (how.kind === 'start') setFrom(null);
     await onCompile();
-    restartRef.current(lastGood.current, scene);
+    restartRef.current(lastGood.current, how);
+    canvas.current?.focus({ preventScroll: true });
   };
 
   // 「ここから再生」
@@ -136,7 +148,10 @@ export const Preview = memo(function Preview({
   useEffect(() => {
     if (play.serial === 0) return;
     setFrom(play.scene);
-    restartRef.current(lastGood.current, play.scene);
+    restartRef.current(
+      lastGood.current,
+      play.scene ? { kind: 'scene', scene: play.scene } : { kind: 'start' },
+    );
     canvas.current?.focus({ preventScroll: true });
   }, [play.serial]);
 
@@ -189,52 +204,26 @@ export const Preview = memo(function Preview({
         {!lastGood.current && (
           <p className="text-xs text-muted-foreground">コンパイルに成功すると、ここで遊べます。</p>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={playStale ? 'default' : 'outline'}
-            className="h-7 text-xs"
-            disabled={compiling}
-            onClick={() => void reload(from)}
-            title="今の内容でコンパイルし直して、ゲームを作り直します"
+        <PlayControls
+          compiling={compiling}
+          stale={playStale}
+          from={from}
+          scenes={Object.keys(lastGood.current?.scenario.scenes ?? {})}
+          auto={auto}
+          onAuto={setAuto}
+          large={large}
+          onReload={(how) => void reload(how)}
+        />
+        {notice && (
+          <p
+            className={cn('text-[11px]', notice.warn ? 'text-amber-700' : 'text-muted-foreground')}
+            role="status"
+            title={notice.detail.join('\n') || undefined}
           >
-            {compiling ? <Loader2 className="animate-spin" /> : <RefreshCw />} 再読み込み
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={compiling}
-            onClick={() => {
-              setFrom(null);
-              void reload(null);
-            }}
-          >
-            <RotateCcw /> 最初から
-          </Button>
-          {from && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              disabled={compiling}
-              onClick={() => void reload(from)}
-            >
-              <Play /> {from} から
-            </Button>
-          )}
-          <span
-            className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"
-            title={
-              large ? '大きな章では、コンパイルは「再読み込み」を押したときだけ行います' : undefined
-            }
-          >
-            <Switch id={autoId} checked={auto} onCheckedChange={setAuto} />
-            <label htmlFor={autoId}>
-              {large ? 'コンパイルしたら作り直す' : '編集したら再読み込み'}
-            </label>
-          </span>
-        </div>
+            {notice.text}
+            {notice.detail.length > 0 && `（${notice.detail.length} 件の補正）`}
+          </p>
+        )}
         {playStale && (
           <p className="text-[11px] text-amber-700" role="status">
             ゲームは最後の編集より前の内容です（「再読み込み」で今の内容にします）
@@ -261,3 +250,19 @@ export const Preview = memo(function Preview({
     </div>
   );
 });
+
+/** 再読み込みの結果を、短い知らせにする（直したデータなどは detail に。ツールチップで見せる） */
+function describe(how: Restart, result: RestoreResult, scene: string, notes: string[]) {
+  if (result === 'same' || result === 'moved') {
+    const fixed = result === 'moved' ? '（編集に合わせて位置を直しました）' : '';
+    return { text: `シーン「${scene}」の続きから遊んでいます${fixed}`, warn: false, detail: notes };
+  }
+  if (result === 'sceneStart' && how.kind === 'jump')
+    return { text: `状態を保って、シーン「${scene}」の頭へ移りました`, warn: false, detail: notes };
+  // 続けられなかった理由は notes の最後にある
+  return {
+    text: notes.at(-1) ?? '最初から始めました',
+    warn: true,
+    detail: notes.slice(0, -1),
+  };
+}

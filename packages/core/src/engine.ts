@@ -10,12 +10,12 @@ import {
 import { cloneData } from './clone.ts';
 import { EngineError } from './errors.ts';
 import { applyInlineCommand, enterStatement, execSimple } from './exec.ts';
-import { initialState, migrateState, stateEnv } from './state.ts';
-import { plainBgm as bgmMarks, type InlineCommand } from './rich.ts';
-import { evalExpr, type ExprEnv } from './expr.ts';
-import { examineAt, investigateBeat, personAt } from './investigation.ts';
+import { type ExprEnv, evalExpr } from './expr.ts';
 import { inspectFrame, returnFromInspect } from './inspect.ts';
-import { holds, kindOf, recordName, type RecordKind } from './present.ts';
+import { examineAt, investigateBeat, personAt } from './investigation.ts';
+import { holds, kindOf, type RecordKind, recordName } from './present.ts';
+import { plainBgm as bgmMarks, type InlineCommand } from './rich.ts';
+import { initialState, migrateState, stateEnv } from './state.ts';
 import type {
   Beat,
   CompiledScenario,
@@ -259,9 +259,10 @@ export class Engine {
     return { version: 1, scenario: this.scenario.id, state: cloneData(this.#state) };
   }
 
-  /** デバッグ用: 任意のシーンへ飛ぶ（フラグや証拠品はそのまま） */
+  /** デバッグ用: 任意のシーンへ飛ぶ（フラグや証拠品はそのまま。探索編の場所なら、来たときのブロックか探偵メニューから） */
   jumpTo(scene: string): void {
-    this.#enter(scene);
+    if (this.scenario.scenes[scene]?.kind === 'place') this.#goPlace(scene);
+    else this.#enter(scene);
     this.#settle();
   }
 
