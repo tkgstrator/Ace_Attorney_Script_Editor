@@ -1,0 +1,155 @@
+# yaml-language-server: $schema=../../../schema/scenario.schema.json
+#
+# チュートリアル（docs/tutorial.md）で作る章「パン屋の夜」の完成形。
+# apps/player/cases/bakery.yaml に写して使う（先頭の $schema の行は、その置き場所からの相対パス）。
+id: bakery
+title: パン屋の夜
+player: minato
+life: 5
+
+defaults:
+  penalty: 1
+  autoPause: true
+  wrongPresent:
+    - judge: その「{evidence}」で、何が言いたいのですか？
+    - penalty: true
+
+characters:
+  minato:
+    name: ミナト
+    stand: defense
+    profile: { name: 港 光, age: 25, description: 新米の弁護士。 }
+  kurosaki:
+    name: クロサキ
+    stand: prosecution
+    profile: { name: 黒崎 修, age: 34, description: 担当の検事。 }
+  yamabuki:
+    name: ヤマブキ
+    stand: witness
+    profile: { name: 山吹 ちよ, age: 61, description: パン屋の向かいに住む証人。 }
+  judge:
+    name: サイバンチョ
+    stand: judge
+
+evidence:
+  badge:
+    name: 弁護士バッジ
+    description: 弁護士である証。いつも胸につけている。
+  receipt:
+    name: カギ屋の領収書
+    description: 事件の日の午後5時に、店の表のカギを取り替えた。
+
+flags:
+  asked_key: false
+
+start:
+  scene: prologue
+  evidence: [badge]
+
+gameover: guilty
+
+parts:
+  - id: investigation
+    kind: investigation
+    title: 探偵パート（10月2日）
+    scenes:
+      prologue:
+        - card: "10月2日 午後3時\nパン屋「こむぎ」"
+        - minato: （明日は、初めての法廷だ）
+        - minato: （現場のパン屋を、この目で見ておこう）
+        - investigate: bakery
+    places:
+      bakery:
+        name: パン屋「こむぎ」
+        person: yamabuki
+        enter:
+          - if: not visited(bakery)
+            then:
+              - yamabuki: おや、太一くんの弁護士さんかい。
+        examine:
+          - id: door
+            name: 表の扉
+            area: [96, 40, 64, 100]
+            then:
+              - minato: （表の扉だ。カギが、やけに新しい）
+          - id: counter
+            name: レジの台
+            area: [16, 110, 80, 50]
+            then:
+              - minato: （レジの台だ。紙が一枚、置いてある）
+              - if: not has(receipt)
+                then:
+                  - give: receipt
+                  - narrate: カギ屋の領収書を手に入れた。
+        talk:
+          - id: night
+            topic: 事件の夜のこと
+            then:
+              - yamabuki: 10時ごろ、太一くんが入っていくのを見たよ。
+              - yamabuki: 自分のカギで、扉を開けてね。
+        present:
+          receipt:
+            - yamabuki: カギを取り替えた？　知らなかったねえ。
+        move:
+          - to: court
+            when: has(receipt) and seen(night)
+      court:
+        name: 地方裁判所
+        enter:
+          - minato: （よし。明日に備えよう）
+          - goto: opening
+
+  - id: trial
+    kind: trial
+    title: 法廷パート（10月3日）
+    scenes:
+      opening:
+        - card: "10月3日 午前10時\n地方裁判所 第1法廷"
+        - judge: 小麦 太一の審理を始めます。
+        - minato: 弁護側、いつでも始められます。
+        - kurosaki: 検察側も、とうに。
+        - kurosaki: 被告人は、夜のパン屋から売上を盗んだ。
+        - kurosaki: 見ていた人がいる。証人、入りたまえ。
+        - show: yamabuki
+        - judge: では証人。あの夜に見た光景を、どうぞ。
+
+      t1:
+        testimony: 事件の夜に見たこと
+        witness: yamabuki
+        statements:
+          - id: time
+            text: 夜の10時ごろ、窓から外を見たんです。
+            press:
+              - minato: 10時だと、なぜ分かるんですか？
+              - yamabuki: ちょうど時報が鳴りましたからね。
+          - id: key
+            text: 太一くんが、自分のカギで表の扉を開けていました。
+            press:
+              - minato: 本当に、カギで開けたんですか？
+              - yamabuki: ええ。カチリと音がしましたよ。
+              - set: { asked_key: true }
+            present:
+              receipt:
+                - goto: contradiction
+        after:
+          - judge: 弁護人。尋問を始めてください。
+        loop:
+          - minato: （どこかに、おかしな所があるはずだ）
+          - if: asked_key
+            then:
+              - minato: （カギの話‥‥。何か、引っかかる）
+
+      contradiction:
+        - minato: 証人。その夜、太一くんのカギでは、扉は開きません！
+        - yamabuki: えっ？
+        - minato: 店の表のカギは、その日の午後5時に取り替えられていたんです。
+        - showEvidence: receipt
+        - kurosaki: ‥‥なんだと。
+        - judge: 証人の話は、信用できないようですね。
+        - judge: 被告人、小麦 太一に無罪を言い渡します。
+        - banner: 無罪
+        - end: true
+
+      guilty:
+        - judge: 被告人に、有罪を言い渡します。
+        - gameover: true

@@ -4,12 +4,12 @@
 シナリオは YAML で書き、ブラウザで遊べる。
 
 画面は DS 版の上画面と同じ 4:3（256×192 ドット）。PC・タブレット向けに、右にボタンの欄を足した 16:9 も選べる
-（試験的。[docs/screen.md](docs/screen.md#169-右にボタンの欄試験的)）。
+（試験的。[画面の大きさと 16:9](docs/screen.md#169-右にボタンの欄試験的)）。
 
 ![DS 版（左）とこのプレイヤー（中）の比較。右は違う所](docs/images/compat/talk.png)
 
 左が DS 版、中がこのプレイヤー、右は違う画素を赤で塗ったもの。ほかの場面と一致率は
-[docs/compatibility.md](docs/compatibility.md)。画像の絵は「逆転裁判」シリーズ（© CAPCOM）のもの。
+[DS 版との互換性](docs/compatibility.md)。画像の絵は「逆転裁判」シリーズ（© CAPCOM）のもの。
 
 ## 主な機能
 
@@ -18,139 +18,63 @@
 - 探偵パート（調べる・移動・話す・つきつける）、横長の背景のスクロール、人物の指名・範囲を選ぶ遊び
 - BGM・効果音・文字の音、セーブ・ロード
 - エディタ AAEditor（フォームでの編集・検索・プレビュー・ここから再生・整合性チェック）
-- 整合性チェック（TS 版と Rust 版の aa-verify）、元の台本の変換器、調べる所の目印
+- 整合性チェック（詰み・クリアできない・たどり着かない所を見つける。TS 版と Rust 版）
 
-元のゲームの機能ごとの対応状況（対応・近似・未対応）は [docs/compatibility.md](docs/compatibility.md#機能の対応状況)。
+元のゲームの機能ごとの対応状況（対応・近似・未対応）は [機能の対応状況](docs/compatibility.md#機能の対応状況)。
 3D で調べる・指紋などの遊びは形を変えた近似で、マイクの「異議あり！」は無い。
 
-## 使い方
+## はじめかた
 
-パッケージ管理と実行には [Bun](https://bun.sh) を使う。
+[Bun](https://bun.sh) を入れてから:
 
 ```bash
 bun install
-bun run dev        # player（サンプル事件「時計塔の鐘」）と editor を同時に起動（表示された URL を開く）
-bun run editor     # editor だけ起動したいとき
-bun run test       # テスト（Vitest。tools/convert 配下などは bun:test で書かれているので bun test も使う）
-bun run typecheck  # 型チェック
-bun run check apps/player/cases/clocktower.yaml   # シナリオの検証
-target/release/aa-verify --complete <シナリオ.yaml>  # 整合性チェックの Rust 版（crates/aa-verify/README.md）
-bun run schema     # エディタ補完用の JSON Schema を書き出す
-bunx biome check .          # フォーマット・lint（.editorconfig 準拠、biome-plugins の GritQL ルールを含む）
-bunx biome format --write . # フォーマットだけ直す
+bun run dev    # プレイヤー（サンプル事件「時計塔の鐘」）とエディタを起動する。表示された URL を開く
 ```
+
+自分の事件を作るなら [はじめてのシナリオ](docs/tutorial.md) から。
+
+```mermaid
+flowchart LR
+  Y["シナリオ（YAML）"] -->|"検証・コンパイル"| C["コンパイルした章"]
+  C --> E["エンジン<br>状態・証言と尋問"]
+  E --> P["プレイヤー<br>canvas に描く"]
+  P -->|"進む・ゆさぶる・つきつける・選ぶ"| E
+  C --> V["整合性チェック"]
+```
+
+## ドキュメント
+
+目的ごとの目次は [ドキュメント](docs/README.md)。
+
+| したいこと | 読むもの |
+|---|---|
+| シナリオを書く | [はじめてのシナリオ](docs/tutorial.md)・[シナリオの書き方](docs/scenario.md)・[書き方の分析](docs/writing/README.md)・[人物の話し方](docs/characters/README.md) |
+| エディタを使う | [エディタを使う](docs/README.md#エディタを使う) |
+| 絵を用意する | [絵を用意する](docs/sprites.md) |
+| 画面と DS 版との違いを知る | [画面](docs/screen.md)・[DS 版との互換性](docs/compatibility.md) |
+| 開発する | [開発する](docs/development.md) |
+| 公式の章を遊ぶ | [公式の章を遊ぶ](docs/official-chapters.md) |
 
 ## 構成
 
-```
-packages/
-  core/      状態（フラグ・証拠品・ライフ）と、証言・尋問のステートマシン。描画を知らない
-  script/    YAML → 中間表現のコンパイラ。zod スキーマ・参照チェック・行番号付きエラー
-  runtime/   canvas への描画と入力。Engine の Beat を画面にする
-             画面は DS 版の上画面と同じ 4:3、256×192 ドット（1 ドット = 2px で描く）
-             文字は同梱の PixelMplus12/10（M+ FONT LICENSE）で、ドット絵と同じ粗さで描く
-apps/
-  player/    サンプル事件とデバッグパネル（フラグの書き換え、シーン移動、セーブ/ロード）
-  editor/    逆裁エディタ（React + shadcn/ui）。章を探索編・裁判編ごとにフォームで編集し、
-             右でコンパイル結果の診断・整合性チェック・プレビューを見られる。保存は開発サーバー経由で YAML に書く
-crates/
-  aa-verify/ 整合性チェックの Rust 版（既定は軽いチェック、--complete で網羅的な探索）
-schema/      scenario.schema.json（bun run schema で生成）
-docs/        シナリオの書き方・画面・互換性
+```text
+.
+├── packages/   エンジン（core）・YAML のコンパイラ（script）・描画と入力（runtime）
+├── apps/       プレイヤー（player）・エディタ（editor）
+├── crates/     整合性チェック（aa-verify）と ROM から取り出す道具（Rust）
+├── tools/      変換・解析・ドット絵などの道具
+├── schema/     エディタ補完用の JSON Schema
+└── docs/       ドキュメント
 ```
 
-データの流れ:
+詳しい構成は [開発する](docs/development.md#構成)。
 
-```
-YAML ─(script: 検証・コンパイル)→ CompiledScenario ─(core: Engine)→ Beat ─(runtime: Player)→ canvas
-                                                        ↑
-                                     advance / press / present / choose
-```
+## 公式の章を遊ぶ
 
-- シナリオの形は `packages/script/src/schema.ts` の zod スキーマが唯一の正。
-  検証・型・JSON Schema はすべてここから作る。
-- エンジンの状態（`GameState`）はそのまま JSON にでき、セーブデータになる。
-- 文字送りや演出の状態は runtime だけが持ち、エンジンには入れない。
+自分の ROM から素材と台本を取り出して変換すれば、元のゲームの章をオリジナルと同じように遊べる。
+取り出す道具と整合性チェッカーは、ビルド済みのものを [Releases](https://github.com/tkgstrator/Ace_Attorney_Script_Editor/releases) から入手できる（[ツールの入手と使い方](docs/tools-release.md)）。
+今は Rust の道具とリポジトリのスクリプト（Python・bun）を組み合わせて使う。Rust の道具に一本化する予定。
+手順は [公式の章を遊ぶ](docs/official-chapters.md)。
 
-シナリオの書き方は [docs/scenario.md](docs/scenario.md)、台詞の文体（カタカナ表記）は [docs/katakana.md](docs/katakana.md)、
-書き方の型と人物の話し方は [docs/writing/](docs/writing/README.md)・[docs/characters/](docs/characters/README.md)、
-画面は [docs/screen.md](docs/screen.md)、DS 版との互換性は [docs/compatibility.md](docs/compatibility.md) を参照。
-
-## コード規約
-
-フォーマット・lint は Biome（`biome.json`）。[qtmleap/biome-plugins](https://github.com/qtmleap/biome-plugins)
-（git submodule、`biome-plugins/`）の GritQL ルールで `??` フォールバックや `as` 型アサーションなどを警告する。
-既存コードの違反は残したままにしてあるので、新しく書くコードから従う。
-
-JSON を実行時に読み込む箇所（`verify-font.ts` が読む `katakana-style.json` など）は zod で `parse` し、
-型注釈だけに頼らない。
-
-テストは各パッケージ・ツールのソースと同じ階層の `__tests__/`（例: `packages/script/src/__tests__/`）に置く。
-
-## ドット絵の素材
-
-人物・背景・机・証拠品のドット絵は、Codex CLI の組み込み画像生成で作る（人物・机・証拠品は透過）。
-作るものの一覧と指示文は `tools/sprites/manifest.ts` にある。
-
-```bash
-bun tools/sprites/generate.ts            # まだ無い元画像を生成（種類ごとに並列）→ assets/generated/raw/
-bun tools/sprites/generate.ts evidence   # 種類を指定（character / background / foreground / evidence）
-bun tools/sprites/process.ts             # 画面用のドット絵に縮め、DS の色の決まり（15 色・15 ビット色）に減色して apps/player/src/art/ に取り込む
-```
-
-- 画像生成は Codex の利用枠を消費する（画像のあるやり取りは通常の 3〜5 倍の速さで減る）。
-- 人物は口パク用に、口を開けた絵（`<ID>-talk.png`）も作る。
-- 減色は人物・背景・机・証拠品とも 1 枚 15 色 + 透明、15 ビット色、ディザなし。人物は 1 人の全コマで 1 枚のパレットを共有し、
-  差分コマはベースで使った色だけで描く（方法は `tools/sprites/SPEC.md` §2「取り込むときの減色」）。
-- 立ち絵の決まり（キャンバス・色数・輪郭・動き・差分コマ・スプライトシート）は `tools/sprites/SPEC.md`、
-  立ち位置ごとの置き方は `tools/sprites/STAND_SPEC.md`。
-- 公式（DS 版）の画像の仕様（背景・机・吹き出し・証拠品・フォントなどの大きさ・色数・形式・置き方）は
-  [docs/official-assets.md](docs/official-assets.md)。数値は `uv run python tools/assets/measure.py` で測り直せる（手元のデータが要る）。
-
-生成した立ち絵は、決まりを守っているかを機械で確かめる（`process.ts` の最後にも自動で走る）。
-
-```bash
-bun tools/sprites/check.ts               # 色数・透過・アンチエイリアス・差分コマの範囲の外の変化・ずれ → assets/generated/check/
-bun tools/sprites/check.ts naruse --fix  # だめな差分コマを直したものも書き出す（元は残す）
-bun tools/sprites/sheet.ts make naruse   # 差分コマをまとめて描かせるスプライトシートと指示文
-bun tools/sprites/sheet.ts cut naruse <生成されたシート.png>   # 切り分けて位置を合わせ、確かめる
-uv run python tools/sprites/measure_official.py   # 仕様の根拠（DS 版のコマの統計）を測り直す（手元のデータが要る）
-```
-- まだ画像が無いものは、プレイヤーではコードで描いた仮の絵（`apps/player/src/placeholder-art.ts`）を使う。
-
-## 公式の章と素材（手元用・配布しない）
-
-元のゲームの台本・絵・音・フォントは、利用者が自分で吸い出した ROM から取り出して、手元でだけ使う。
-取り出したものは `assets/extracted/`（`.gitignore` 済み）に置く。このリポジトリは公式の素材を配布しない。
-
-- 変換の対象は 3 作の全 14 話（逆転裁判 蘇る逆転 5 話・逆転裁判2 4 話・逆転裁判3 5 話）。
-  `bun tools/convert/index.ts --episode N [--game aa2|aa3]` で YAML にし、プレイヤーの章の一覧（`?case=ep1` など）で遊べる。
-- 背景・人物・机・吹き出し・音は `tools/rom/` のスクリプトで取り出す（下の「DS 版から取り出したフォント」と最後の項目）。
-
-## DS 版から取り出したフォント（手元用・配布しない）
-
-自分で吸い出した ROM から、DS 版の本文フォントを取り出して使える。取り出したものは `assets/extracted/`
-（`.gitignore` 済み）に置き、プレイヤーはそこにフォントがあれば使う（無ければ PixelMplus12 で表示する）。
-
-```bash
-python3 tools/rom/dsfont.py <rom.nds>       # フォントを探して全文字を切り出す → assets/extracted/font/glyphs.txt
-python3 tools/rom/ocr_font.py <rom.nds>     # 台詞を DS 版の字形で画像にし、macOS の文字認識で漢字の対応を決める → mapping.tsv
-python3 tools/rom/compose.py 'apps/player/cases/*.yaml'   # DS 版にない漢字を部品から作る → tools/rom/font_extra.draft.txt
-python3 tools/rom/build_font.py             # ゲームで使う形に書き出す → assets/extracted/font/ds-font.png / ds-font.json
-```
-
-逆転裁判2・3 の ROM があれば、蘇る逆転にない字をそこから足せる（2・3 は同じ画風のフォント）。
-
-```bash
-python3 tools/rom/dsfont.py <rom2.nds> assets/extracted/font/A2GJ
-python3 tools/rom/ocr_font.py <rom2.nds> assets/extracted/font/A2GJ --base assets/extracted/font   # 同じ字形は蘇る逆転の文字、残りを文字認識
-python3 tools/rom/build_font.py assets/extracted/font --also assets/extracted/font/YG3J assets/extracted/font/A2GJ
-```
-
-- `tools/rom/font_fixes.tsv`: 文字認識の結果を、字形を目で見て直したもの（ほかの作品の分は `font_fixes.<フォルダ名>.tsv`）
-- `tools/rom/font_extra.txt`: DS 版にない字（下書きを確認・手直ししたもの）。`font_parts.txt` は手で描いた部品
-- `tools/rom/data/ids.txt`: 漢字の部品の組み立て（cjkvi-ids、CHISE 由来、GPLv2）
-- 比較用ページ `apps/player/compare.html` で、DS 版のスクリーンショットと点の単位で見比べられる
-- `uv run tools/rom/extract_assets.py <rom.nds>` で背景・人物・机などを取り出すと、プレイヤーは DS 版の人物・背景・机・吹き出しで表示する
-  （`apps/player/src/official-assets.ts`。生成したドット絵にするには `?art=generated` かデバッグパネルの「絵」）。
-  人物は anim.tsv の原点を画面の中央 (128, 96) に、机は取り出した 256×192 の画像をそのまま重ねると DS 版と一致する
+このリポジトリは公式の台本・絵・音・フォントを配布しない。自分で吸い出した ROM を使い、取り出したものは手元でだけ使う。
