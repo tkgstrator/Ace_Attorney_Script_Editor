@@ -1,0 +1,108 @@
+# 裁判パートの書き方
+
+法廷編（`kind: trial` の編）を書くエージェント向けの手順書。1 から 9 の順に進めば、公式 3 作の型と決まり文句を使って
+1 つの法廷編を書ける。台詞より先に設計を置き、各章は「この段階で決めること → 残す設計メモ → 例 → 点検項目」の順に書いている。
+
+## 章立て
+
+| 章 | ファイル | 中身 |
+|---|---|---|
+| 1〜3 | [design.md](design.md) | この裁判で何を覆すか・事件の真相とプレイヤーの知識・証言と矛盾の設計（証拠との対応表・別解） |
+| 4 | [cross.md](cross.md) | ゆさぶり・追加の証言・つきつけ・吹き出しの使い分け |
+| 5 | [climax.md](climax.md) | 反論から次の展開（追い詰め・決定的な証拠）・判決・休廷・日をまたぐ |
+| 6 | [hints.md](hints.md) | ヒント・誤答・ペナルティ |
+| 7 | [opening.md](opening.md)・[phrases.md](phrases.md) | 法廷の会話（開廷・冒頭陳述・証人の登場・証言の手続き）と決まり文句の一覧 |
+| 8 | [polish.md](polish.md) | ページと演出の仕上げ |
+| 9 | [example.md](example.md) | 一問分の完成例と点検 |
+
+共通の資料: 事件設計メモの書式（[../README.md](../README.md#事件設計メモの書式)）・文字数の決まり（[../text-length.md](../text-length.md)）・
+失敗と直し方（[../pitfalls.md](../pitfalls.md)）。YAML の書き方の細部は [../../scenario.md](../../scenario.md)。
+別の事件（時計塔）で書いたひな形は [../templates-trial.md](../templates-trial.md)。
+
+## 書き分けの凡例
+
+- **傾向:** 公式 3 作の集計で分かったこと。数は目安で、ノルマではない（出どころは [../numbers/](../numbers/)）。
+- **推奨:** このガイドのおすすめ。らしさと遊びやすさのための書き方。
+- **制約:** エンジンと画面の決まり。守らないとエラー・はみ出し・動かない。
+- **実例:** 公式の文や場面（出典つき、1 節 5 文程度まで。[../README.md](../README.md#公式の文の載せ方)）。
+  YAML の例は、実例と書いたもののほかはすべて自作の事件「港の倉庫」。
+
+## らしさの 3 本柱
+
+1. **決まり文句で手続きを進める（推奨）。** 開廷・準備完了・証人の入廷・証言の要求・異議の応酬・静粛に・ペナルティ・判決は、
+   公式でも毎回ほぼ同じ言い回し（**傾向:** 多くが 12〜14 話に出る。[phrases.md](phrases.md)）。ここは言い換えず定番の形を使い、
+   矛盾の指摘・告白・決着は事件ごとに新しく書く。
+2. **1 ページ = 1 ステップ、間は手で置く（推奨）。** 1 行 16 字 × 2 行（**制約**、[../text-length.md](../text-length.md)）に収め、
+   読点の後に `[wait 10]`〜`[wait 16]`、句点・「！」・「‥‥」の後に `[wait 16]`〜`[wait 30]`（**傾向**、[../typography.md](../typography.md)）。
+3. **演出は台詞の直前に、強さを 3 段で（推奨）。** 軽い驚き・ふつうの驚き・決定的な一撃を使い分け、揺れ 2 はとっておく
+   （[../effects.md](../effects.md)）。毎ページ盛らない。
+
+## 全体の流れ
+
+| 段 | 誰が話す | 演出の定番 | 決まり文句 | 詳しく |
+|---|---|---|---|---|
+| 開廷 | 裁判長 → 検事・弁護士 | フェードイン → 日時・場所 → 木槌 → BGM | 開廷します／準備完了しています | [opening.md](opening.md#開廷) |
+| 冒頭陳述 | 裁判長 → 検事（→ 証拠品の提出） | 検事へ切り替え、証拠品の小窓 | 冒頭弁論をおねがいします／証拠品《○○》を法廷記録にファイルした | [opening.md](opening.md#冒頭陳述) |
+| 証人の登場 | 検事 → 証人 → 裁判長 | 証言台へパン | 入廷させてください／名前と職業を | [opening.md](opening.md#証人の登場) |
+| 証言 | 証人 | 証言の曲。「証言開始」はエンジンが出す | 証言をおねがいします | [opening.md](opening.md#証言の手続き) |
+| 尋問 | 弁護士 ↔ 証人、検事の割り込み | 「待った！」「異議あり！」はエンジンが出す | では、弁護人。尋問を。 | [cross.md](cross.md) |
+| 新しい証言 | 裁判長が命じ、証人が言い直す | 証言の曲の 2 曲目 | 証言に加えてください／証言を修正してください | [cross.md](cross.md#追加の証言と言い直し) |
+| 追い詰め | 弁護士 → 証人の動揺 → 検事 → 裁判長 | BGM を止める → 衝撃 → 追いつめる曲 | 静粛に！静粛に！ | [climax.md](climax.md#追い詰め) |
+| 決定的な証拠 | 裁判長の問い → 弁護士 | つきつけの要求（「くらえ！」はエンジン）→ 揺れ 2 | 異議は認められません。 | [climax.md](climax.md#決定的な証拠) |
+| 判決 | 裁判長 | 大きな文字（無罪）→ 木槌 | 判決を言い渡します／これにて閉廷 | [climax.md](climax.md#判決) |
+| 休廷・閉廷 | 裁判長・係官 | 木槌 → フェードアウト | 休憩をとります／審理を再開します | [climax.md](climax.md#休廷) |
+| 日をまたぐ | 裁判長 → 主人公の心の声 | 木槌 → BGM を止める → フェードアウト → 探偵編へ | 本日はこれにて閉廷！ | [climax.md](climax.md#日をまたぐ) |
+
+## 規模の目安
+
+**傾向**（[../numbers/volume.md](../numbers/volume.md)・[../numbers/structure.md](../numbers/structure.md)）: 1 つの法廷編は台詞
+1,000〜1,850 ページ前後、証言 5〜7、1 証言 5〜6 文、正解は 1 証言に 1 つ、ゆさぶり 1 つは 8〜10 ページ。
+
+**推奨:** 規模は公式に合わせなくてよい。短い事件なら証言 2〜3 で終えてよく、ページを増やすためだけの証言・ゆさぶり・
+くり返しは書かない（[../pitfalls.md](../pitfalls.md)）。
+
+## 例の人物と証拠品
+
+各章の YAML の例は、自作の事件「港の倉庫」（夜の倉庫で持ち主が殴られた事件。被告人は荷運びの青年、証人は夜警）。
+事件の設計は [design.md](design.md)。
+
+```yaml
+id: harbor
+title: 港の倉庫
+player: naruse
+life: 80                # 逆転裁判2・3 のゲージ（サイコ・ロックを使うため）。蘇る逆転の形なら life: 5・penalty: 1
+defaults:
+  penalty: 16           # ゲージの 5 分の 1（公式の予告の 73% がこの量）
+  # 見当違いのつきつけ: 主人公の言い訳 1 → 裁判長の叱責 2 → ペナルティ → 心の声（公式の型）
+  wrongPresent:
+    - naruse: "え、ええと‥‥[wait 10]その、[wait 6]\nこれが決め手かと‥‥"
+    - judge: "弁護人。[wait 12]\nその証拠品と、今の証言の関係は？"
+    - judge: "[speed 4]‥‥ペナルティを与えます。"
+    - penalty: true
+    - naruse: "（[speed 4]しまった‥‥。[wait 12]\n　もっとよく考えないと）"
+characters:
+  naruse: { name: ナルセ, stand: defense }
+  sayo: { name: サヨ, blip: female, profile: { name: 早川 小夜, age: 19, description: 助手。 } }
+  himuro: { name: ヒムロ, stand: prosecution }
+  judge: { name: サイバンチョ, stand: judge }
+  kakari: { name: カカリカン }
+  kurata: { name: クラタ, stand: witness, profile: { name: 倉田 源, age: 61, description: 倉庫街の夜警。 } }
+  minato: { name: ミナト, profile: { name: 港 健太, age: 22, description: 被告人。荷運びの青年。 } }
+evidence:
+  badge: { name: 弁護士バッジ, description: 弁護士の証。 }
+  autopsy: { name: 解剖記録, description: 死亡推定は午後11時〜11時半。倒れてドラム缶を倒した。 }
+  log: { name: 入館記録, description: 外からカードで開けると残る。午後10時半に夜警用のカードで1度だけ。 }
+  lamp: { name: ライト, description: 倉庫の棚の下にあった。夜警の備品の印。電池が外れている。 }
+  gloves: { name: 手袋, description: 夜警の詰め所にあった。片方だけ、倉庫の床の油で汚れている。 }
+flags:
+  asked_door: false     # 証言1をゆさぶって、扉の件を聞き出したか
+```
+
+- **制約:** 説明文は 1 行 12 字 × 3 行まで（4 行目は出ない）、名前は 10 字まで（[../text-length.md](../text-length.md)）。
+- 音の ID（`gavel`・`shock`・`discover`・`testimony`・`cross`・`pursuit`・`trial`・`verdict`）は役割で付けた名前
+  （[../effects.md](../effects.md#効果音の役割)）。プレイヤーに仮の音があるのは `gavel`・`discover`・`damage`・`trial`・
+  `investigation`・`verdict` だけで、ほかは音を用意するまで鳴らない（**制約**）。
+- 裁判パートと探偵パート（[../investigation/README.md](../investigation/README.md)）の自作の例をつないだ章は、
+  `bun run check --check-font --check-fit 章.yaml` でエラーも字数の警告も出ないことを確かめてある（本筋から外れる例
+  ――日をまたぐ `adjourn`・`day2` と、[hints.md](hints.md) の断片――にだけ「たどり着かない」の警告が出る）。
+  実例（公式の場面）の YAML は、人物を足した別の章で同じく確かめてある。
