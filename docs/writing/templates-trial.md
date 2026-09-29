@@ -41,7 +41,7 @@ characters:
 
 ```yaml
 opening:
-  - card: "9月27日 午前9時半\n地方裁判所 第5法廷"
+  - card: "9月27日 午前10時\n地方裁判所 第2法廷"
   - fade: in
   - se: gavel            # 木槌は短い揺れ（10 フレーム・強さ 1）と組み、2 回続ける
   - shake: 10
@@ -53,7 +53,7 @@ opening:
   - wait: 18
   - bgm: trial
   - judge: "これより、[wait 10]時田 進の\n審理を開廷します。"
-  - naruse: 弁護側、いつでも始められます。
+  - naruse: 弁護側、準備完了しています。
   - himuro: "検察側も、[wait 8]とうに。"
   - goto: t1
 ```
@@ -92,7 +92,7 @@ t1:
           then:
             - naruse: "何回鳴ったか、[wait 8]\n覚えていますか？"
             - torii: "9回。[wait 12]\nこの耳で数えましたとも。"
-            - judge: "その件も、[wait 8]\n証言として話してください。"
+            - judge: "今の話を、[wait 8]\n証言に加えてください。"
             - set: { asked_bell: true }
     - id: bell_count
       when: asked_bell
