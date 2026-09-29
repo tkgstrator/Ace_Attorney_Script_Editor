@@ -43,6 +43,8 @@ pub struct Search {
     pub goals: Vec<bool>,
     /// 通ったシーン（visited の番号）・調べた印
     pub visited: Bits,
+    /// 「移動する」を選べた行き先の場所（来たときのブロックで抜ける場所は、探偵メニューに着かず visited にならないため別に持つ）
+    pub moved: Bits,
     pub seen: Bits,
     /// 実行中のエラー（文, シーン）。同じ文は 1 回だけ
     pub crashes: Vec<(String, u32)>,
@@ -79,7 +81,7 @@ pub fn explore_from(m: &Model, flow: &Flow, prep: &Prep, opts: &SearchOptions, f
     let mut stack_bytes = 0usize;
     let mut r = Search {
         states: 0, processed: 0, truncated: false, cleared: false, graph: Graph::default(), parent: vec![], via: vec![],
-        ranks: vec![], goals: vec![], visited: Bits::new(m.visit_count()), seen: Bits::new(m.seen_ids.len()), crashes: vec![],
+        ranks: vec![], goals: vec![], visited: Bits::new(m.visit_count()), moved: Bits::new(m.visit_count()), seen: Bits::new(m.seen_ids.len()), crashes: vec![],
         peak_pending: 0, peak_pending_bytes: 0, per_scene: vec![0; m.scenes.len()],
     };
 
@@ -121,6 +123,7 @@ pub fn explore_from(m: &Model, flow: &Flow, prep: &Prep, opts: &SearchOptions, f
         let mut x = e.clone();
         let hits = ExamineHits::new(&e);
         for (a, act) in acts.iter().enumerate() {
+            if let Act::Move(p) = act { r.moved.add(*p); }
             let hit = match (act, &hits) { (Act::Examine(x, y), Some(h)) => h.hit(e.place().unwrap(), *x, *y).ok(), _ => None };
             if let Some(&(_, t)) = hit.and_then(|h| examined.iter().find(|(k, _)| *k == h)) { r.graph.add(i, t); continue; }
             x.s.copy_from(&e.s);

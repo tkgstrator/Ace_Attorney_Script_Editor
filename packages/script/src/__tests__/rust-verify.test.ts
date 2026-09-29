@@ -392,4 +392,49 @@ scenes:
     - end: true`;
     expect(same(yaml).findings.map((f) => f.scene)).toEqual(['orphan']);
   });
+
+  it('移動できても来たときのブロックで抜けるだけの場所は、たどり着けない扱いにしない（TS 版と同じ）', () => {
+    const yaml = `
+id: t
+title: t
+player: a
+characters:
+  a: { name: A }
+evidence: {}
+start:
+  scene: s
+parts:
+  - id: p
+    kind: investigation
+    title: 探偵
+    scenes:
+      s:
+        - investigate: room
+      out:
+        - end: true
+    places:
+      room:
+        name: 部屋
+        person: a
+        examine:
+          - id: look
+            area: [0, 0, 100, 100]
+            then:
+              - a: 見た
+        move: [ trigger ]
+      trigger:
+        name: 引き金
+        person: a
+        enter:
+          - goto: out
+        talk:
+          - id: never
+            topic: 話せない
+            then:
+              - a: 話した
+      other:
+        name: 行き先の無い場所
+        person: a`;
+    expect(same(yaml).findings.map((f) => f.scene)).toEqual(['other']);
+  });
 });

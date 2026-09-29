@@ -148,7 +148,7 @@ pub fn explore_parts(m: &Model, built: &Built, prep: &Prep, opts: &SearchOptions
     }).collect();
     let mut r = Search {
         states: 0, processed: 0, truncated: false, cleared: false, graph: Graph::default(), parent: vec![], via: vec![],
-        ranks: vec![], goals: vec![], visited: Bits::new(m.visit_count()), seen: Bits::new(m.seen_ids.len()), crashes: vec![],
+        ranks: vec![], goals: vec![], visited: Bits::new(m.visit_count()), moved: Bits::new(m.visit_count()), seen: Bits::new(m.seen_ids.len()), crashes: vec![],
         peak_pending: 0, peak_pending_bytes: 0, per_scene: vec![0; m.scenes.len()],
     };
     let mut pid: Vec<u16> = vec![];
@@ -233,6 +233,7 @@ pub fn explore_parts(m: &Model, built: &Built, prep: &Prep, opts: &SearchOptions
                 let mut x = e.clone();
                 let hits = ExamineHits::new(&e);
                 for (a, act) in acts.iter().enumerate() {
+                    if let Act::Move(p) = act { r.moved.add(*p); }
                     let hit = match (act, &hits) { (Act::Examine(x, y), Some(h)) => h.hit(e.place().unwrap(), *x, *y).ok(), _ => None };
                     if let Some(&(_, t)) = hit.and_then(|h| examined.iter().find(|(k, _)| *k == h)) { r.graph.add(i, t); continue; }
                     x.s.copy_from(&e.s);

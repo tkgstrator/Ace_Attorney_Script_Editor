@@ -164,8 +164,12 @@ pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
             if !r.visited.has(i as u32) { out.push(Finding::warning(format!("シーン「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone()))); }
             continue;
         };
+        // 移動できても、来たときのブロックで抜けるだけの場所は探偵メニューに着かない（visited にならない）が、たどり着けてはいる
+        // （調べる所・話題は、その探偵メニューに着けたときだけ数える）
         if !r.visited.has(i as u32) {
-            out.push(Finding::warning(format!("場所「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone())));
+            if !r.moved.has(i as u32) {
+                out.push(Finding::warning(format!("場所「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone())));
+            }
             continue;
         }
         // 調べる所・話題（同じ名前のものが同じ場所に複数あるときは ID も添える）
