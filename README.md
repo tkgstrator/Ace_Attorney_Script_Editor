@@ -71,7 +71,9 @@ flowchart LR
 
 ## 公式の章を遊ぶ
 
-Rust のツールを使って自分の ROM から取り出せば、元のゲームの章をオリジナルと同じように遊べる。
+自分の ROM から素材と台本を取り出して変換すれば、元のゲームの章をオリジナルと同じように遊べる。
+取り出す道具と整合性チェッカーは、ビルド済みのものを [Releases](https://github.com/tkgstrator/Ace_Attorney_Script_Editor/releases) から入手できる（[ツールの入手と使い方](docs/tools-release.md)）。
+今は Rust の道具とリポジトリのスクリプト（Python・bun）を組み合わせて使う。Rust の道具に一本化する予定。
 手順は [公式の章を遊ぶ](docs/official-chapters.md)。
 
 このリポジトリは公式の台本・絵・音・フォントを配布しない。自分で吸い出した ROM を使い、取り出したものは手元でだけ使う。

@@ -5,7 +5,7 @@
 
 - ROM は `assets/roms/` に、取り出したものは `assets/extracted/` に置く（どちらも `.gitignore` 済み）。
 - 対象は DS 版の 3 作の全 14 話（逆転裁判 蘇る逆転 5 話・逆転裁判2 4 話・逆転裁判3 5 話）。
-- 要るもの: [Bun](https://bun.sh)・Rust（cargo）・Python（[uv](https://docs.astral.sh/uv/)）。
+- 要るもの: [Bun](https://bun.sh)・Rust の道具（[ビルド済みのものを入手できる](tools-release.md)。自分でビルドするなら cargo）・Python（[uv](https://docs.astral.sh/uv/)）。
   フォントの文字の対応を作る文字認識は macOS の Vision を使う（macOS だけ）。
 
 ```mermaid
