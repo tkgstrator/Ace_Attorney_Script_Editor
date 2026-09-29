@@ -99,7 +99,7 @@ YAML を保存すると、開いているページが読み直される。
 
 ## 4. 証言と尋問を足す
 
-裁判の山場は、証言の中の矛盾に証拠品を「つきつける」所。流れは次のとおり。
+裁判の山場は、証言の中の矛盾を見つけ、証拠品で「つきつける」所。流れは次のとおり。
 
 ```mermaid
 flowchart TD
@@ -120,7 +120,7 @@ defaults:
   penalty: 1               # penalty: true で減る量
   autoPause: true          # 句読点のあとで少し待つ（手書きのシナリオ向け）
   wrongPresent:            # 見当違いの証拠品をつきつけたとき
-    - judge: その「{evidence}」が、どう関係するのですか？
+    - judge: その「{evidence}」で、何が言いたいのですか？
     - penalty: true
 
 characters:
@@ -158,7 +158,7 @@ scenes:
     - kurosaki: 被告人は、夜のパン屋から売上を盗んだ。
     - kurosaki: 見ていた人がいる。証人、入りたまえ。
     - show: yamabuki
-    - judge: では証人。見たことを証言してください。
+    - judge: では証人。あの夜に見た光景を、どうぞ。
 
   t1:
     testimony: 事件の夜に見たこと     # 証言の題
@@ -261,7 +261,7 @@ parts:
               - if: not has(receipt)
                 then:
                   - give: receipt
-                  - narrate: カギ屋の領収書を法廷記録にファイルした。
+                  - narrate: カギ屋の領収書を手に入れた。
         talk:
           - id: night
             topic: 事件の夜のこと

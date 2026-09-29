@@ -11,7 +11,7 @@ defaults:
   penalty: 1
   autoPause: true
   wrongPresent:
-    - judge: その「{evidence}」が、どう関係するのですか？
+    - judge: その「{evidence}」で、何が言いたいのですか？
     - penalty: true
 
 characters:
@@ -80,7 +80,7 @@ parts:
               - if: not has(receipt)
                 then:
                   - give: receipt
-                  - narrate: カギ屋の領収書を法廷記録にファイルした。
+                  - narrate: カギ屋の領収書を手に入れた。
         talk:
           - id: night
             topic: 事件の夜のこと
@@ -111,7 +111,7 @@ parts:
         - kurosaki: 被告人は、夜のパン屋から売上を盗んだ。
         - kurosaki: 見ていた人がいる。証人、入りたまえ。
         - show: yamabuki
-        - judge: では証人。見たことを証言してください。
+        - judge: では証人。あの夜に見た光景を、どうぞ。
 
       t1:
         testimony: 事件の夜に見たこと
