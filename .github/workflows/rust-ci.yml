@@ -1,0 +1,54 @@
+# Rust のクレートのビルドとテスト。
+# テストは ROM も assets/extracted も要らない（aa-verify は crates/aa-verify/tests/data の IR を読む。
+# aa-rom の tests/armdis.rs は環境変数 AA_CS_TSV・AA_TRACE_TSV が無ければ何もせずに通る）。
+name: Rust CI
+
+on:
+  pull_request:
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/rust-ci.yml"
+      - ".github/workflows/rust-release.yml"
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/rust-ci.yml"
+      - ".github/workflows/rust-release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust を用意する
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: ビルド
+        run: cargo build --workspace --locked
+
+      - name: テスト
+        run: cargo test --locked -p aa-verify -p aa-rom -p aa-extract
