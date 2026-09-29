@@ -1,6 +1,7 @@
 // 人物ごとの話し方の集計（characters.ts が docs/characters/*.md に書き出す）。
 // 一人称・呼び方・語尾・ページの頭の言葉・記号・演出・色・立ち絵の動き・場面を数える。
 
+import { FIRST_PERSON, HONORIFIC, PLAIN_NAMES, SECOND_PERSON, TITLES } from './address.ts';
 import {
   type Episode,
   type Line,
@@ -41,72 +42,6 @@ export const NOT_PERSON =
   /^(unknown|unknown_female|phone|tv|public|interphone|alarm_clock|voice.*|buzzer|announcer|pa_notice|credits|detective|chief|bellboy|bailiff|officer|jailer|patrolman|nurse)$/;
 
 export const who = (id: string): string => ALIAS[id] ?? id.replace(/_v\d+$/, '');
-
-const KATA = '\\u30a1-\\u30fa\\u30fc';
-const HIRA = '\\u3041-\\u309f';
-/** 前後がカタカナでない（カタカナ語の一部ではない）ことを確かめる正規表現を作る */
-const kataWord = (w: string) => new RegExp(`(?<![${KATA}])${w}(?![${KATA}])`, 'g');
-const hiraWord = (w: string) => new RegExp(`(?<![${HIRA}])${w}`, 'g');
-
-export const FIRST_PERSON: [string, RegExp][] = [
-  ['わたし', /わたし/g],
-  ['ワタシ', kataWord('ワタシ')],
-  ['私', /私(?!立|服|物|用|的|達)/g],
-  ['わたくし', /わたくし/g],
-  ['ワタクシ', kataWord('ワタクシ')],
-  ['あたくし', hiraWord('あたくし')],
-  ['アタクシ', kataWord('アタクシ')],
-  ['あたし', hiraWord('あたし')],
-  ['アタシ', kataWord('アタシ')],
-  ['あたい', hiraWord('あたい')],
-  ['アタイ', kataWord('アタイ')],
-  ['ぼく', hiraWord('ぼく')],
-  ['ボク', kataWord('ボク')],
-  ['僕', /僕/g],
-  ['オレ', /(?<![ァ-ヺー])オレ(?!ンジ)/g],
-  ['おれ', hiraWord('おれ(?!い|た|る|な|ま)')],
-  ['俺', /俺/g],
-  ['オイラ', kataWord('オイラ')],
-  ['ウチ', kataWord('ウチ')],
-  ['ワシ', kataWord('ワシ')],
-  ['わし', /(?<![ぁ-ゟ一-鿿々])わし(?!ょ|づ|ゃ|い|く|か)/g],
-  ['自分', /自分/g],
-  ['ジブン', kataWord('ジブン')],
-  ['本官', /本官/g],
-  ['小生', /小生/g],
-  ['ワガハイ', /ワガハイ|吾輩|わがはい/g],
-  ['拙者', /拙者/g],
-  ['ミー', kataWord('ミー')],
-];
-
-export const SECOND_PERSON: [string, RegExp][] = [
-  ['あなた', /あなた/g],
-  ['アナタ', kataWord('アナタ')],
-  ['あんた', hiraWord('あんた')],
-  ['ああた', hiraWord('ああた')],
-  ['貴方', /貴方/g],
-  ['アンタ', kataWord('アンタ')],
-  ['きみ', hiraWord('きみ(?!ょう|ょ|ど)')],
-  ['キミ', kataWord('キミ')],
-  ['おまえ', /おまえ|お前/g],
-  ['オマエ', kataWord('オマエ')],
-  ['てめえ', /てめえ|テメエ|テメー|てめー/g],
-  ['キサマ', /キサマ|貴様|きさま/g],
-  ['おたく', /おたく|オタク/g],
-  ['そなた', /そなた|おぬし|オヌシ/g],
-  ['ユー', kataWord('ユー')],
-  ['ボウヤ', /ボウヤ|ぼうや|坊や/g],
-];
-
-/** 名前＋敬称など（人の呼び方） */
-const HONORIFIC = new RegExp(
-  `((?<![${HIRA}])[${HIRA}]{2,5}|(?<![${KATA}\\u4e00-\\u9fff々])[${KATA}\\u4e00-\\u9fff々]{1,7})(さん|くん|クン|君|ちゃん|チャン|さま|様|サマ|どの|殿|ドノ|先生|センセイ|センセ|刑事|検事|弁護士|氏|ちゃま)(?![${KATA}])`,
-  'g',
-);
-/** 主な人物の、敬称を付けない名前（呼びかけ以外の言及も含む） */
-const PLAIN_NAMES =
-  /(成歩堂|御剣|真宵|千尋|春美|糸鋸|狩魔|矢張)(?![さくちどせ殿様君先刑検弁氏ク一-鿿])/g;
-const TITLES = /裁判長|弁護人|証人|被告人|センパイ|先輩|ボス|ダンナ|アニキ|ママ|パパ/g;
 
 export interface CharStats {
   id: string;
