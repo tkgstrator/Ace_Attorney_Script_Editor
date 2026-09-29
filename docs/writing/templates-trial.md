@@ -1,14 +1,14 @@
 # YAML のひな形（法廷パート）
 
-[effects.md](effects.md)・[typography.md](typography.md)・[structure.md](structure.md) の型を、このエンジンの YAML で書いたもの。
-台詞はすべて自作の例。人物はサンプル [clocktower.yaml](../../apps/player/cases/clocktower.yaml) に合わせ、助手を 1 人足している。
+[演出の使い方](effects.md)・[文字の使い方](typography.md)・[書き方の型（構成）](structure.md) の型を、このエンジンの YAML で書いたもの。
+台詞はすべて自作の例。人物はサンプル [サンプル事件「時計塔の鐘」](../../apps/player/cases/clocktower.yaml) に合わせ、助手を 1 人足している。
 
 - ここの断片をつないだ章は `bun run check --check-font` を通ることを確かめてある（DS 版のフォントに無い「塔」「嘘」「瀬」は
-  使っていない。字の言い換えは [../katakana.md](../katakana.md)）。
+  使っていない。字の言い換えは [カタカナの表記](../katakana.md)）。
 - 音の ID のうち `gavel`・`discover`・`damage`・`trial`・`investigation`・`verdict` はプレイヤーに仮の音がある。
   `shock`（衝撃）・`testimony`（証言）・`cross`（尋問）・`pursuit`（追いつめる曲）・`plaza` は役割で付けた名前で、
   音を用意するまで鳴らない。
-- 立ち絵の動きの名前（`shocked` など）は [tools/sprites/SPEC.md](../../tools/sprites/SPEC.md) のポーズ（通常・動揺・本性 など）に
+- 立ち絵の動きの名前（`shocked` など）は [立ち絵の仕様](../../tools/sprites/SPEC.md) のポーズ（通常・動揺・本性 など）に
   合わせて付ける。絵が無い動きは通常の絵で出る。
 
 ## 人物と既定の反応
@@ -120,7 +120,7 @@ t1:
 
 ## 正しいつきつけの後（決定的な証拠の直後）
 
-公式の定番の並び（[effects.md](effects.md#正しいつきつけの後)）:
+公式の定番の並び（[演出の使い方](effects.md#正しいつきつけの後)）:
 BGM を止める → 主人公が矛盾を指摘（証拠品の小窓 + 赤字）→ 小窓を消す → パンで証人へ → 衝撃（音 + フラッシュ + 揺れ 2）→
 証人の動揺 → 検事の割り込み → 裁判長 → 追いつめる曲。
 

@@ -1,7 +1,7 @@
 # 書き方の型（構成）
 
-数の出どころは [numbers/structure.md](numbers/structure.md)（探偵・法廷の中身）、[numbers/openings.md](numbers/openings.md)
-（編の始まり）、[numbers/patterns.md](numbers/patterns.md)（並び）。
+数の出どころは [構成の集計](numbers/structure.md)（探偵・法廷の中身）、[編の始まりの集計](numbers/openings.md)
+（編の始まり）、[演出の並びの型](numbers/patterns.md)（並び）。
 
 ## 話の組み立て
 
@@ -81,7 +81,7 @@
 5. **尋問:** ゆさぶり（各文 8〜10 ページ）・つきつけ。一巡したら（`loop`）、助手（真宵・千尋）か主人公の心の声がヒントを言う
    （`loop` の台詞の 18〜46% が主人公の心の声、残りの多くが助手・師匠）。
 6. **正しいつきつけ:** 「異議あり！」→ 矛盾の指摘 → 相手の動揺 → 裁判長が証言の追加や言い直しを命じる → 次の証言へ。
-   （演出の並びは [effects.md](effects.md#正しいつきつけの後)）
+   （演出の並びは [演出の使い方](effects.md#正しいつきつけの後)）
 7. **山場:** つきつけの要求（`demand`、1 話に 2〜21）で証拠の提出を求められ、決定的な証拠を示す。
    選択肢（「犯人はだれか」「何がおかしいか」）も山場に集まる。
 8. **終わり:** 判決（`banner` の大きな文字）→ 裁判長の閉廷の言葉。1 日目は「審理を明日に持ち越す」で終わる。
@@ -120,4 +120,4 @@
 - 各証言に正解の文を 1 つ、ゆさぶりで現れる隠れた文を 0〜1 つ。ゆさぶりは 1 文 8 ページ前後。
 - 探偵編は場所 5〜8。各場所に話題 3、調べる所 5〜7 のうち証拠品 1〜2。
 - 見当違いのつきつけ・選択肢の誤りには必ずペナルティを付け、その前に裁判長の叱責を 2 ページ。
-- YAML のひな形は [templates-trial.md](templates-trial.md) と [templates-investigation.md](templates-investigation.md)。
+- YAML のひな形は [法廷パートのひな形](templates-trial.md) と [探偵パートのひな形](templates-investigation.md)。
