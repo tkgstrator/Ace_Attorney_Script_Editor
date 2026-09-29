@@ -6,10 +6,13 @@
 // 自動の部分（auto の印の間。語尾などの断片と数だけ）と、話の題は比べない。
 // 決まり文句の許可リスト（tools/analysis/stock-phrases.json。「弁護側、準備完了しています。」のような手続きの定型句）に
 // 当たる所も比べない。許可リストの句の基準（複数の話・複数の話し手に出るか）は phrases.ts が確かめる。
+// 出典つきの引用の行（> 「文」（蘇る逆転 第1話））は、節の実例として載せた公式の文なので比べない。
+// そのかわり、1 つの節の実例が 5 文を超えたら警告する（quotes.ts）。
 // 一致があれば終了コード 1。出力には一致した文字列が入るので、結果は手元で見るだけにする（公開しない）。
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { MAX_QUOTED_SENTENCES, overQuotedSections, quotedText } from './quotes.ts';
 import { loadStockPhrases, stockRegex } from './stock.ts';
 
 const ROOT = join(import.meta.dir, '../..');
@@ -112,21 +115,28 @@ if (import.meta.main) {
     process.exit(2);
   }
   let hits = 0;
+  let over = 0;
   for (const t of targets)
     for (const f of files(t)) {
       let auto = false;
-      readFileSync(f, 'utf8')
-        .split('\n')
-        .forEach((line, i) => {
-          if (line.startsWith('<!-- auto:start')) auto = true;
-          if (line.startsWith('<!-- auto:end')) auto = false;
-          if (auto) return;
-          for (const m of matches(line, set)) {
-            console.log(`${f.replace(`${ROOT}/`, '')}:${i + 1}: ${m}`);
-            hits++;
-          }
-        });
+      const lines = readFileSync(f, 'utf8').split('\n');
+      for (const q of overQuotedSections(lines)) {
+        console.error(
+          `警告 ${f.replace(`${ROOT}/`, '')}:${q.line}: 節「${q.heading}」の実例が ${q.sentences} 文（${MAX_QUOTED_SENTENCES} 文まで）`,
+        );
+        over++;
+      }
+      lines.forEach((line, i) => {
+        if (line.startsWith('<!-- auto:start')) auto = true;
+        if (line.startsWith('<!-- auto:end')) auto = false;
+        if (auto || quotedText(line) !== null) return;
+        for (const m of matches(line, set)) {
+          console.log(`${f.replace(`${ROOT}/`, '')}:${i + 1}: ${m}`);
+          hits++;
+        }
+      });
     }
   console.error(hits ? `一致 ${hits} 件（${LEN} 字以上）` : `一致なし（${LEN} 字以上）`);
+  if (over) console.error(`実例の多すぎる節 ${over} 件（警告。終了コードには入れない）`);
   process.exit(hits ? 1 : 0);
 }
