@@ -1,0 +1,185 @@
+# Rust のツール（aa-extract・aa-verify）をビルドして配る。
+#   - タグ tools-v* の push: 各プラットフォームでビルドし、GitHub Release を作ってアーカイブを添付する。
+#   - 手動（workflow_dispatch）: ビルドして Actions の artifact に上げるだけ（リリースは作らない）。
+# 手順の説明は docs/tools-release.md。
+name: Rust tools release
+
+on:
+  push:
+    tags:
+      - "tools-v*"
+  workflow_dispatch:
+
+# 既定は読むだけ。書き込み（contents: write）はリリースのジョブだけに与える。
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # タグとクレートのバージョンが合っているかを確かめ、アーカイブの名前に使うバージョンを決める。
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        name: バージョンを確かめる
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # 配る 2 つのクレートのバージョン（ワークスペースの version を継いでいる）
+          meta=$(cargo metadata --no-deps --format-version 1 --locked)
+          extract=$(jq -r '.packages[] | select(.name == "aa-extract") | .version' <<<"$meta")
+          verify=$(jq -r '.packages[] | select(.name == "aa-verify") | .version' <<<"$meta")
+          echo "aa-extract: $extract / aa-verify: $verify"
+          if [ "$extract" != "$verify" ]; then
+            echo "::error::aa-extract ($extract) と aa-verify ($verify) のバージョンが違います"
+            exit 1
+          fi
+          if [ "$REF_TYPE" = "tag" ]; then
+            want="${REF_NAME#tools-v}"
+            if [ "$want" != "$extract" ]; then
+              echo "::error::タグ $REF_NAME とクレートのバージョン $extract が合いません（Cargo.toml の [workspace.package] version を $want にしてください）"
+              exit 1
+            fi
+            echo "version=$want" >> "$GITHUB_OUTPUT"
+          else
+            # 手動のときは、バージョンにコミットの先頭 7 桁を添える
+            echo "version=$extract-dev.${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: prepare
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          # Intel の macOS のランナーは減っているので、arm64 の macOS からクロスでビルドする（Xcode の SDK で足りる）
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          # Linux は musl で静的リンクにする（glibc の版に縛られず、どのディストリビューションでもそのまま動く）
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          # arm64 の Linux は、GitHub の arm64 ランナー（公開リポジトリは無料）でそのままビルドする（クロス不要）
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+          # Windows は C ランタイムを静的に入れ、VC++ 再頒布パッケージなしで動くようにする
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            rustflags: -C target-feature=+crt-static
+    env:
+      TARGET: ${{ matrix.target }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      RUSTFLAGS: ${{ matrix.rustflags }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust を用意する
+        run: |
+          rustup toolchain install stable --profile minimal --target "$TARGET"
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: ビルド
+        run: cargo build --release --locked --target "$TARGET" -p aa-extract -p aa-verify
+
+      - name: アーカイブにまとめる
+        id: pack
+        run: |
+          set -euo pipefail
+          name="aa-tools-$VERSION-$TARGET"
+          ext=""
+          case "$TARGET" in *windows*) ext=".exe" ;; esac
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/aa-extract$ext" "target/$TARGET/release/aa-verify$ext" "dist/$name/"
+          cp docs/tools-release.md "dist/$name/README.md"
+          cp crates/aa-verify/README.md "dist/$name/README-aa-verify.md"
+          cp LICENSE "dist/$name/LICENSE"
+          cd dist
+          case "$TARGET" in
+            *windows*) archive="$name.zip"; 7z a -tzip "$archive" "$name" > /dev/null ;;
+            *) archive="$name.tar.gz"; tar -czf "$archive" "$name" ;;
+          esac
+          if command -v sha256sum > /dev/null; then sha256sum "$archive" > "$archive.sha256"; else shasum -a 256 "$archive" > "$archive.sha256"; fi
+          cat "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aa-tools-${{ matrix.target }}
+          path: |
+            dist/${{ steps.pack.outputs.archive }}
+            dist/${{ steps.pack.outputs.archive }}.sha256
+          if-no-files-found: error
+
+  # タグのときだけ、GitHub Release を作ってアーカイブを添付する。
+  release:
+    needs: [prepare, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: aa-tools-*
+          path: dist
+          merge-multiple: true
+
+      - name: チェックサムとリリースノートを作る
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd dist
+          cat ./*.sha256 | sort -k 2 > SHA256SUMS
+          cat SHA256SUMS
+          cat > ../notes.md <<EOF
+          Ace Attorney Script Editor の Rust のツール（${VERSION}）のビルド済みの実行ファイルです。
+
+          - **aa-extract**: 逆転裁判 蘇る逆転（DS）の ROM から素材を取り出す
+          - **aa-verify**: シナリオの整合性チェック（コンパイル済みのシナリオ = IR の JSON を読む）
+
+          **このリリースには ROM も、ROM から取り出したデータも含みません。** aa-extract には、ご自身が持っているソフトから吸い出した ROM を使ってください。
+
+          使い方・macOS で開けないとき（quarantine の外し方）は [docs/tools-release.md](https://github.com/${REPO}/blob/${TAG}/docs/tools-release.md) を見てください。
+          各アーカイブの SHA256 は \`SHA256SUMS\` と \`*.sha256\` にあります。
+          EOF
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Rust tools ${{ env.VERSION }}
+          body_path: notes.md
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+            dist/SHA256SUMS
