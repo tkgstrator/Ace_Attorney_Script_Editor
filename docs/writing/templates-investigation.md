@@ -50,13 +50,13 @@ plaza:
             - flash: true
             - naruse: "（[color red]修理中[color blue]‥‥！[wait 12]\n　鐘は止まっていたのか）"
             - give: repair
-            - narrate: 証拠品《修理票》を法廷記録にファイルした。
+            - narrate: 《修理票》を法廷記録に加えた。
   talk:
     - id: night
       topic: 事件の夜のこと
       then:
         - torii: "あの夜は、[wait 10]このベンチで\n休んでおりましてな。"
-        - naruse: "何か、[wait 6]\n変わったことはありましたか？"
+        - naruse: "最近、[wait 6]\nおかしな物音でもしました？"
         - torii: "鐘が鳴って、[wait 12]\n顔を上げたんですよ。"
     - id: bell
       topic: 時計台の鐘
@@ -140,7 +140,7 @@ gate:
 ```yaml
 - se: discover
 - flash: true
-- naruse: "（そうか‥‥[wait 12][color red]9回[color blue]の鐘は、\n　この時計の音だったんだ）"
+- naruse: "（そうか‥‥[wait 12][color red]9回[color blue]の鐘は、\n　この置時計が鳴らしていたのか）"
 ```
 
 ### 沈黙と、ためらい
