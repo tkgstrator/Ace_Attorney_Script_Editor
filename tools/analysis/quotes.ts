@@ -26,11 +26,12 @@ export function sentenceCount(text: string): number {
   );
 }
 
-/** YAML の 1 行の中の台詞の文の数（キー・コメント・文中コマンド・引用符を除き、かな・漢字が残れば数える） */
+/** YAML の 1 行の中の台詞の文の数（キー・コメント・文中コマンド・引用符を除き、かな・漢字が残れば数える）。
+ * 値の無いキーの後のコメント（`enter:   # 注`）と、コメントだけの行も除く */
 export function yamlLineSentences(line: string): number {
   const v = line
     .replace(/^\s*(-\s+)?([A-Za-z_][\w]*:\s*)?/, '')
-    .replace(/\s+#.*$/, '')
+    .replace(/(^|\s+)#.*$/, '')
     .replace(/\[[a-zA-Z][^\]]*\]/g, '')
     .replace(/\\n/g, '')
     .replace(/^["']|["']$/g, '');
