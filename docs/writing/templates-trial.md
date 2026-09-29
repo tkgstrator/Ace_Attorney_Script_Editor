@@ -64,6 +64,9 @@ opening:
 - `reading`（最初に聞く所）では `[wait]` 入りの台詞で読ませ、尋問の `text` は同じ文から wait を除いたものにする。
 - 正解の文は 1 つ。ゆさぶりで現れる隠れた文（`when`）を 0〜1 つ。ゆさぶり 1 つは 3〜10 ページ。
 - 証言の後（`after`）は裁判長が受けて、主人公の心の声で構える。一巡（`loop`）では助手がヒントを言う。
+- 証拠品の前提: 《修理票》は「事件の3日前から、鐘を鳴らす機械を外して修理していた」記録、《置時計》は被害者の部屋の
+  「毎正時に鐘の音で時を打つ」時計。矛盾は、ゆさぶりで出る「時計台の鐘が鳴った」で初めて成り立つ
+  （元の文は「鐘の音が聞こえた」だけなので、《修理票》とは両立する）。
 
 ```yaml
 t1:
@@ -72,7 +75,7 @@ t1:
   reading:
     - bgm: testimony
     - torii: "あの夜、[wait 10]私は広場の\nベンチで休んでおりました。"
-    - torii: "9時ちょうどに、[wait 8]\n時計台の鐘が鳴ったんです。"
+    - torii: "9時ちょうどに、[wait 8]\n鐘の音が聞こえたんです。"
     - torii: "顔を上げると、[wait 10]男が\n走り去るのが見えましたな。"
   statements:
     - id: bench
@@ -84,10 +87,10 @@ t1:
         - torii: "散歩ですよ。[wait 10]\n医者に歩けと言われましてな。"
         - naruse: "（ありそうな話だ‥‥）"
     - id: bell
-      text: "9時ちょうどに、\n時計台の鐘が鳴ったんです。"
+      text: "9時ちょうどに、\n鐘の音が聞こえたんです。"
       press:                         # ゆさぶりで隠れた文を引き出す型
-        - naruse: "鐘の音を、[wait 8]\nはっきり聞いたんですね？"
-        - torii: "ええ、[wait 8]もちろん。"
+        - naruse: "どこの鐘か、[wait 8]\n分かりますか？"
+        - torii: "そりゃあ、[wait 8]\n広場の時計台ですとも。"
         - if: not asked_bell
           then:
             - naruse: "何回鳴ったか、[wait 8]\n覚えていますか？"
@@ -96,10 +99,10 @@ t1:
             - set: { asked_bell: true }
     - id: bell_count
       when: asked_bell
-      text: "鐘は9回。\nこの耳で数えました。"
+      text: "時計台の鐘が9回。\nこの耳で数えました。"
       press:
         - naruse: 間違いありませんか？
-        - torii: "しつこいですな。[wait 10]\n9回ですとも。"
+        - torii: "しつこいですな。[wait 10]\n時計台が9回ですとも。"
       present:
         repair:
           - goto: contra1            # 正しいつきつけ。「異議あり！」はエンジンが出す
@@ -124,11 +127,11 @@ BGM を止める → 主人公が矛盾を指摘（証拠品の小窓 + 赤字�
 ```yaml
 contra1:
   - bgmPause: true                    # まず無音にする（蘇る逆転で 3 分の 2）
-  - naruse: "証人は、[wait 10]鐘が[color red]9回[color white]\n鳴ったと言いました。"
+  - naruse: "証人は、[wait 10]時計台の鐘が\n[color red]9回[color white]鳴ったと言いました。"
   - showEvidence: repair              # 小窓は 1〜3 ページだけ見せる
   - se: discover                      # 気づきの音 + フラッシュ（揺らさない）
   - flash: true
-  - naruse: "しかし、[wait 8]時計台は事件の\n3日前から[color red]修理中[color white]だった！"
+  - naruse: "しかし、[wait 8]時計台の鐘は\n[color red]機械を外して[color white]修理中だった！"
   - showEvidence: null
   - pan: 0                            # 弁護側 → 証言台
     to: torii
@@ -163,17 +166,17 @@ contra1:
 ```yaml
 q1:
   - choice:
-      - text: 鐘は鳴っていない
+      - text: 何も聞いていない
         then:
-          - naruse: "証人は、[wait 8]鐘など\n聞いていないんです！"
+          - naruse: "証人は、[wait 8]鐘の音など\n聞いていないんです！"
           - judge: "しかし、[wait 8]証人の態度は\nウソには見えませんが‥‥。"
           - judge: "[speed 4]‥‥ペナルティです。"
           - penalty: true
           - goto: q1
-      - text: 別の鐘を聞いた
+      - text: 時計台でない鐘を聞いた
         then:
-          - naruse: "証人が聞いたのは、[wait 8]\n別の鐘だった！"
-  - demand: "その「別の鐘」を示す\n証拠品は？"
+          - naruse: "証人が聞いたのは、[wait 8]\n時計台ではない鐘だった！"
+  - demand: "時計台ではない鐘を\n示す証拠品は？"
     present:
       clock:
         - showEvidence: clock
