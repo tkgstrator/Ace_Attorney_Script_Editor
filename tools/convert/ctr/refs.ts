@@ -52,3 +52,16 @@ export function calledNames(blocks: Token[][]): Set<string> {
         out.add(t.label.replace(/^L_/, '').toLowerCase());
   return out;
 }
+
+/** 入口のラベルから、飛ぶ・呼ぶ・選ぶ命令だけでたどれるラベルの番号の集まり（入口自身を含む） */
+export function reachableFrom(blocks: Token[][], entry: number): Set<number> {
+  const seen = new Set<number>();
+  const todo = [entry];
+  for (let n = todo.pop(); n !== undefined; n = todo.pop()) {
+    if (seen.has(n) || !blocks[n]) continue;
+    seen.add(n);
+    for (const t of blocks[n]!)
+      if (t.kind === 'cmd') for (const to of jumpTargets(t.name, t.args)) todo.push(to);
+  }
+  return seen;
+}

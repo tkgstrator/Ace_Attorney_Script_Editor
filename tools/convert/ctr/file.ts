@@ -6,7 +6,7 @@ import { findExam } from './exam.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { perceive } from './games-kokoro.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
-import { calledNames, referencedLabels } from './refs.ts';
+import { calledNames, reachableFrom, referencedLabels } from './refs.ts';
 
 export type Shared = Omit<
   Ctx,
@@ -396,6 +396,7 @@ export function convertFile(
     });
   }
   const main = entries.findIndex((e) => e.label === entry);
+  const reachable = reachableFrom(blocks, main);
   const order = [main, ...[...entries.keys()].filter((k) => k !== main)];
   // <MCRS 種類 ? n> ～ <MCRE …> の間の台詞は、ラベル n（L_KAISOU・L_MATOME）にも写してある。ゲームの回想・まとめの
   // 表示に使う写しで、話の流れには入らない（写しもとは本文にそのまま入っている）。種類 14 は尋問の記録で別物。
@@ -446,7 +447,10 @@ export function convertFile(
     const bare = blocks[k]!.every((t) =>
       t.kind === 'text' ? !t.text.trim() : ['RDFG', 'E800', 'E001'].includes(t.name),
     );
-    if (bare) scenes.set(k, []);
+    // 入口から（飛ぶ・呼ぶ・選ぶ命令で）行けない探偵パートの始まり。入口が E039 だけで次のファイルへ進むファイルなど、
+    // ゲームが入らない探偵パートなので、場所ごと変換しない
+    const deadDtc = labelOf(k) === 'L_DTC_START' && main >= 0 && !reachable.has(k);
+    if (bare || deadDtc) scenes.set(k, []);
     else if (poIdx !== null && pointOut(poIdx))
       scenes.set(k, convertBlock(blocks[k]!, makeCtx(null), k));
     else if (seanceK) scenes.set(k, seanceK);
