@@ -142,7 +142,7 @@ export class Player {
     this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {}, L);
     this.#inv = new InvestigationUI(L);
     this.#pick = new PickUI(L);
-    this.#views = { bg: new BackgroundView(L), overlays: new OverlayView(), pan: new PanView() };
+    this.#views = { bg: new BackgroundView(), overlays: new OverlayView(), pan: new PanView() };
     const text = this.#p.fonts.text;
     this.#textWidth = (opts.charsPerLine ?? 16) * text.em - (text.em - text.font.size);
     this.#linesPerPage = opts.linesPerPage ?? 2;

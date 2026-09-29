@@ -1,7 +1,7 @@
 # シナリオの書き方
 
 台詞の文体（カタカナ表記の使い分け）は [katakana.md](katakana.md) を参照。
-画面（4:3、256×192 ドット）は [screen.md](screen.md) を参照（16:9 は将来の対応予定で、試験的な実装がある）。
+画面（4:3、256×192 ドット）は [screen.md](screen.md) を参照（右にボタンの欄を足した 16:9 も試験的に選べる。画面の中は同じ）。
 
 完全な例は [apps/player/cases/clocktower.yaml](../apps/player/cases/clocktower.yaml)。
 ファイルの先頭に次の行を書くと、VS Code の YAML 拡張で補完と検証が効く。

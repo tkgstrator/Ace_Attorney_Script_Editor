@@ -1,5 +1,5 @@
 // ドット単位の描画の部品。矩形・枠・タブ・矢印など、画面のどこでも使う小さなものをまとめる。
-import { COLORS, type Rect, type Slant } from './layout.ts';
+import { COLORS, type Rect, SCREEN_H, SCREEN_W, type Slant } from './layout.ts';
 import type { Assets } from './options.ts';
 import { type Layout, layoutFor } from './screen.ts';
 import type { TextRenderer } from './text.ts';
@@ -40,9 +40,9 @@ export class Painter {
     this.layout = layout;
   }
 
-  /** 画面全体の矩形 */
+  /** 画面（DS 版の上画面にあたる 256×192。16:9 の右の欄は含まない）の矩形 */
   get screen(): Rect {
-    return { x: 0, y: 0, w: this.layout.w, h: this.layout.h };
+    return { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H };
   }
 
   rect(x: number, y: number, w: number, h: number, color: string) {
