@@ -12,7 +12,15 @@ mkdirSync(out, { recursive: true });
 const HEADER =
   '<!-- tools/analysis/all.ts が作る。手で直さない。材料は変換済みの公式シナリオ（手元だけにあるもの） -->\n\n';
 
-for (const name of ['volume', 'effects', 'patterns', 'structure', 'openings', 'typography']) {
+for (const name of [
+  'volume',
+  'effects',
+  'patterns',
+  'structure',
+  'openings',
+  'typography',
+  'phrases',
+]) {
   const p = Bun.spawnSync(['bun', join(here, `${name}.ts`)], { stderr: 'inherit' });
   if (p.exitCode !== 0) throw new Error(`${name}.ts が失敗した`);
   writeFileSync(join(out, `${name}.md`), HEADER + p.stdout.toString());

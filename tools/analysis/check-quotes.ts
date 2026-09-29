@@ -1,13 +1,16 @@
 // docs に、公式の台詞・説明文と同じ文字列が載っていないかを確かめる。
-// 使い方: bun tools/analysis/check-quotes.ts [--len 10] [ファイルかフォルダ ...]（既定は docs/characters）
+// 使い方: bun tools/analysis/check-quotes.ts [--len 10] [ファイルかフォルダ ...]（既定は docs/characters。フォルダは下のフォルダも見る）
 // 公式の文: 変換済み YAML（assets/extracted/**/converted/ep*.yaml）の文字列すべてと、
 // 法廷記録・選択肢の表（assets/extracted/**/tables/{record_text,choice_text}.json）の文字列。
 // 空白・改行・文中コマンド（[wait 8] など）・Markdown の記号を除いてから、--len 字（既定 10）以上続けて一致する所を出す。
 // 自動の部分（auto の印の間。語尾などの断片と数だけ）と、話の題は比べない。
+// 決まり文句の許可リスト（tools/analysis/stock-phrases.json。「弁護側、準備完了しています。」のような手続きの定型句）に
+// 当たる所も比べない。許可リストの句の基準（複数の話・複数の話し手に出るか）は phrases.ts が確かめる。
 // 一致があれば終了コード 1。出力には一致した文字列が入るので、結果は手元で見るだけにする（公開しない）。
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { loadStockPhrases, stockRegex } from './stock.ts';
 
 const ROOT = join(import.meta.dir, '../..');
 const args = process.argv.slice(2);
@@ -66,20 +69,26 @@ function windows(texts: string[]): Set<string> {
   return set;
 }
 
+/** フォルダなら、中の .md をすべて（下のフォルダも） */
 function files(p: string): string[] {
   if (statSync(p).isDirectory())
     return readdirSync(p)
-      .filter((f) => f.endsWith('.md'))
       .sort()
-      .map((f) => join(p, f));
+      .flatMap((f) =>
+        f.endsWith('.md') || statSync(join(p, f)).isDirectory() ? files(join(p, f)) : [],
+      );
   return [p];
 }
+
+/** 決まり文句（許可リスト）。docs で使っても一致に数えない */
+const stock = loadStockPhrases().map((s) => stockRegex(s.phrase));
 
 /** 1 行の中で、公式の文と LEN 字以上続けて一致する所（重なる窓はつなげて 1 つにする） */
 export function matches(line: string, set: Set<string>): string[] {
   let text = line;
   for (const t of titles) text = text.split(t).join('／');
-  const n = normalize(text);
+  let n = normalize(text);
+  for (const re of stock) n = n.replace(re, '／');
   const out: string[] = [];
   let start = -1;
   let end = -1;
