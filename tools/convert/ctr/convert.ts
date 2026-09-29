@@ -19,6 +19,22 @@ export type Ctx = {
   reveal: (msg: number) => string | null;
   /** 肢の無い <E223>（霊媒ビジョンなど、ゲーム側の遊びを始める）の代わり */
   game: () => Step[];
+  /** ほかのブロックで並べた選択肢の肢（<E222>… <E004 n> の後、n のブロックの <E223> で出す） */
+  choicesAt: (label: number | null) => { id: number; to: number }[];
+  /** <E031 話 番号>: 話（0 始まり）の台本の番号表の N 番の台本へ飛ぶ。別の話なら話の終わり */
+  script: (sce: number, idx: number) => Step[];
+  /** <E033 話 番号 ラベル>: その台本のラベルを呼んで戻る（呼ばれたブロックを展開したステップ） */
+  call: (sce: number, idx: number, label: string | null) => Step[];
+  /** <E026 n>: 同じ台本のラベル n を呼んで戻る（展開したステップ） */
+  callLocal: (n: number) => Step[];
+  /** 探偵パートの近似の中で展開しているとき、その入口の物語のファイルの章・シーン（<E052> で見る） */
+  hub?: { chap: number; scene: number };
+  /** <E394>: 探偵パートを終える */
+  endInvest: () => Step[];
+  /** 探偵パートの入口（L_DTC_START）の代わりのステップ（end は L_DTC_END への goto） */
+  investigate: (chap: number, scene: number, end: Step[]) => Step[];
+  /** <E393 ? ラベル>: ここで探偵パートに入り、終わるとラベルへ（L_DTC_START の無い形） */
+  freeRoam: (label: number) => Step[];
   /** 法廷記録の番号 → 証拠品 ID（種類 0）・人物 ID（種類 1） */
   recordId: (kind: number, idx: number) => string | null;
   flags: Set<string>;
@@ -69,7 +85,8 @@ function inline(ctx: Ctx, name: string, args: number[]): string {
   if (name === 'E604') return `[bgm ${bgmId(args[0]!)}]`;
   if (name === 'E605') return '[bgm null]';
   count(ctx, `文中 ${name}`);
-  return `[native ${[name, ...args].join(' ')}]`;
+  // 文中の native の引数は 0 以上の数だけ書ける（負の数のある命令は名前だけ残す）
+  return `[native ${[name, ...(args.some((a) => a < 0) ? [] : args)].join(' ')}]`;
 }
 
 type Line = { speaker: number | null; parts: string[]; centered: boolean; green: boolean };
@@ -83,6 +100,17 @@ function control(ctx: Ctx, name: string, args: number[]): Step[] | null {
       return ctx.jump(args[0]!);
     case 'E039':
       return ctx.end();
+    case 'E031':
+      return ctx.script(args[0]!, args[1]!);
+    case 'E393':
+      return ctx.freeRoam(args[1]!);
+    case 'E394':
+      return ctx.endInvest();
+    case 'E026':
+      return ctx.callLocal(args[0]!);
+    case 'E052':
+      if (!ctx.hub) return null;
+      return args[1] === ctx.hub.chap && args[2] === ctx.hub.scene ? ctx.jump(args[3]!) : [];
     case 'E028':
     case 'E029': {
       const f = flagName(args[0]!, args[1]!);
@@ -134,6 +162,7 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
   let demand: { step: Step; present: Record<string, Step[]>; wrongFrom: number } | null = null;
   let spots: { text: string; then: Step[] }[] = [];
   let spotsFrom = 0;
+  let conds: string[] = [];
 
   const finish = (auto: boolean) => {
     if (!line) return;
@@ -162,6 +191,10 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       continue;
     }
     const { name, args } = t;
+    if (name === 'E033' && !line) {
+      steps.push(...ctx.call(args[0]!, args[1]!, t.label ?? null));
+      continue;
+    }
     switch (name) {
       case 'E041':
       case 'E260':
@@ -194,7 +227,7 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       continue;
     }
     if (name === 'E223') {
-      const opts = (choice ?? []).map((o) => ({
+      const opts = (choice?.length ? choice : ctx.choicesAt(self)).map((o) => ({
         text: ctx.choiceText(o.id),
         // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
         then: ctx.jump(o.to),
@@ -216,7 +249,14 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       demand = { step, present, wrongFrom: steps.length };
       continue;
     }
-    if (name === 'E225' && demand) {
+    // 指紋の照合（<E561> で人物を選ばせ、<E226 種類 番号 ラベル> が正解。外れは自分に戻る）もつきつけ要求にする
+    if (name === 'E226' && !demand) {
+      const present: Record<string, Step[]> = {};
+      const step: Step = { demand: '照合する相手を選ぶ', present };
+      steps.push(step);
+      demand = { step, present, wrongFrom: steps.length };
+    }
+    if ((name === 'E225' || name === 'E226' || name === 'E255') && demand) {
       const id = ctx.recordId(args[0]!, args[1]!);
       if (id) demand.present[id] = ctx.jump(args[2]!);
       demand.wrongFrom = steps.length;
@@ -240,6 +280,20 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       steps.push({ native: 'examine3d', args: [] }, { choice: [...spots, ...other] });
       if (back) steps.push(...ctx.jump(self));
       spots = [];
+      continue;
+    }
+    // <E051 a b>… で条件のフラグを並べ、<E050 値 ラベル> ですべてが値なら飛ぶ
+    if (name === 'E051') {
+      const f = flagName(args[0]!, args[1]!);
+      ctx.flags.add(f);
+      conds.push(f);
+      continue;
+    }
+    if (name === 'E050' && conds.length) {
+      const cond = conds.map((f) => (args[0] ? f : `not ${f}`)).join(' and ');
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      steps.push({ if: cond, then: ctx.jump(args[1]!) });
+      conds = [];
       continue;
     }
     const done = control(ctx, name, args);
