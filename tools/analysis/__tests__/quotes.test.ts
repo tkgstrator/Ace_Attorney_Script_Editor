@@ -68,6 +68,8 @@ describe('出典つきの YAML の例', () => {
     expect(yamlLineSentences('- se: SE010')).toBe(0);
     expect(yamlLineSentences('- judge: "これは例です。[wait 8]\\n次の文です。"')).toBe(2);
     expect(yamlLineSentences('  text: （心の声‥‥）  # 注')).toBe(1);
+    expect(yamlLineSentences('    enter:          # 来たときに毎回実行する')).toBe(0);
+    expect(yamlLineSentences('  # 注だけの行')).toBe(0);
   });
 
   it('ブロックの中の文も節の数に入れる', () => {
