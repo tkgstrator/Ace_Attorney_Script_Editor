@@ -16,30 +16,35 @@
 
 ## 全体
 
+蘇る逆転 第1話の人物・証拠品で書いた例（値は短くし、`parts` は探偵パートのある話の形にしたもの）。
+
 ```yaml
-id: clocktower            # セーブデータの識別に使う
-title: 時計塔の鐘
-player: naruse            # ゆさぶる・つきつけるときの掛け声の主
-life: 10                  # ライフの最大値（既定 10。10 以下は「！」の数、超えると棒のゲージで出す）
+id: ep1                   # セーブデータの識別に使う
+title: はじめての逆転
+player: phoenix           # ゆさぶる・つきつけるときの掛け声の主
+life: 5                   # ライフの最大値（既定 10。10 以下は「！」の数、超えると棒のゲージで出す）
 defaults:
-  penalty: 2              # penalty: true で減る量（既定 2）
+  penalty: 1              # penalty: true で減る量（既定 2）
   wrongPresent:           # 見当違いの証拠品をつきつけたときの既定の反応
-    - judge: その「{evidence}」が、この証言とどう関係するのですか？
+    - judge: その「{evidence}」が、どう関係するのですかな？
     - penalty: true
 characters:
-  naruse:
-    name: 成瀬
+  phoenix:
+    name: ナルホド
     stand: defense          # 背景の選択に使う
-    profile: { age: 24, description: 新米の弁護士。 }   # 法廷記録の人物ファイルに載る（なければ載らない）
+  mia:
+    name: チヒロ
+    profile: { name: 綾里 千尋, age: 27, description: ぼくの上司。 }   # 法廷記録の人物ファイルに載る（なければ載らない）
 evidence:
-  repair: { name: 修理票, description: ... }
+  badge: { name: 弁護士バッジ, description: ... }
+  autopsy: { name: 高日美佳の解剖記録, description: ... }
 flags:                    # フラグ名: 初期値（型は初期値から決まる）
-  asked_bell: false
+  pressed_door: false
   mistakes: 0
 start:
   scene: opening
-  evidence: [badge, repair]
-gameover: verdict_guilty  # ライフが尽きたときのシーン（省略時は組み込みの画面）
+  evidence: [badge, autopsy]
+gameover: guilty          # ライフが尽きたときのシーン（省略時は組み込みの画面）
 parts:                    # 章を探索編・裁判編に分ける（下の「編」を参照）
   - id: investigation
     kind: investigation
@@ -68,39 +73,40 @@ parts:                    # 章を探索編・裁判編に分ける（下の「�
 `- investigate: 場所ID` でその場所へ行き、探偵メニュー（調べる・移動する・話す・つきつける）を出す。
 各行動のブロックが終わると、その場所の探偵メニューに戻る。探索編を終えるには、ブロックの中で `goto` する。
 
+> 出典: 逆転裁判2 第2話（探偵パート1 の倉院の里。ID と条件は読みやすく書き直した）
+
 ```yaml
 places:
-  plaza:
-    name: 時計塔の広場          # 「移動する」の一覧や、画面左上に出す名前
-    background: plaza          # 背景のキー（省略すると場所の ID）
-    examineScroll: not locked  # 「調べる」の間に背景をスクロールできるか（true / false か条件式。省略すると true）
-    person: torii              # その場所にいる人物。条件で変えるなら [{ id: torii, when: 条件 }, ...]
+  village:
+    name: 倉院の里              # 「移動する」の一覧や、画面左上に出す名前
+    background: bg255          # 背景のキー（省略すると場所の ID）
+    examineScroll: true        # 「調べる」の間に背景をスクロールできるか（true / false か条件式。省略すると true）
+    person: maya               # その場所にいる人物。条件で変えるなら [{ id: maya, when: 条件 }, { id: lotta, when: 条件 }]
     enter:                     # 来たときに毎回実行する
-      - if: not visited(plaza)   # 初めて来たときだけ（探偵メニューに着いた時点で訪問済みになる）
-        then:
-          - torii: いらっしゃい。
+      - if: not visited(village) # 初めて来たときだけ（探偵メニューに着いた時点で訪問済みになる）
+        then: [ ... ]
     examine:                   # 調べる。area は背景の上の [x, y, 幅, 高さ]（背景の座標。横長の背景なら x は 0〜511）
-      - id: tower              # 調べた印の ID（省略すると plaza_examine1, 2, ...）
-        name: 時計塔            # エディタでの表示名
-        area: [96, 8, 64, 88]
+      - id: bus_stop           # 調べた印の ID（省略すると village_examine1, 2, ...）
+        name: バス停            # エディタでの表示名
+        area: [38, 82, 34, 62]
         then:
-          - give: repair
+          - phoenix: "古びたバス停だ。"
     examineDefault: [ ... ]    # 何もない所を調べたとき（省略すると「特に気になるものはない。」）
     talk:                      # 話す（その場所の人物と）
-      - id: night              # 話した印の ID（省略すると plaza_talk1, 2, ...）。話し終えた話題には印が付く
-        topic: 事件の夜のこと
+      - id: request            # 話した印の ID（省略すると village_talk1, 2, ...）。話し終えた話題には印が付く
+        topic: 今日の依頼
         then: [ ... ]
-      - topic: 時計塔の鐘
-        when: seen(night)      # 条件を満たすと話題に出る
+      - topic: 倉院の里
+        when: seen(request)    # 条件を満たすと話題に出る
         then: [ ... ]
     present:                   # つきつける（その場所の人物に）。探索編なので「くらえ！」は出ない
-      photo: [ ... ]           # 証拠品 ID
-      torii: [ ... ]           # 人物 ID（人物ファイルをつきつけたとき）
+      badge: [ ... ]           # 証拠品 ID
+      lotta: [ ... ]           # 人物 ID（人物ファイルをつきつけたとき）
     presentWrong: [ ... ]      # ほかの証拠品・人物ファイル（省略すると「特に反応はなかった。」）
     move:                      # 移動する
-      - shop
-      - to: court_gate
-        when: has(repair) and has(clock)
+      - training_hall
+      - to: office
+        when: seen(request)
 ```
 
 探偵メニューの操作: ボタンはクリックか ←→ と Enter。「調べる」ではクリックした所か、
@@ -119,55 +125,10 @@ places:
 証拠品と同じく `presentWrong`（`{evidence}` には人物ファイルでの表示名が入る）。
 証拠品 ID と人物 ID が同じものは、`present` のキーに書けない（どちらか分からないため。エラーになる）。
 
-### サイコ・ロック・証拠品を詳しく調べる
+### サイコ・ロック・証拠品を詳しく調べる・範囲を選ぶ・人物を選ぶ
 
-逆転裁判2・3 のサイコ・ロック（`psycheLock`）と、DS 版の第 5 話の「証拠品を詳しく調べる」（証拠品の `examine`）は
-[scenario-games.md](scenario-games.md) を参照。
-
-### 範囲を選ぶ
-
-`pick` は、絵の上の範囲を選ばせるステップ（元のゲームでは DS 版の第 5 話の、指紋を検出する所を選ぶ・映像の 1 点を
-指し示すなどの遊び）。探偵メニューの外（会話・法廷）でも使える。書き方は場所の `examine` と同じく `area` と `then`。
-
-```yaml
-- pick: 指紋を検出する所を選ぶ   # 案内（テキストの枠の 1 行目。空なら「どこを選ぶ？」）
-  images: [bg128]               # 絵（背景のキー）。省略すると今の背景（スクロールした位置も調べると同じ）
-  areas:                        # 選べる範囲。重なっていれば先に書いたもの
-    - name: 人さし指            # エディタ・報告での表示名（省略可）
-      area: [92, 44, 16, 16]    # [x, y, 幅, 高さ]（絵・背景の座標）
-      when: not glove           # 条件を満たすときだけ選べる（省略可）
-      then:
-        - set: { glove: true }
-  miss:                         # 範囲の外を選んだとき。終わると選び直す（省略すると範囲の外は選べない）
-    - ema: 何も出ませんね。
-  quit:                         # 「やめる」を出す。選ぶと実行して次のステップへ（省略すると出ない）
-    - phoenix: また後にしよう。
-```
-
-- 範囲の `then` の後は、`choice` と同じく次のステップへ進む。`then` の中で `goto` すればそのシーンへ（選び直させるときも `goto`）。
-- `images` を複数書くと、右下の早戻し・早送り（L・R キー）で絵を切り替えられる（元のゲームの映像の操作の代わり）。
-  範囲に `image: 番号` を書くと、その絵を見せているときだけ当たる（省略するとどの絵でも）。
-- 操作は探索編の「調べる」と同じ（クリックか、矢印キーで動かしたカーソルの所を Enter。目印も同じ）。「やめる」は左下か Esc。
-  選んでいる間は法廷記録を開けない。整合性チェックは、範囲・範囲の外・やめるをすべて操作として試す。
-
-### 人物を選ぶ
-
-`nominate` は、並べた人物の顔から 1 人を選ばせるステップ（元のゲームでは DS 版の第 5 話の、指紋の照合と人物の指名で
-共通の画面）。書き方はつきつけの要求（`demand`）と同じく `present` と `wrong`。
-
-```yaml
-- nominate: 指紋のヌシを選ぶ             # 案内（画面の上に出す。空なら「だれを選ぶ？」）
-  people: [gant, goodman, ema, detective] # 並べる人物 ID（8 人まで。4 人ずつ 2 段に、左上から順に）
-  present:                                # 正解の人物（people のどれか）→ 選んだとき。then の後は次のステップへ
-    detective:
-      - phoenix: イトノコ刑事の指紋だ！
-  wrong:                                  # ほかの人物を選んだとき。終わるともう一度選ぶ（省略すると何もせず選び直す）
-    - ema: 一致しませんね。
-```
-
-- 顔は人物ファイルの顔の絵（`profile.icon`）。絵がなければ名前のボタンにする。人物ファイルを持っているかどうかに関係なく、書いた人物を並べる。
-- 操作はクリックか、矢印キーで選んで Enter。やめることはできない（元のゲームと同じ）。選んでいる間は法廷記録を開けない。
-- コンパイルすると、人物ごとの範囲（DS 版の下画面の枠の位置）を持つ `pick` の命令になる。整合性チェックはすべての人物を操作として試す。
+逆転裁判2・3 のサイコ・ロック（`psycheLock`）と、DS 版の第 5 話の「証拠品を詳しく調べる」（証拠品の `examine`）・
+絵の上の範囲を選ぶ（`pick`）・人物の顔から選ぶ（`nominate`）は [scenario-games.md](scenario-games.md) を参照。
 
 ## シーン
 
@@ -179,27 +140,31 @@ YAML で次に書かれたシーンへそのまま進む。
 ```yaml
 scenes:
   opening:
-    - judge: これより開廷します。
+    - judge: "これより、矢張 政志の\n法廷を開廷します。"
     - goto: t1
 ```
 
 証言シーンは、証言 → `after` → 尋問 の順に進む。尋問で最後の証言を過ぎると `loop` を実行して先頭へ戻る。
 
+> 出典: 蘇る逆転 第1話（法廷パートの最初の証言）
+
 ```yaml
   t1:
-    testimony: 事件の夜に見たこと   # タイトル
-    witness: torii
+    testimony: 事件の当日、目撃したこと   # タイトル
+    witness: sahwit
     statements:
-      - id: bell                  # 省略すると s1, s2, ...
-        text: 9時に鐘が鳴りました。
+      - id: door                  # 省略すると s1, s2, ...
+        text: "男はあわてていて、ドアを半開きに\nしたまま、行ってしまいました。"
         press:                    # ゆさぶり。終わると次の証言へ
-          - naruse: 本当に？
-          - set: { asked_bell: true }
+          - phoenix: "[speed 5]半開き‥‥[wait 15][speed 3]ですか。"
+          - set: { pressed_door: true }
+      - id: time
+        text: "時間はハッキリ覚えております。\nお昼すぎの、2時でした。"
         present:                  # 証拠品 ID → つきつけたとき。goto しなければ同じ証言に戻る（人物 ID は下を参照）
-          repair:
+          autopsy:
             - goto: contradiction
-      - text: 鐘は9回でした。
-        when: asked_bell          # 条件を満たすと証言に現れる
+      - text: ...
+        when: pressed_door        # 条件を満たすと証言に現れる（この証言には無い。書き方の例）
     after: [ ... ]                # 証言を聞き終えてから尋問に入るまで
     loop: [ ... ]                 # 最後の証言を過ぎたとき
     wrong: [ ... ]                # defaults.wrongPresent を上書き
@@ -215,29 +180,29 @@ scenes:
 
 | 書き方 | 意味 |
 |---|---|
-| `- naruse: 台詞` | 台詞（省略形）。`（ ）` で始まると心の声として青字になり、立ち絵は切り替わらない |
-| `- say: naruse`<br>`  text: 台詞`<br>`  color: orange` | 台詞（完全形）。color は white / blue / green / orange / red |
+| `- phoenix: 台詞` | 台詞（省略形）。`（ ）` で始まると心の声として青字になり、立ち絵は切り替わらない |
+| `- say: phoenix`<br>`  text: 台詞`<br>`  color: orange` | 台詞（完全形）。color は white / blue / green / orange / red |
 | `- narrate: 文` | ナレーション（名前欄なし） |
 | `- set: { flag: true }` | フラグに値を入れる |
 | `- add: { mistakes: 1 }` | 数値フラグに加算 |
-| `- give: keys` / `- take: keys` | 証拠品を加える / 外す（配列も可） |
+| `- give: autopsy` / `- take: autopsy` | 証拠品を加える / 外す（配列も可） |
 | `- if: 条件`<br>`  then: [...]`<br>`  else: [...]` | 条件分岐 |
 | `- choice:`<br>`    - text: 選択肢`<br>`      when: 条件`<br>`      then: [...]` | 選択肢。then の後は次のステップへ進む |
-| `- demand: 問いかけ`<br>`  present: { clock: [...] }`<br>`  wrong: [...]` | 証拠品のつきつけ要求。不正解なら wrong の後にもう一度。裁判編なら、つきつけた後に「くらえ！」が自動で入る（探索編では入らない）。present に人物 ID を書くと、人物ファイルもつきつけられる（`profiles: true` なら、正解が証拠品だけでも人物ファイルを見せられる。人物ファイルの見当違いも wrong） |
-| `- pick: 案内`<br>`  areas: [{ area: [...], then: [...] }]`<br>`  miss: [...]` | 絵の上の範囲を選ぶ（[範囲を選ぶ](#範囲を選ぶ)） |
-| `- nominate: 案内`<br>`  people: [a, b, c]`<br>`  present: { b: [...] }`<br>`  wrong: [...]` | 人物の顔から 1 人を選ぶ（[人物を選ぶ](#人物を選ぶ)） |
+| `- demand: 問いかけ`<br>`  present: { autopsy: [...] }`<br>`  wrong: [...]` | 証拠品のつきつけ要求。不正解なら wrong の後にもう一度。裁判編なら、つきつけた後に「くらえ！」が自動で入る（探索編では入らない）。present に人物 ID を書くと、人物ファイルもつきつけられる（`profiles: true` なら、正解が証拠品だけでも人物ファイルを見せられる。人物ファイルの見当違いも wrong） |
+| `- pick: 案内`<br>`  areas: [{ area: [...], then: [...] }]`<br>`  miss: [...]` | 絵の上の範囲を選ぶ（[範囲を選ぶ](scenario-games.md#範囲を選ぶ)） |
+| `- nominate: 案内`<br>`  people: [a, b, c]`<br>`  present: { b: [...] }`<br>`  wrong: [...]` | 人物の顔から 1 人を選ぶ（[人物を選ぶ](scenario-games.md#人物を選ぶ)） |
 | `- goto: scene` | シーン移動 |
 | `- penalty: true` / `- penalty: 3` | ライフを減らす。0 になると gameover シーンへ（サイコ・ロックの挑戦中は gaugeOut のシーンへ） |
 | `- penalty: risk` / `- lifeRisk: 10` | lifeRisk で予告した量（ゲージの点滅）だけ減らす / 減る量を予告する（0 で消す） |
 | `- heal: 40` / `- heal: true` | ライフを回復する（true は最大まで。最大は超えない） |
-| `- shout: objection`<br>`  by: himuro` | 吹き出し（objection / hold / takethat）。by の既定は player |
+| `- shout: objection`<br>`  by: payne` | 吹き出し（objection / hold / takethat）。by の既定は player |
 | `- banner: 文` | 画面中央の大きな文字（「無罪」など） |
-| `- card: "9月27日 午前10時\n地方裁判所 第2法廷"` | 日時・場所の表示。画面を暗くし、テキストウィンドウに緑字で中央寄せ |
-| `- showEvidence: repair` / `- showEvidence: null` | 画面左上の小窓に証拠品を見せる。シーンが変わると消える |
-| `- show: torii` / `- show: null` | 表示する人物を切り替える |
-| `- location: office` / `- location: null` | 場所（背景）を変える。null で法廷（立ち位置で背景が決まる）に戻る |
+| `- card: "日時\n場所"` | 日時・場所の表示。画面を暗くし、テキストウィンドウに緑字で中央寄せ（[下の例](#日時の表示と選択肢の例)） |
+| `- showEvidence: badge` / `- showEvidence: null` | 画面左上の小窓に証拠品を見せる。シーンが変わると消える |
+| `- show: maya` / `- show: null` | 表示する人物を切り替える |
+| `- location: bg9` / `- location: null` | 場所（背景）を変える。null で法廷（立ち位置で背景が決まる）に戻る |
 | `- scroll: { x: -6 }` / `- scroll: null` | 画面より大きい背景を 1 フレームごとに x・y ドット動かす（端で止まる。人物も一緒に動く）。背景を変えると最初の位置に戻る |
-| `- investigate: plaza` | 探索編の場所へ行き、探偵メニューを出す |
+| `- investigate: village` | 探索編の場所へ行き、探偵メニューを出す |
 | `- bgm: trial`<br>`  frames: 60` / `- bgm: null` | BGM を流す（繰り返し）/ 止める。frames はフェードの長さ。セーブデータに残り、ロードすると流れ直す |
 | `- se: gavel` | 効果音 |
 | `- shake: true`<br>`  strength: 1` | 画面を揺らす。`shake: 40` で長さ（既定 30）。strength は 0〜2（既定 0） |
@@ -252,23 +217,37 @@ scenes:
 | `- resume: stay` | 尋問のゆさぶり・つきつけのブロックから、同じ証言（stay）・次（next）・最初（first）へ戻る |
 | `- show: phoenix`<br>`  talk: 15`<br>`  idle: 14` | 人物と動き（元のゲームの動きの番号）。文字送りの間は talk、止まっている間は idle |
 | `- native: bg_scroll`<br>`  args: [2, 1, 10, 190]` | 元のゲームの命令で、まだ対応していないもの（何もしない。変換で失わないために残す） |
+| `- end: true` / `- gameover: true` | クリア / ゲームオーバー |
 
 台詞には `auto: true`（出し終えたらボタンを待たずに進む）、つきつけの要求には `by: judge`（問いかける人物）を付けられる。
 `defaults.autoShow: false` にすると、台詞で話し手の立ち絵に切り替わらなくなる（表示は show だけで変わる。元のゲームと同じ）。
 
 時間の単位はすべてフレーム（1/60 秒）。元のゲームの台本と同じ。
-| `- end: true` / `- gameover: true` | クリア / ゲームオーバー |
+
+### 日時の表示と選択肢の例
+
+> 出典: 蘇る逆転 第1話（法廷パートの始まりの日時の表示と、被告人の名前を問われる所）
+
+```yaml
+- card: "8月3日　午前10時\n地方裁判所　第2法廷"
+- judge: "まず、[wait 12]この事件の[color red]被告人[color white]の名前を。\n[wait 30]‥‥言ってみなさい。"
+- choice:
+    - text: 成歩堂 龍一
+      then: [ ... ]            # 裁判長に聞き直されて、同じ問いへ goto で戻る
+    - text: 矢張 政志
+      then: [ ... ]            # 正解。then の後は次のステップへ
+```
 
 ## 条件式
 
 `if` / `when` に書く。
 
 ```
-asked_bell and not hint_bell
+pressed_door and not hint_given
 mistakes == 0 || life >= 5
-has(repair)          # 証拠品を持っているか
+has(autopsy)         # 証拠品を持っているか
 visited(t1)          # シーン・場所を訪れたか
-seen(night)          # 探索編で、その「調べる」「話す」をしたか
+seen(request)        # 探索編で、その「調べる」「話す」をしたか
 ```
 
 - 演算子: `and` `or` `not`（`&&` `||` `!` も可）、`==` `!=` `<` `<=` `>` `>=` `+` `-`
@@ -287,8 +266,10 @@ DS 版のメイン画面（上画面）と同じ 256×192 ドットで描く。D
 収まらない台詞は自動でページが分かれ、クリックで続きを表示する。
 好きな位置で改行したいときは `\n` を書く（YAML では `"..."` で囲んだ文字列の中で使う）。
 
+> 出典: 蘇る逆転 第1話（被告人の名前を問われる所）
+
 ```yaml
-- naruse: "この修理票を見てください。\n鐘は止まっていたんです！"
+- mia: "ヒコクニンっていうのは、[wait 8]裁判に\nかけられている人のことよ!"
 ```
 
 行数と字数は `Player` の `charsPerLine` / `linesPerPage` で変えられる。
@@ -297,9 +278,11 @@ DS 版のメイン画面（上画面）と同じ 256×192 ドットで描く。D
 
 元のゲームの台本と同じく、台詞・証言・ナレーションの途中に演出を書ける。その文字が出るところで実行する。
 
+> 出典: 蘇る逆転 第1話（被告人の名前を問われる所）
+
 ```yaml
-- torii: "な、[wait 8]なんですとォ[se damage][shake 30 1]……！"
-- naruse: "[color red]御剣検事[color white]が担当だって？"
+- mia: "な、[wait 5][flash][se SE019][shake 30 1][speed 2]なるほどくん!"
+- mia: "あなたは、[wait 10][color red]弁護人[color white]!"
 ```
 
 | 書き方 | 意味 |
@@ -353,14 +336,14 @@ BGM・効果音の ID に何を鳴らすかは、ゲーム側（`Player` の `au
 見当違いのつきつけは 1 つだけ試す（証拠品から選び、証拠品がすべて正解のときだけ人物ファイルから）。
 
 詳しく調べる操作は、状態を変えうる場所（フラグ・証拠品・人物ファイル・法廷記録の鍵を変えるか、別のシーンへ移るもの）だけを試す。
-台詞・日時の表示・証言を聞く途中では、次のどれかなら試さない（どれも近似ではなく、結果は変わらない）。
+台詞・日時の表示・証言を聞く途中では、次のどれかなら試さない（どれも近似ではないので、結果は同じ）。
 
 - 表示だけが続くかたまりの途中の台詞（最後の台詞で試す）
 - 調べる場所で読み書きする変数と、次に調べられる所（次の台詞・選択肢・つきつけの要求・探偵メニュー）までの命令で読み書きする
   変数が重ならない（次の所で試すのと同じ結果になる）。別のシーンへ移る場所は、間の命令が書く変数が移る先で読まれないとき
 - 実際に試しても状態が変わらない（すでに調べ終えている）
 
-状態が増えすぎないよう、この先の動きに関係しない違いは区別しない（どれも近似ではなく、結果は変わらない）。
+状態が増えすぎないよう、この先の動きに関係しない違いは区別しない（どれも近似ではないので、結果は同じ）。
 
 - 表示（立ち絵・背景・BGM など）・ライフの違い（人物ファイルは、人物ファイルをつきつけられる所がなければ区別しない。
   法廷記録を使えるかは、詳しく調べられる証拠品がなければ区別しない）
