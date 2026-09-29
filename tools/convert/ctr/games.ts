@@ -103,28 +103,58 @@ export function spotLabel(entries: { text: string }[], label: number, spot: numb
   );
 }
 
-/** 霊媒ビジョンの正解（台本の後の台詞から決めたもの）。キーは「話の番号 - 1:回」 */
-const ANSWERS: { [key: string]: { line?: number; sense: string } } = {
-  // 「殴られた瞬間に視界が真っ暗に‥‥まちがいありませんか？」、ヒント「《痛い》という感覚がオカシイ」
-  '0:1': { line: 2, sense: '痛み' },
-  // 「停電した後も儀式の歌は聞こえている！」
-  '0:2': { line: 3, sense: '儀式の歌' },
-};
-
-/** 霊媒ビジョンで選べる感覚（第 1 話。spirit_jpn の image00_sense の絵の文字と、触覚の「痛み」） */
-const SENSES: { [ep: number]: string[] } = { 0: ['儀式の歌', '少年の声', 'お香の匂い', '痛み'] };
+/** 視覚（映像の矛盾）を指摘する選択肢。映像の当たり（movie/hit/sp_*.xfs）は使えないので、選べば正解とする */
+const VISUAL = '視覚';
 
 /**
- * 霊媒ビジョンを「託宣を選ぶ → 感覚を選ぶ」の選択肢にする。ep は話の番号 - 1（sce00 → 0）、round は <E530 回>。
- * 正解なら main2、託宣の外れは failOracle、感覚の外れは failSense（それぞれ goto などのステップ）。分からなければ null
+ * 霊媒ビジョンの正解（台本の後の台詞・ヒントから決めたもの）。キーは「話の番号 - 1」+「託宣の種類（<E528 n> の n - 1）」+ ":回"。
+ * line を書かない回は、託宣が書き換わる行（AST_回_行_1 のある行）が 1 つだけのもの
+ */
+const ANSWERS: { [key: string]: { line?: number; sense: string } } = {
+  // 第 1 話 spirit00。「殴られた瞬間に視界が真っ暗に‥‥まちがいありませんか？」、ヒント「《痛い》という感覚がオカシイ」
+  '00:1': { line: 2, sense: '痛み' },
+  // 「停電した後も儀式の歌は聞こえている！」
+  '00:2': { line: 3, sense: '儀式の歌' },
+  // 第 3 話 spirit20（c101）。ヒント「新しく現れた《鈴の音》に注目」。成功後は「《鈴の音》が《水の音》に変わっている」と
+  // 言うので、足音の系列のどれかが正解の可能性もある（鈴の音は推測）。託宣は 3 行目が「壊れた灯篭」→「泉側の灯篭」に変わる
+  '20:1': { sense: '鈴の音' },
+  // ヒント「視覚に注目」、成功後「被告人の背後の灯篭の炎が揺らいでいる」。行は推測（泉側の灯篭の 3 行目）
+  '20:2': { line: 3, sense: VISUAL },
+  // ヒント「今回も視覚。ハッキリ見えるようになったところ」、成功後「あの灯篭は、あきらかにムジュンしている」。行は推測
+  '20:3': { line: 3, sense: VISUAL },
+  // 第 3 話 spirit21（c302）。ヒント「視覚に注目」、成功後「儀式前日は地面の模様が見えなかった」→ 「地面の模様が見える」の 2 行目
+  '21:1': { line: 2, sense: VISUAL },
+  // ヒント「“被害者は隠し部屋で石版に手をついて立っていた”に違和感」、成功後「立っている被害者に《重い》はありえない」
+  '21:2': { line: 1, sense: '重い' },
+};
+
+/**
+ * 霊媒ビジョンで選べる感覚。キーは ANSWERS と同じ（「話-1」+「種類」）で、回ごとに変わるものは ":回" を付ける。
+ * 絵は spirit_jpn の image{話}{種類}_sense（第 3 話の 20 は 20_00 の 4 つ + 20_01 の 3 つ、21 は 3 つ）。
+ * 第 1 話の「痛み」は絵の外（触覚）で、ヒントの台詞から足した
+ */
+const SENSES: { [key: string]: string[] } = {
+  '00': ['儀式の歌', '少年の声', 'お香の匂い', '痛み'],
+  '20': ['足音', '風の音', '鈴の音', '水の音', VISUAL],
+  '20:3': ['足音', '風の音', '鈴の音', '水の音', '冷たい', '固い', 'お香の匂い', VISUAL],
+  '21': ['ギンギルの匂い', 'トリサマンのテーマ', '重い', VISUAL],
+};
+
+/**
+ * 霊媒ビジョンを「託宣を選ぶ → 感覚を選ぶ」の選択肢にする。ep は話の番号 - 1（sce00 → 0）、round は <E530 回>、
+ * kind は託宣の種類（<E528 n> の n - 1。無ければ 0。spirit{ep}{kind}_jpn の文と絵を選ぶ）。
+ * 正解なら main2、託宣の外れは failOracle、感覚の外れは failSense（それぞれ goto などのステップ）。分からなければ null。
+ * 第 3 話のファイルには L_FAIL_ORACLE・L_FAIL_SENSE が無く、外れはどちらも L_SPIRIT_CHECK なので、呼ぶ側で代わりに渡す
  */
 export function seance(
   ep: number,
   round: number,
   go: { main2: Step[]; failOracle: Step[]; failSense: Step[] },
+  kind = 0,
 ): Step[] | null {
-  const file = join(AA6, `script/arc/archive/spirit_jpn/msg/spirit${ep}0_jpn.txt`);
-  const senses = SENSES[ep];
+  const file = join(AA6, `script/arc/archive/spirit_jpn/msg/spirit${ep}${kind}_jpn.txt`);
+  const key = `${ep}${kind}`;
+  const senses = SENSES[`${key}:${round}`] ?? SENSES[key];
   if (!existsSync(file) || !senses) return null;
   const lines = new Map<number, string>();
   const changed = new Set<number>();
@@ -134,7 +164,7 @@ export function seance(
     if (m[3] === '0') lines.set(Number(m[2]), e.text.replace(/\n/g, ''));
     else changed.add(Number(m[2]));
   }
-  const answer = ANSWERS[`${ep}:${round}`];
+  const answer = ANSWERS[`${key}:${round}`];
   const line = answer?.line ?? (changed.size === 1 ? [...changed][0] : undefined);
   if (!answer || line === undefined || !lines.has(line)) return null;
   const pickSense: Step = {
