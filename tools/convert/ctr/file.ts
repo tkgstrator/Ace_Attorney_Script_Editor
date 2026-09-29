@@ -3,14 +3,26 @@
 // 尋問の入口のラベルを証言シーンにし、ゆさぶり・外れ・最後の証言の後など尋問の中から飛ぶラベルはその場に展開する。
 import { type Ctx, charId, convertBlock, plain, type Step } from './convert.ts';
 import { findExam } from './exam.ts';
+import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
 
 export type Shared = Omit<
   Ctx,
-  'jump' | 'end' | 'reveal' | 'game' | 'choicesAt' | 'endInvest' | 'callLocal' | 'freeRoam'
+  | 'jump'
+  | 'end'
+  | 'reveal'
+  | 'game'
+  | 'choicesAt'
+  | 'endInvest'
+  | 'callLocal'
+  | 'freeRoam'
+  | 'pointOut'
+  | 'spotName'
 > & {
   /** ファイル → その終わりで行う法廷記録の増減 */
   gains: Map<string, Step[]>;
+  /** 話の番号 - 1（sce00 → 0） */
+  ep: number;
 };
 
 export type FileResult = {
@@ -150,6 +162,13 @@ export function convertFile(
     end: () => [...atEnd, next ? { goto: next } : { end: true }],
     reveal: (msg) => revealFlag.get(msg) ?? null,
     game: () => solved('spirit_vision'),
+    pointOut: (self) => {
+      const po = pointOutIndex(self);
+      const pick = po === null ? null : pointOut(po);
+      if (pick && po !== null) for (const f of pointOutFlags(po)) shared.flags.add(f);
+      return pick;
+    },
+    spotName: (label, spot) => spotLabel(entries, label, spot),
     choicesAt: (n) => (n === null ? [] : (choicesAt.get(n) ?? [])),
     script: (sce, idx) => [...atEnd, ...shared.script(sce, idx)],
     endInvest: () => [{ native: 'E394', args: [] }],
@@ -178,6 +197,30 @@ export function convertFile(
     if (k < 0) return [{ native: game, args: [] }];
     pending.push(k);
     return [{ native: game, args: [] }, { goto: idOf(file, labelOf(k)!) }];
+  };
+  /** L_PO_START(_n) の遊びの番号: 同じ組の L_PO_INIT(_n) の <E306 番号 …> */
+  const pointOutIndex = (self: number | null): number | null => {
+    const init = labelOf(self ?? -1)?.replace('START', 'INIT');
+    const t = blocks[entries.findIndex((e) => e.label === init)]?.find(
+      (t) => t.kind === 'cmd' && t.name === 'E306',
+    );
+    return t?.kind === 'cmd' ? (t.args[0] ?? null) : null;
+  };
+  /** 霊媒ビジョン（<E530 回> のあるファイル）を託宣と感覚の選択肢にする。正解が分からなければ null */
+  const seanceSteps = (): Step[] | null => {
+    const round = blocks.flat().find((t) => t.kind === 'cmd' && t.name === 'E530');
+    const go = (label: string): Step[] => {
+      const k = entries.findIndex((e) => e.label === label);
+      if (k < 0) return [];
+      pending.push(k);
+      return [{ goto: idOf(file, label) }];
+    };
+    if (round?.kind !== 'cmd') return null;
+    return seance(shared.ep, round.args[0]!, {
+      main2: go('L_MAIN2'),
+      failOracle: go('L_FAIL_ORACLE'),
+      failSense: go('L_FAIL_SENSE'),
+    });
   };
   const poSuccess = (start: string): string | null => {
     const check = blocks[entries.findIndex((e) => e.label === start.replace('START', 'CHECK'))];
@@ -261,8 +304,15 @@ export function convertFile(
     const dtcEnd = entries.findIndex((e) => e.label === 'L_DTC_END');
     const hub = file.match(/^c(\d+)_(\d+)$/);
     // 指し示す遊びの成功の先は、L_PO_CHECK(_n) の最初の <E030 … ラベル>（成功でゲームが立てるフラグを見る）
-    const po = /^L_PO_START(_\d+)?$/.test(labelOf(k) ?? '') ? poSuccess(labelOf(k)!) : null;
-    if (po) scenes.set(k, solved('point_out', [po]));
+    const isPo = /^L_PO_START(_\d+)?$/.test(labelOf(k) ?? '');
+    const po = isPo ? poSuccess(labelOf(k)!) : null;
+    // 当たりが読めるものは、そのまま変換して <E307> を pick にする（続く L_PO_CHECK がフラグで分ける）
+    const poIdx = isPo ? pointOutIndex(k) : null;
+    const seanceK = labelOf(k) === 'L_SPIRIT' ? seanceSteps() : null;
+    if (poIdx !== null && pointOut(poIdx))
+      scenes.set(k, convertBlock(blocks[k]!, makeCtx(null), k));
+    else if (seanceK) scenes.set(k, seanceK);
+    else if (po) scenes.set(k, solved('point_out', [po]));
     else if (game) scenes.set(k, solved(game));
     else if (loop) scenes.set(k, solved(loop.game, [loop.to]));
     else if (labelOf(k) === 'L_DTC_START' && dtcEnd >= 0 && hub) {

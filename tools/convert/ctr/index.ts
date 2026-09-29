@@ -102,6 +102,7 @@ function main() {
     () => shared,
   );
   const shared: Shared = {
+    ep: ep - 1,
     call,
     investigate,
     names,

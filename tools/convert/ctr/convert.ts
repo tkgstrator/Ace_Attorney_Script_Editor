@@ -19,6 +19,10 @@ export type Ctx = {
   reveal: (msg: number) => string | null;
   /** 肢の無い <E223>（霊媒ビジョンなど、ゲーム側の遊びを始める）の代わり */
   game: () => Step[];
+  /** <E307>（絵の 1 点を指し示す遊びを始める）の代わりの pick。当たりが読めなければ null */
+  pointOut: (self: number | null) => Step | null;
+  /** <E327 2 所 ラベル>: 3D で調べる所の選択肢の文 */
+  spotName: (label: number, spot: number) => string;
   /** ほかのブロックで並べた選択肢の肢（<E222>… <E004 n> の後、n のブロックの <E223> で出す） */
   choicesAt: (label: number | null) => { id: number; to: number }[];
   /** <E031 話 番号>: 話（0 始まり）の台本の番号表の N 番の台本へ飛ぶ。別の話なら話の終わり */
@@ -263,12 +267,19 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       continue;
     }
     if (name === 'E004' && demand && args[0] === self) continue;
+    if (name === 'E307') {
+      const pick = ctx.pointOut(self);
+      if (pick) {
+        steps.push(pick);
+        continue;
+      }
+    }
     // 証拠品を 3D で調べる（<E293>、<E327 2 所 ラベル>… <E004 自分>）。当たりの範囲は台本に無いので、所ごとの選択肢にする
     // 所を並べた後に台詞があれば、それはほかの所を調べたとき（外れ）
     if (name === 'E327') {
       if (!spots.length) spotsFrom = steps.length;
       // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-      spots.push({ text: `調べる所 ${args[1]}`, then: ctx.jump(args[2]!) });
+      spots.push({ text: ctx.spotName(args[2]!, args[1]!), then: ctx.jump(args[2]!) });
       continue;
     }
     if (name === 'E004' && spots.length) {

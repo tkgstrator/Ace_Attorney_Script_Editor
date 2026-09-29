@@ -59,6 +59,8 @@ export function makeCall(
       freeRoam: (n) => [{ native: 'E393', args: [0, n] }],
       reveal: () => null,
       game: () => [{ native: 'game', args: [] }],
+      pointOut: () => null,
+      spotName: (_label, spot) => `調べる所 ${spot}`,
       choicesAt: () => [],
     };
     const steps = convertBlock(tokenize(entries[k]!.text), ctx, k);
