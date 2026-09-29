@@ -15,6 +15,7 @@ import { type Ctx, charId, type Step } from './convert.ts';
 import type { Shared } from './file.ts';
 import { spotLabel } from './games.ts';
 import { type Entry, tokenize } from './gmd.ts';
+import { prune, setTrue } from './prune.ts';
 
 export type InvestOpts = {
   /** 表 12（場所の台本）の番号 → 台本の名前（sce01_bg0105_0_00） */
@@ -28,6 +29,8 @@ export type InvestOpts = {
   load: (name: string) => Entry[] | null;
   block: (short: string, entries: Entry[], k: number, hub?: Hub) => Step[];
   shared: () => Shared;
+  /** 進み具合のフラグ（f{バンク}_{番号}）が、物語のファイル file の探偵パートで立ちうるか */
+  flagPossible: (flag: string, file: string) => boolean;
 };
 
 type Place = Record<string, unknown>;
@@ -59,6 +62,7 @@ export function makeInvest(o: InvestOpts) {
 
   const build = (
     id: string,
+    file: string,
     short: string,
     entries: Entry[],
     hubBase: { chap: number; scene: number; end: Step[] },
@@ -182,21 +186,75 @@ export function makeInvest(o: InvestOpts) {
         ? endK
         : null;
 
+    // この探偵パートでは立たないフラグの枝（と、そのせいで選べない話題）を落とす
+    const local = new Set<string>();
+    const possible = (f: string) =>
+      /^f\d+_\d+$/.test(f)
+        ? o.flagPossible(f, file)
+        : f.startsWith(`${id}_t`)
+          ? local.has(f)
+          : true;
+    const rawTalk = talk.map((t, i) => ({ t, m: talkMeta[i]! }));
+    let cur: {
+      enter: Step[];
+      examine: unknown;
+      present: unknown;
+      wrong: Step[] | null;
+      thens: Step[][];
+    };
+    for (;;) {
+      cur = {
+        enter: prune(enter, possible),
+        examine: prune(examine, possible),
+        present: prune(present, possible),
+        wrong: wrong && prune(wrong as Step[], possible),
+        thens: rawTalk.map(({ m }) => prune(m.then, possible)),
+      };
+      const found = new Set<string>();
+      // 話題の中で立てるフラグは、その話題が選べるとき（フラグが立ちうるとき）だけ数える
+      const open = cur.thens.filter((_, i) =>
+        String(rawTalk[i]!.t.when)
+          .split(' or ')
+          .some((f) => local.has(f)),
+      );
+      setTrue([cur.enter, cur.examine, cur.present, cur.wrong, open], found);
+      const before = local.size;
+      for (const f of found) if (f.startsWith(`${id}_t`)) local.add(f);
+      if (local.size === before) break;
+    }
+    const kept = rawTalk.flatMap(({ t, m }, i) => {
+      if (
+        !String(t.when)
+          .split(' or ')
+          .some((f) => local.has(f))
+      )
+        return [];
+      const then = cur.thens[i]!;
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      return [{ t: { ...t, then }, m: { ...m, then } }];
+    });
+
     const bg = short.match(/_bg(\d+)_/)?.[1] ?? '0000';
     const place: Place = {
       name: o.bgNames.get(`BG${bg}`) ?? `場所 ${bg}`,
       background: `bg${bg}`,
       ...(person ? { person } : {}),
-      ...(enter.length ? { enter } : {}),
-      ...(examine.length ? { examine } : {}),
-      ...(talk.length ? { talk } : {}),
-      ...(Object.keys(present).length ? { present } : {}),
-      ...(wrong && (wrong as Step[]).length ? { presentWrong: wrong } : {}),
+      ...(cur.enter.length ? { enter: cur.enter } : {}),
+      ...((cur.examine as unknown[]).length ? { examine: cur.examine } : {}),
+      ...(kept.length ? { talk: kept.map((k) => k.t) } : {}),
+      ...(Object.keys(cur.present as object).length ? { present: cur.present } : {}),
+      ...(cur.wrong?.length ? { presentWrong: cur.wrong } : {}),
       ...(moves.length ? { move: moves } : {}),
     };
     return {
       place,
-      meta: { talk: talkMeta, realEnd, doneK, run, psyche: labelIdx('L_PSYCO_START') >= 0 },
+      meta: {
+        talk: kept.map((k) => k.m),
+        realEnd,
+        doneK,
+        run,
+        psyche: labelIdx('L_PSYCO_START') >= 0,
+      },
     };
   };
 
@@ -219,6 +277,7 @@ export function makeInvest(o: InvestOpts) {
       places[id] = {}; // 再入の防止
       const r = build(
         id,
+        file,
         short,
         o.load(short)!,
         { ...hub, end: toExit },

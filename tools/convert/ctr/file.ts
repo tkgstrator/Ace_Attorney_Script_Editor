@@ -224,11 +224,27 @@ export function convertFile(
   // 霊媒ビジョン（映像の場面と感覚を選ぶ）と、絵の中の 1 点を指し示す遊び（<E306>、当たりは hit/ の XFS）は、
   // 正解が台本の外にある。まだ変換しないので、native を残して解けたものとして L_MAIN2 へ進む
   // （2 話からは正解の先が L_PO_OK のこともある）
-  const solved = (game: string, to = ['L_MAIN2', 'L_PO_OK']): Step[] => {
+  // 外れの先（ng）がある遊びは、正解する / はずれる の選択肢にする。はずれると台本の外れの場面（ペナルティ、
+  // やり直しの会話）を通って遊びに戻る。ない遊びは解けたものとして先へ進む
+  const solved = (game: string, to = ['L_MAIN2', 'L_PO_OK'], ng: string | null = null): Step[] => {
     const k = entries.findIndex((e) => to.includes(e.label ?? ''));
     if (k < 0) return [{ native: game, args: [] }];
     pending.push(k);
-    return [{ native: game, args: [] }, { goto: idOf(file, labelOf(k)!) }];
+    const miss = ng ? entries.findIndex((e) => e.label === ng) : -1;
+    const ok = [{ goto: idOf(file, labelOf(k)!) }];
+    if (miss < 0) return [{ native: game, args: [] }, ...ok];
+    pending.push(miss);
+    return [
+      { native: game, args: [] },
+      {
+        choice: [
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          { text: '正解する', then: ok },
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          { text: 'はずれる', then: [{ goto: idOf(file, ng!) }] },
+        ],
+      },
+    ];
   };
   /** L_PO_START(_n) の遊びの番号: 同じ組の L_PO_INIT(_n) の <E306 番号 …> */
   const pointOutIndex = (self: number | null): number | null => {
@@ -262,19 +278,21 @@ export function convertFile(
   const GAMES: { [label: string]: string } = { L_SPIRIT: 'spirit_vision', L_PO_START: 'point_out' };
   // 2 話からの遊びも同じく解けたものとする: みぬく（KS_Pn_START か KS_START、<E521>・<E520> で始め、正解は KS_Pn_OK）、
   // 映像の中を指し示す（L_POM_nn_PLAY、<E567 正解のラベル>、pointoutmovie）
-  const LOOPS: [RegExp, string, string][] = [
-    [/^KS_(P\d+_)?START$/, 'KS_$1OK', 'perceive'],
-    [/^L_POM_(\d+)_PLAY$/, 'L_POM_$1_CORRECT', 'point_out_movie'],
-    // 3 話からは番号付きの L_PO_START_0 もある
-    [/^L_PO_START_\d+$/, 'L_PO_OK', 'point_out'],
+  // 4 つ目は外れの先（KS_NG は台本の中で KS_START に戻る）
+  const LOOPS: [RegExp, string, string, string | null][] = [
+    [/^KS_(P\d+_)?START$/, 'KS_$1OK', 'perceive', 'KS_$1NG'],
+    [/^L_POM_(\d+)_PLAY$/, 'L_POM_$1_CORRECT', 'point_out_movie', null],
+    // 3 話からは番号付きの L_PO_START_0 もある。外れは L_PO_CHECK（フラグが立っていなければ外れの反応から START に戻る）
+    [/^L_PO_START_(\d+)$/, 'L_PO_OK', 'point_out', 'L_PO_CHECK_$1'],
     // 5 話の箱の仕掛け（<E571>、<E573 成功のラベル> <E574 失敗のラベル>）
-    [/^L_BOX_PLAY$/, 'L_BOX_SUCCESS', 'puzzle_box'],
+    [/^L_BOX_PLAY$/, 'L_BOX_SUCCESS', 'puzzle_box', null],
     // 5 話の最後のみぬく（<E177 開始 成功 やめる 外れ>）
-    [/^L_FORCE_MINUKU_START$/, 'L_FORCE_MINUKU_OK', 'perceive'],
+    [/^L_FORCE_MINUKU_START$/, 'L_FORCE_MINUKU_OK', 'perceive', null],
   ];
   const loopGame = (label: string | null | undefined) => {
-    for (const [re, to, game] of LOOPS)
-      if (label && re.test(label)) return { game, to: label.replace(re, to) };
+    for (const [re, to, game, ng] of LOOPS)
+      if (label && re.test(label))
+        return { game, to: label.replace(re, to), ng: ng ? label.replace(re, ng) : null };
     return null;
   };
 
@@ -306,18 +324,60 @@ export function convertFile(
           : {}),
       };
     });
+    // 「相談する」（L_ASSIST）はゲームのボタンで入る。エンジンにボタンは無いので、証言をひと巡りしたところで
+    // 相談するかどうかを聞く。相談の場面は最後に証言の最初に戻る
+    const assists = entries.flatMap((e, k) => (/^L_ASSIST(_\d+)?$/.test(e.label ?? '') ? [k] : []));
+    for (const k of assists) pending.push(k);
+    const consult: Step[] = assists.length
+      ? [
+          {
+            choice: [
+              ...assists.map((k, i) => ({
+                text: assists.length > 1 ? `相談する（${i + 1}）` : '相談する',
+                // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+                then: [{ goto: idOf(file, labelOf(k)!) }],
+              })),
+              { text: '続ける' },
+            ],
+          },
+        ]
+      : [];
     scenes.set(exam.start, {
       testimony: title ? plain(title).replace(/^～|～$/g, '') : '証言',
       ...(witness ? { witness } : {}),
       statements,
-      ...(exam.follow !== null ? { loop: inline(exam.follow) } : {}),
+      ...(exam.follow !== null || consult.length
+        ? { loop: [...(exam.follow !== null ? inline(exam.follow) : []), ...consult] }
+        : {}),
       wrong: inline(exam.statements[0]!.wrong),
     });
   }
   const main = entries.findIndex((e) => e.label === entry);
   const order = [main, ...[...entries.keys()].filter((k) => k !== main)];
+  // <MCRS 種類 ? n> ～ <MCRE …> の間の台詞は、ラベル n（L_KAISOU・L_MATOME）にも写してある。ゲームの回想・まとめの
+  // 表示に使う写しで、話の流れには入らない（写しもとは本文にそのまま入っている）。種類 14 は尋問の記録で別物。
+  // ほかから移ってくるときだけ場面にする
+  const copies = new Set(
+    blocks.flatMap((b) =>
+      b.flatMap((t) =>
+        t.kind === 'cmd' &&
+        t.name === 'MCRS' &&
+        t.args[0] !== 14 &&
+        /KAISOU|MATOME/.test(labelOf(t.args[2]!) ?? '') &&
+        !/END$/.test(labelOf(t.args[2]!) ?? '')
+          ? [t.args[2]!]
+          : [],
+      ),
+    ),
+  );
   for (const k of order)
-    if (!skipLabel(labelOf(k)) && !msgs.has(k) && !exam?.resume.has(k) && !inlined.has(k))
+    if (
+      !skipLabel(labelOf(k)) &&
+      !msgs.has(k) &&
+      !exam?.resume.has(k) &&
+      !inlined.has(k) &&
+      !copies.has(k)
+    )
       pending.push(k);
   while (pending.length) {
     const k = pending.shift()!;
@@ -342,9 +402,9 @@ export function convertFile(
     if (poIdx !== null && pointOut(poIdx))
       scenes.set(k, convertBlock(blocks[k]!, makeCtx(null), k));
     else if (seanceK) scenes.set(k, seanceK);
-    else if (po) scenes.set(k, solved('point_out', [po]));
+    else if (po) scenes.set(k, solved('point_out', [po], labelOf(k)!.replace('START', 'CHECK')));
     else if (game) scenes.set(k, solved(game));
-    else if (loop) scenes.set(k, solved(loop.game, [loop.to]));
+    else if (loop) scenes.set(k, solved(loop.game, [loop.to], loop.ng));
     else
       scenes.set(
         k,

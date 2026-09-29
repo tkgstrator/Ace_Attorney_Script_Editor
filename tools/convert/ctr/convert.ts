@@ -167,6 +167,14 @@ function control(ctx: Ctx, name: string, args: number[]): Step[] | null {
     }
     case 'E249':
       return [{ random: args.map((n) => ctx.jump(n)) }];
+    // <E022 使う ラベル …>: 使う（1）ラベルの中から選ぶ。最後の「0 ラベル」は 1 つ前と同じ行き先の番兵。
+    // 尋問の外れの反応（L_TUKI_NG00〜02）の選び方で、E249 と同じ
+    case 'E022': {
+      const to: number[] = [];
+      for (let i = 0; i + 1 < args.length; i += 2)
+        if (args[i] === 1 && !to.includes(args[i + 1]!)) to.push(args[i + 1]!);
+      return to.length ? [{ random: to.map((n) => ctx.jump(n)) }] : null;
+    }
     // 法廷記録に加える（<E107 種類 番号 ?>。続く <E103 番号> が「ファイルした」の知らせ）/ 差し替える（<E106 種類 旧 新>）。
     // 種類 0 は証拠品、1 は人物ファイル。<E101 種類 番号> は章の始めにフラグの初期化と並んで持ち物を外す命令と思われるが、
     // 物語のファイルをファイル名の順につなぐ近似では取り直す道ができず詰むので、native で残す

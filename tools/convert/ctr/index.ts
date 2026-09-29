@@ -111,6 +111,7 @@ function main() {
     load,
     block,
     shared: () => shared,
+    flagPossible: flagPossible(dir, files.map(shortOf)),
   });
   const shared: Shared = {
     ep: ep - 1,
@@ -136,13 +137,31 @@ function main() {
     usedNames: new Set(),
     stats: new Map(),
   };
-  const scenes: Record<string, unknown> = {};
-  let gameover: string | null = null;
+  const scenes: Record<string, any> = {};
+  // ゲームオーバーの場面（L_GAMEOVER）はファイルごとにある（負けの判決の台詞が違う）が、シナリオのゲームオーバーは
+  // 1 つ。ファイルの最初で gameover_at に何番目かを入れ、ゲームオーバーの場面でその番号のものへ分ける
+  const gameovers: string[] = [];
   files.forEach((f, i) => {
     const r = convertFile(readGmdText(join(dir, f)), short[i]!, short[i + 1] ?? null, shared);
     for (const [id, s] of r.scenes) scenes[id] = s;
-    gameover ??= r.gameover;
+    const first = r.scenes[0]?.[1];
+    if (r.gameover && Array.isArray(first)) {
+      gameovers.push(r.gameover);
+      first.unshift({ set: { gameover_at: gameovers.length } });
+    }
   });
+  let gameover: string | null = null;
+  if (gameovers.length > 0) {
+    gameover = 'gameover_by_file';
+    scenes[gameover] = gameovers.map((to, i) => ({
+      if: `gameover_at == ${i + 1}`,
+      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+      then: [{ goto: to }],
+    }));
+    scenes[gameover].push({ goto: gameovers[0]! });
+  }
+
+  dropRedundant(scenes, [scenes, invest.places, invest.scenes], [short[0]!, gameover]);
 
   // 法廷記録で使う証拠品・人物だけを載せる
   const text = JSON.stringify([scenes, invest.places, invest.scenes]);
@@ -169,7 +188,10 @@ function main() {
     defaults: { penalty: 20, autoShow: false, autoPause: false },
     characters,
     evidence,
-    flags: Object.fromEntries([...shared.flags].sort().map((f) => [f, false])),
+    flags: {
+      ...Object.fromEntries([...shared.flags].sort().map((f) => [f, false])),
+      ...(gameover ? { gameover_at: 0 } : {}),
+    },
     start: { scene: short[0], evidence: [], profiles: [] },
     ...(gameover ? { gameover } : {}),
     ...(Object.keys(invest.places).length
@@ -197,6 +219,52 @@ function main() {
       `証拠品 ${Object.keys(evidence).length}、フラグ ${shared.flags.size}、native ${total}`,
   );
   if (args.includes('--stats')) for (const [k, n] of natives) console.log(`${n}\t${k}`);
+}
+
+/**
+ * 台本の他の場面の写しや、変換で置き換えた遊びの中身で、どこからも移らない場面を落とす。落とすのは次のものだけ
+ * （どれも移ってくる道が無い場面に限る。繰り返して、落とした場面からだけ移っていた場面も落とす）:
+ * - 中身が空の場面（読み込みだけの L_PO_INIT など）
+ * - 霊媒ビジョンの中身（L_SPIRIT_CHECK・HINT・NO_HINT・RETRY。託宣と感覚の選択肢・解けたものに置き換えた遊びの輪）
+ */
+function dropRedundant(
+  scenes: Record<string, any>,
+  where: Record<string, any>[],
+  roots: (string | null)[],
+): void {
+  const candidate = (id: string) =>
+    (Array.isArray(scenes[id]) && scenes[id].length === 0) ||
+    /_spirit_(check|hint|no_hint|retry)$/.test(id);
+  for (;;) {
+    const text = JSON.stringify(where);
+    const gone = Object.keys(scenes).filter(
+      (id) => candidate(id) && !roots.includes(id) && !text.includes(`"goto":"${id}"`),
+    );
+    if (gone.length === 0) return;
+    for (const id of gone) delete scenes[id];
+  }
+}
+
+/**
+ * 進み具合のフラグ（<E028 バンク 番号>）が、物語のファイル file の探偵パートで立ちうるか。
+ * 立てるのが（この話の）これより後の物語のファイルだけなら立たない。物語のファイルの外（場所・人物の台本、ほかの話、
+ * 共通の台本）でも立てるもの、どこでも立てないもの（ゲーム本体が立てるかもしれない）は立ちうるとする
+ */
+function flagPossible(dir: string, story: string[]): (flag: string, file: string) => boolean {
+  const first = new Map<string, number>();
+  const other = new Set<string>();
+  for (const f of readdirSync(dir)) {
+    const idx = story.findIndex((s) => f.endsWith(`_${s}_jpn.txt`));
+    for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/<E028 (\d+) (\d+)>/g)) {
+      const flag = `f${m[1]}_${m[2]}`;
+      if (idx < 0) other.add(flag);
+      else first.set(flag, Math.min(first.get(flag) ?? idx, idx));
+    }
+  }
+  return (flag, file) => {
+    const at = first.get(flag);
+    return at === undefined || other.has(flag) || at <= story.indexOf(file);
+  };
 }
 
 /**
