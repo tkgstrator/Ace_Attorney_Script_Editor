@@ -4,6 +4,7 @@
 import { type Ctx, charId, convertBlock, plain, type Step } from './convert.ts';
 import { findExam } from './exam.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
+import { perceive } from './games-kokoro.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
 
 export type Shared = Omit<
@@ -255,20 +256,29 @@ export function convertFile(
     return t?.kind === 'cmd' ? (t.args[0] ?? null) : null;
   };
   /** 霊媒ビジョン（<E530 回> のあるファイル）を託宣と感覚の選択肢にする。正解が分からなければ null */
+  const go = (label: string): Step[] => {
+    const k = entries.findIndex((e) => e.label === label);
+    if (k < 0) return [];
+    pending.push(k);
+    return [{ goto: idOf(file, label) }];
+  };
   const seanceSteps = (): Step[] | null => {
-    const round = blocks.flat().find((t) => t.kind === 'cmd' && t.name === 'E530');
-    const go = (label: string): Step[] => {
-      const k = entries.findIndex((e) => e.label === label);
-      if (k < 0) return [];
-      pending.push(k);
-      return [{ goto: idOf(file, label) }];
-    };
+    const cmds = blocks.flat().filter((t) => t.kind === 'cmd');
+    const round = cmds.find((t) => t.name === 'E530');
     if (round?.kind !== 'cmd') return null;
-    return seance(shared.ep, round.args[0]!, {
-      main2: go('L_MAIN2'),
-      failOracle: go('L_FAIL_ORACLE'),
-      failSense: go('L_FAIL_SENSE'),
-    });
+    // <E528 n>: 託宣の種類（spirit{話}{n-1}）。第 3 話のファイルには L_FAIL_* が無く、外れはどちらも L_SPIRIT_CHECK
+    const kind = cmds.find((t) => t.name === 'E528');
+    const check = go('L_SPIRIT_CHECK');
+    return seance(
+      shared.ep,
+      round.args[0]!,
+      {
+        main2: go('L_MAIN2'),
+        failOracle: go('L_FAIL_ORACLE').length ? go('L_FAIL_ORACLE') : check,
+        failSense: go('L_FAIL_SENSE').length ? go('L_FAIL_SENSE') : check,
+      },
+      kind?.kind === 'cmd' ? kind.args[0]! - 1 : 0,
+    );
   };
   const poSuccess = (start: string): string | null => {
     const check = blocks[entries.findIndex((e) => e.label === start.replace('START', 'CHECK'))];
@@ -404,8 +414,17 @@ export function convertFile(
     else if (seanceK) scenes.set(k, seanceK);
     else if (po) scenes.set(k, solved('point_out', [po], labelOf(k)!.replace('START', 'CHECK')));
     else if (game) scenes.set(k, solved(game));
-    else if (loop) scenes.set(k, solved(loop.game, [loop.to], loop.ng));
-    else
+    else if (loop) {
+      // みぬく: 台詞から正解の証言の行が決まるものは、行を選ぶ選択肢にする
+      const pick =
+        loop.game === 'perceive' && loop.ng
+          ? perceive(shared.ep, file, {
+              ok: go(loop.to),
+              ng: go(loop.ng),
+            })
+          : null;
+      scenes.set(k, pick ? [pick] : solved(loop.game, [loop.to], loop.ng));
+    } else
       scenes.set(
         k,
         convertBlock(blocks[k]!, makeCtx(null), k).filter((s) => !isTitle(s)),
