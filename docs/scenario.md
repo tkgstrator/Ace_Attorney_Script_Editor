@@ -1,9 +1,9 @@
 # シナリオの書き方
 
-台詞の文体（カタカナ表記の使い分け）は [katakana.md](katakana.md) を参照。
-画面（4:3、256×192 ドット）は [screen.md](screen.md) を参照（16:9 は将来の対応予定で、試験的な実装がある）。
+台詞の文体（カタカナ表記の使い分け）は [カタカナの表記](katakana.md) を参照。
+画面（4:3、256×192 ドット）は [画面](screen.md) を参照（16:9 は将来の対応予定で、試験的な実装がある）。
 
-完全な例は [apps/player/cases/clocktower.yaml](../apps/player/cases/clocktower.yaml)。
+完全な例は [サンプル事件「時計塔の鐘」](../apps/player/cases/clocktower.yaml)。
 ファイルの先頭に次の行を書くと、VS Code の YAML 拡張で補完と検証が効く。
 
 ```yaml
@@ -12,7 +12,7 @@
 
 `bun run check <ファイル>` で、未定義の人物・証拠品・フラグ・シーンの参照や、
 フラグの型の不一致を行番号付きで報告する。`--check-font` を付けると、DS 版フォントに
-無い文字も報告する（言い換え候補つき。詳しくは [katakana.md](katakana.md)）。
+無い文字も報告する（言い換え候補つき。詳しくは [カタカナの表記](katakana.md)）。
 
 ## 全体
 
@@ -128,7 +128,7 @@ places:
 ### サイコ・ロック・証拠品を詳しく調べる・範囲を選ぶ・人物を選ぶ
 
 逆転裁判2・3 のサイコ・ロック（`psycheLock`）と、DS 版の第 5 話の「証拠品を詳しく調べる」（証拠品の `examine`）・
-絵の上の範囲を選ぶ（`pick`）・人物の顔から選ぶ（`nominate`）は [scenario-games.md](scenario-games.md) を参照。
+絵の上の範囲を選ぶ（`pick`）・人物の顔から選ぶ（`nominate`）は [遊びの書き方](scenario-games.md) を参照。
 
 ## シーン
 

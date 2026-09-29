@@ -1,7 +1,7 @@
 # 演出の使い方
 
-数の出どころは [numbers/effects.md](numbers/effects.md)（頻度・内訳・効果音と BGM の場面）と
-[numbers/patterns.md](numbers/patterns.md)（並びの型）。演出の回数は YAML に書かれた回数で、同じ数え方の台詞 100 ページあたりで比べる。
+数の出どころは [演出の集計](numbers/effects.md)（頻度・内訳・効果音と BGM の場面）と
+[演出の並びの型](numbers/patterns.md)（並びの型）。演出の回数は YAML に書かれた回数で、同じ数え方の台詞 100 ページあたりで比べる。
 
 ## 頻度
 
@@ -74,7 +74,7 @@
 - 「気づき」の BGM014 は揺れと組まない（揺れと一緒になるのは 2〜6%）。SE054 は、逆転裁判3 では弱い揺れ（強さ 0）と
   組むことが多い（49%）。「衝撃」の音は揺れと組む。
 - このエンジンの手書きのシナリオでは、音の ID は役割で名付けるとよい（`se: discover`・`se: gavel`・`se: damage` は
-  [apps/player/src/sounds.ts](../../apps/player/src/sounds.ts) にある）。衝撃・ざわめきなど無いものは、`shock`・`murmur` のような
+  [仮の音](../../apps/player/src/sounds.ts) にある）。衝撃・ざわめきなど無いものは、`shock`・`murmur` のような
   名前で書いておき、音を用意したときに鳴るようにする。
 
 ## BGM
@@ -167,4 +167,4 @@
 - 気づき（新しい事実・証拠品）は「気づきの音 + フラッシュ」で、揺らさない。
 - BGM は替えるより止める。重大な告白・正しいつきつけの直後は `bgmPause: true`、場面が落ち着いたら `bgmPause: false`。
 - 立ち絵は、台詞 1〜2 ページごとに動きを替える（`show` の talk / idle）。感情が変わるページでは文中の `[show ...]` で替える。
-- 具体的な並びは [templates-trial.md](templates-trial.md) と [templates-investigation.md](templates-investigation.md)。
+- 具体的な並びは [法廷パートのひな形](templates-trial.md) と [探偵パートのひな形](templates-investigation.md)。
