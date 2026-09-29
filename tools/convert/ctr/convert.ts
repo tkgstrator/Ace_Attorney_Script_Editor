@@ -59,47 +59,8 @@ export type Ctx = {
   stats: Map<string, number>;
 };
 
-/** 表示にも流れにも関係しない命令（行番号・区切り・字の配置の印・吹き出しの準備など） */
-const SKIP = new Set([
-  'E293',
-  // 探偵パートの場所の準備（メニューの有効化・調べる所・つきつけの入口など。場所は invest.ts が組み立てる）
-  'E369',
-  'E370',
-  'E371',
-  'E372',
-  'E373',
-  'E374',
-  'E375',
-  'E376',
-  'E379',
-  'E380',
-  'E382',
-  'E383',
-  'E311',
-  'E313',
-  'E800',
-  'E063',
-  'RDFG',
-  'MCRS',
-  'MCRE',
-  'E795',
-  'E796',
-  'E042',
-  'E001',
-  'E220',
-  'E248',
-  'E283',
-]);
-
-const COLORS: Record<string, string> = { E005: 'white', E006: 'red', E007: 'blue', E008: 'green' };
-
-/** 名前欄の NAME201_0 → p201（人物ファイルの cast201 と同じ番号） */
 export function charId(e: NameEntry): string {
   return e.label.toLowerCase().replace(/^name/, 'p').replace(/_0$/, '');
-}
-
-export function bgmId(n: number): string {
-  return `bgm${String(n).padStart(3, '0')}`;
 }
 
 export const flagName = (bank: number, id: number) => `f${bank}_${id}`;
@@ -108,116 +69,11 @@ function count(ctx: Ctx, key: string) {
   ctx.stats.set(key, (ctx.stats.get(key) ?? 0) + 1);
 }
 
-/** 台詞の中の命令 → 文中の演出（[wait 8] など）。空文字は何もしない */
-function inline(ctx: Ctx, name: string, args: number[]): string {
-  if (SKIP.has(name) || name === 'CNTR') return '';
-  if (name === 'E003') return `[wait ${args[0]}]`;
-  if (name === 'E025') return `[speed ${args[0]}]`;
-  if (COLORS[name]) return `[color ${COLORS[name]}]`;
-  if (name === 'E604') return `[bgm ${bgmId(args[0]!)}]`;
-  if (name === 'E605') return '[bgm null]';
-  count(ctx, `文中 ${name}`);
-  // 文中の native の引数は 0 以上の数だけ書ける（負の数のある命令は名前だけ残す）
-  return `[native ${[name, ...(args.some((a) => a < 0) ? [] : args)].join(' ')}]`;
-}
+import { control } from './control.ts';
+import { inline, plain, SKIP } from './text.ts';
 
-type Line = { speaker: number | null; parts: string[]; centered: boolean; green: boolean };
-
-export const plain = (s: string) => s.replace(/\[(?!\[)[^\]]*\]/g, '').replace(/\[\[/g, '[');
-
-/** 流れ・フラグ・法廷記録の命令。当てはまらなければ null */
-function control(ctx: Ctx, name: string, args: number[]): Step[] | null {
-  switch (name) {
-    case 'E004':
-      return ctx.jump(args[0]!);
-    case 'E039':
-      return ctx.end();
-    case 'E031':
-      return ctx.script(args[0]!, args[1]!);
-    case 'E393':
-      return ctx.freeRoam(args[0]!, args[1]!);
-    case 'E392': {
-      const f = flagName(args[0]!, args[1]!);
-      ctx.flags.add(f);
-      ctx.endFlag(f);
-      return [];
-    }
-    case 'E386':
-      ctx.mapPlace(args[1]!);
-      return [];
-    case 'E377':
-    case 'E378':
-      return ctx.topics(name === 'E378', args);
-    case 'E394':
-      return ctx.endInvest();
-    case 'E026':
-      return ctx.callLocal(args[0]!);
-    case 'E052':
-      if (!ctx.hub) return null;
-      return args[1] === ctx.hub.chap && args[2] === ctx.hub.scene ? ctx.jump(args[3]!) : [];
-    case 'E028':
-    case 'E029': {
-      const f = flagName(args[0]!, args[1]!);
-      ctx.flags.add(f);
-      return [{ set: { [f]: name === 'E028' } }];
-    }
-    case 'E030': {
-      const f = flagName(args[0]!, args[1]!);
-      ctx.flags.add(f);
-      // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
-      return [{ if: args[2] ? f : `not ${f}`, then: ctx.jump(args[3]!) }];
-    }
-    case 'E245': {
-      const f = ctx.reveal(args[0]!);
-      return f ? [{ set: { [f]: true } }] : null;
-    }
-    case 'E249':
-      return [{ random: args.map((n) => ctx.jump(n)) }];
-    // <E022 使う ラベル …>: 使う（1）ラベルの中から選ぶ。最後の「0 ラベル」は 1 つ前と同じ行き先の番兵。
-    // 尋問の外れの反応（L_TUKI_NG00〜02）の選び方で、E249 と同じ
-    case 'E022': {
-      const to: number[] = [];
-      for (let i = 0; i + 1 < args.length; i += 2)
-        if (args[i] === 1 && !to.includes(args[i + 1]!)) to.push(args[i + 1]!);
-      return to.length ? [{ random: to.map((n) => ctx.jump(n)) }] : null;
-    }
-    // 法廷記録に加える（<E107 種類 番号 ?>。続く <E103 番号> が「ファイルした」の知らせ）/ 差し替える（<E106 種類 旧 新>）。
-    // 種類 0 は証拠品、1 は人物ファイル。<E101 種類 番号> は章の始めにフラグの初期化と並んで持ち物を外す命令と思われるが、
-    // 物語のファイルをファイル名の順につなぐ近似では取り直す道ができず詰むので、native で残す
-    case 'E107': {
-      const id = ctx.recordId(args[0]!, args[1]!);
-      return id ? [{ [args[0] === 0 ? 'give' : 'giveProfile']: id }] : [];
-    }
-    case 'E103':
-      return [];
-    case 'E106': {
-      const [from, to] = [ctx.recordId(args[0]!, args[1]!), ctx.recordId(args[0]!, args[2]!)];
-      if (!from || !to || from === to) return [];
-      return args[0] === 0
-        ? [{ take: from }, { give: to }]
-        : [{ takeProfile: from }, { giveProfile: to }];
-    }
-    case 'E060': {
-      const id = ctx.recordId(args[0]!, args[1]!);
-      return id && args[0] === 0 ? [{ showEvidence: id }] : null;
-    }
-    case 'E061':
-      return [{ showEvidence: null }];
-    case 'E279':
-      return [{ lifeRisk: args[0] }];
-    case 'E284':
-      return [{ penalty: args[0] }];
-    case 'E285':
-      return [{ gameover: true }];
-    case 'E003':
-      return [{ wait: args[0] }];
-    case 'E604':
-      return [{ bgm: bgmId(args[0]!) }];
-    case 'E605':
-      return [{ bgm: null }];
-  }
-  return null;
-}
+export { control } from './control.ts';
+export { inline, plain, SKIP } from './text.ts';
 
 /**
  * self は変換するブロックのラベルの番号。つきつけの要求（<E224>）の外れの後にある、自分への <E004> を落とすのに使う。

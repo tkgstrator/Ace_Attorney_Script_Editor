@@ -4,7 +4,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Ctx, convertBlock, type Step } from './convert.ts';
-import { mainLabel, type Shared, sceneId } from './file.ts';
+import type { Shared } from './file.ts';
+import { mainLabel, sceneId } from './file-helpers.ts';
 import { type Entry, readGmdText, tokenize } from './gmd.ts';
 
 export type CallOpts = {

@@ -3,129 +3,23 @@
 // 尋問の入口のラベルを証言シーンにし、ゆさぶり・外れ・最後の証言の後など尋問の中から飛ぶラベルはその場に展開する。
 import { type Ctx, charId, convertBlock, flagName, plain, type Step } from './convert.ts';
 import { findExam } from './exam.ts';
+import {
+  findChoicesAt,
+  mainLabel,
+  needsGain,
+  sceneId,
+  skipLabel,
+  statementLine,
+  testimonyTitle,
+} from './file-helpers.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { perceive } from './games-kokoro.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
 import { reachableFrom, referencedLabels } from './refs.ts';
 
-export type Shared = Omit<
-  Ctx,
-  | 'jump'
-  | 'end'
-  | 'reveal'
-  | 'game'
-  | 'choicesAt'
-  | 'endInvest'
-  | 'callLocal'
-  | 'freeRoam'
-  | 'pointOut'
-  | 'spotName'
-  | 'endFlag'
-> & {
-  /** ファイル → その終わりで行う法廷記録の増減 */
-  gains: Map<string, Step[]>;
-  /** 話の番号 - 1（sce00 → 0） */
-  ep: number;
-  /**
-   * 探偵パート（物語のファイル file の中の <E393>）の代わりのステップ。place は入る場所（表 12 の番号）、
-   * others は行き来できる場所。end は探偵パートを終えた後に行うステップ
-   */
-  investigate: (
-    file: string,
-    hub: { chap: number; scene: number },
-    end: Step[],
-    place: number,
-    others: number[],
-    endFlags: string[],
-  ) => Step[];
-};
+export type { FileResult, Shared } from './file-types.ts';
 
-export type FileResult = {
-  scenes: [string, Step[] | Record<string, unknown>][];
-  gameover: string | null;
-  /** 元の台本のほかのブロックから飛び先にされているラベルのシーン ID */
-  origRef: string[];
-};
-
-/** L_INIT・L_LOAD（と L_LOAD_nn。読み込み時の準備）は変換しない */
-// L_LOAD_01 のような番号付きのものも、途中から始めるときの状態を整える読み込み用のフック（通常の進行では通らない）
-const skipLabel = (l: string | null | undefined) => !l || /^L_(INIT|LOAD)(_\d+)?$/.test(l);
-
-/** ファイルの入口のラベル。飛ばさない最初のラベル（L_INIT・L_LOAD の後の L_MAIN か L_START、または LABEL_0000） */
-export function mainLabel(entries: Entry[]): string {
-  return entries.find((e) => !skipLabel(e.label))?.label ?? 'L_MAIN';
-}
-
-export function sceneId(file: string, label: string, main = 'L_MAIN'): string {
-  return label === main ? file : `${file}_${label.replace(/^L_/, '').toLowerCase()}`;
-}
-
-function testimonyTitle(blocks: Token[][]): string | null {
-  for (const tokens of blocks) {
-    const i = tokens.findIndex((t) => t.kind === 'cmd' && t.name === 'E205');
-    if (i < 0) continue;
-    const end = tokens.findIndex((t, k) => k > i && t.kind === 'cmd' && t.name === 'E206');
-    const text = tokens
-      .slice(i, end < 0 ? undefined : end)
-      .map((t) => (t.kind === 'text' ? t.text : ''))
-      .join('');
-    return text.trim() || null;
-  }
-  return null;
-}
-
-/** 肢を並べて（<E221> <E222 文 ラベル>…）<E223> を出さずに <E004 n> で飛ぶブロック → n で出す肢 */
-function findChoicesAt(blocks: Token[][]): Map<number, { id: number; to: number }[]> {
-  const out = new Map<number, { id: number; to: number }[]>();
-  for (const tokens of blocks) {
-    let list: { id: number; to: number }[] = [];
-    for (const t of tokens) {
-      if (t.kind !== 'cmd') continue;
-      if (t.name === 'E221' || t.name === 'E223') list = [];
-      else if (t.name === 'E222') list.push({ id: t.args[0]!, to: t.args[1]! });
-      else if (t.name === 'E004' && list.length) {
-        out.set(t.args[0]!, list);
-        list = [];
-      }
-    }
-  }
-  return out;
-}
-
-/** ファイルの中で求める法廷記録（<E244 ラベル 種類 番号>・<E225/E226/E255 種類 番号 ラベル>）が増減に含まれるか */
-function needsGain(
-  blocks: Token[][],
-  gains: Step[],
-  recordId: (kind: number, idx: number) => string | null,
-): boolean {
-  const given = new Set(
-    gains.flatMap((g) => [g.give, g.giveProfile].filter((x) => typeof x === 'string')),
-  );
-  for (const tokens of blocks)
-    for (const t of tokens) {
-      if (t.kind !== 'cmd') continue;
-      const [kind, idx] =
-        t.name === 'E244' ? [t.args[1], t.args[2]] : /^E22[56]$|^E255$/.test(t.name) ? t.args : [];
-      const id = kind === undefined || idx === undefined ? null : recordId(kind, idx);
-      if (id && given.has(id)) return true;
-    }
-  return false;
-}
-
-/** 証言のブロックから（話す人の番号, 文） */
-function statementLine(tokens: Token[], steps: Step[]): { speaker: number | null; text: string } {
-  // 証言は <E260 役 名前>（1 話）か <E041 役 名前>（2 話から）
-  const who = tokens.findLast((t) => t.kind === 'cmd' && (t.name === 'E260' || t.name === 'E041'));
-  const speech = steps.findLast((s) => {
-    const [k, v] = Object.entries(s)[0] ?? [];
-    return Object.keys(s).length === 1 && typeof v === 'string' && k !== 'card';
-  });
-  const text = speech ? String(Object.values(speech)[0]) : '';
-  return {
-    speaker: who?.kind === 'cmd' ? (who.args[1] ?? null) : null,
-    text: text.replace(/\[color green\]/g, ''),
-  };
-}
+import type { FileResult, Shared } from './file-types.ts';
 
 export function convertFile(
   entries: Entry[],

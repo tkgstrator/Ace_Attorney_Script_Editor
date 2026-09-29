@@ -11,7 +11,7 @@
 //   bun tools/convert/ctr/index.ts --episode 1 [--title 題] [--out ファイル] [--stats]   # → assets/extracted/aa6/converted/ep1.yaml
 //
 // 話 N の台本は romfs/script/_output/_sce{N-1}_c*_jpn。法廷記録の番号表はゲーム本体（exefs/code.bin、code-tables.ts）から読む。
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { toYaml } from '../index.ts';
 import { makeCall } from './calls.ts';
@@ -19,6 +19,7 @@ import { loadCodeTables } from './code-tables.ts';
 import { charId, type NameEntry, type Step } from './convert.ts';
 import { convertFile, type Shared } from './file.ts';
 import { labelMap, readGmdText } from './gmd.ts';
+import { dropRedundant, flagPossible, moveSkippedGains, topicNames } from './index-helpers.ts';
 import { makeInvest } from './invest.ts';
 import { dropUnreadSets, readNames } from './prune.ts';
 import { loadGains, loadRecord } from './record.ts';
@@ -111,7 +112,7 @@ function main() {
       readGmdText(join(cmn, 'bg_jpn.txt')).flatMap((e) => (e.label ? [[e.label, e.text]] : [])),
     ),
     chrScripts: loadScriptIds(join(TABLE, 'APP_PARAM_ID_SCRIPT_CHR.prp')),
-    topicName: topicNames(dir, sce),
+    topicName: topicNames(dir, sce, SCRIPT),
     load,
     block,
     shared: () => shared,
@@ -246,174 +247,6 @@ function main() {
       `証拠品 ${Object.keys(evidence).length}、フラグ ${shared.flags.size}、native ${total}`,
   );
   if (args.includes('--stats')) for (const [k, n] of natives) console.log(`${n}\t${k}`);
-}
-
-/**
- * 台本の他の場面の写しや、変換で置き換えた遊びの中身で、どこからも移らない場面を落とす。落とすのは次のものだけ
- * （どれも移ってくる道が無い場面に限る。繰り返して、落とした場面からだけ移っていた場面も落とす）:
- * - 中身が空の場面（読み込みだけの L_PO_INIT など）
- * - 霊媒ビジョンの中身（L_SPIRIT_CHECK・HINT・NO_HINT・RETRY。託宣と感覚の選択肢・解けたものに置き換えた遊びの輪）
- */
-/** ステップが、そこから先の同じシーンの続きには進まない（移動・終わりで抜ける）か。選択肢・if は、すべての枝が抜けるとき */
-function terminates(step: any): boolean {
-  if (!step || typeof step !== 'object') return false;
-  if (['goto', 'end', 'gameover', 'investigate'].some((k) => k in step)) return true;
-  const all = (list: any): boolean =>
-    Array.isArray(list) && list.length > 0 && terminates(list.at(-1));
-  if (Array.isArray(step.choice)) return step.choice.every((o: any) => all(o.then));
-  if ('if' in step) return all(step.then) && all(step.else);
-  return false;
-}
-
-function dropRedundant(
-  scenes: Record<string, any>,
-  where: Record<string, any>[],
-  roots: (string | null)[],
-  origRef: Set<string>,
-  called: Set<string>,
-): void {
-  // 出力からは goto されないシーンを落とす: 中身が空のもの、霊媒ビジョンの内部の輪、そして元の台本からは飛び先にされていた
-  // （= 呼び出し・尋問・選択肢の中に展開されて、単独では要らなくなった）ものの写し。飛び先にされていないもの
-  // （ゲーム本体の仕組みで入るもの）は落とさない
-  // 立ち絵を出し入れするだけの命令（台詞・流れ・フラグ・法廷記録は変えない）。ゲーム本体が場所の切り替えで呼ぶ後始末
-  const DISPLAY = new Set([
-    'E118',
-    'E119',
-    'E120',
-    'E121',
-    'E140',
-    'E141',
-    'E142',
-    'E144',
-    'E145',
-    'E147',
-    'E149',
-    'E152',
-    'E153',
-    'E157',
-    'E158',
-    'E088',
-    'E525',
-    'E526',
-    'E527',
-  ]);
-  const body = (id: string): unknown[] | null => {
-    const s = scenes[id];
-    if (!Array.isArray(s)) return null;
-    // 終わりの goto（次へ進むだけ）は内容に数えない
-    return s.length > 0 && 'goto' in s[s.length - 1] ? s.slice(0, -1) : s;
-  };
-  const displayOnly = (id: string) => {
-    const b = body(id);
-    // 終わりの E039 が持つ法廷記録の増減は、ファイルの本筋の終わりにもある写しなので数えない
-    const glue = (x: any) => ['give', 'giveProfile', 'take', 'takeProfile'].some((k) => k in x);
-    return (
-      b !== null &&
-      b.some((x: any) => DISPLAY.has(x.native)) &&
-      b.every((x: any) => DISPLAY.has(x.native) || glue(x))
-    );
-  };
-  // 反復ごとに、goto されているシーンの集まりと、それらの中身（JSON）の索引を作る（組ごとに全体を検索しない）
-  let referenced = new Set<string>();
-  let referencedBodies = new Map<string, Set<string>>();
-  const copyOf = (id: string) => {
-    const b = body(id);
-    if (b === null || b.length === 0) return false;
-    const same = referencedBodies.get(JSON.stringify(b));
-    return !!same && [...same].some((o) => o !== id);
-  };
-  const candidate = (id: string) =>
-    (Array.isArray(scenes[id]) && (scenes[id].length === 0 || body(id)!.length === 0)) ||
-    displayOnly(id) ||
-    copyOf(id) ||
-    /_spirit_(check|hint|no_hint|retry)(_\d+)?$/.test(id) ||
-    origRef.has(id) ||
-    // X_END の X が出力に無く、X_END自身も飛び先にされていない（ゲーム本体が X の後に続けて入る組の、X ごと使われない側）
-    (/_end$/.test(id) && !scenes[id.replace(/_end$/, '')]) ||
-    called.has(id);
-  for (;;) {
-    const text = JSON.stringify(where);
-    referenced = new Set([...text.matchAll(/"goto":"([^"]+)"/g)].map((m) => m[1]!));
-    // 会話シーンの最後に移動（goto・end・gameover・investigate）が無いと、YAML で次に書かれたシーンへそのまま進む。
-    // 落とすとその流れが切れるので、続き先も「飛ばれている」と数える
-    for (const map of where) {
-      const ids = Object.keys(map);
-      ids.forEach((id, i) => {
-        const steps = map[id];
-        if (!Array.isArray(steps) || i + 1 >= ids.length) return;
-        const ends = terminates(steps.at(-1));
-        if (!ends) referenced.add(ids[i + 1]!);
-      });
-    }
-    referencedBodies = new Map();
-    for (const o of referenced) {
-      const b = body(o);
-      if (b === null || b.length === 0) continue;
-      const key = JSON.stringify(b);
-      if (!referencedBodies.has(key)) referencedBodies.set(key, new Set());
-      referencedBodies.get(key)!.add(o);
-    }
-    const gone = Object.keys(scenes).filter(
-      (id) => !roots.includes(id) && !referenced.has(id) && candidate(id),
-    );
-    if (gone.length === 0) return;
-    for (const id of gone) delete scenes[id];
-  }
-}
-
-/**
- * 進み具合のフラグ（<E028 バンク 番号>）が、物語のファイル file の探偵パートで立ちうるか。
- * 立てるのが（この話の）これより後の物語のファイルだけなら立たない。物語のファイルの外（場所・人物の台本、ほかの話、
- * 共通の台本）でも立てるもの、どこでも立てないもの（ゲーム本体が立てるかもしれない）は立ちうるとする
- */
-function flagPossible(dir: string, story: string[]): (flag: string, file: string) => boolean {
-  const first = new Map<string, number>();
-  const other = new Set<string>();
-  for (const f of readdirSync(dir)) {
-    const idx = story.findIndex((s) => f.endsWith(`_${s}_jpn.txt`));
-    for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/<E028 (\d+) (\d+)>/g)) {
-      const flag = `f${m[1]}_${m[2]}`;
-      if (idx < 0) other.add(flag);
-      else first.set(flag, Math.min(first.get(flag) ?? idx, idx));
-    }
-  }
-  return (flag, file) => {
-    const at = first.get(flag);
-    return at === undefined || other.has(flag) || at <= story.indexOf(file);
-  };
-}
-
-/**
- * 話題の番号 → 名前。話題の名前は topic_sceNN の並びで、その話で使う最小の番号が先頭
- * （<E377 人 話題 ラベル>・<E378 人 旧 新 ラベル> の話題を、場所の台本から集めて求める）
- */
-function topicNames(dir: string, sce: string): (id: number) => string | null {
-  const ids: number[] = [];
-  for (const f of readdirSync(dir).filter((f) => f.startsWith(`_${sce}_bg`))) {
-    const text = readFileSync(join(dir, f), 'utf8');
-    for (const m of text.matchAll(/<E377 \d+ (\d+) /g)) ids.push(Number(m[1]));
-    for (const m of text.matchAll(/<E378 \d+ (\d+) (\d+) /g)) ids.push(Number(m[1]), Number(m[2]));
-  }
-  const path = join(SCRIPT, `romfs/msg/topic_${sce}_jpn.txt`);
-  const base = Math.min(...ids);
-  if (ids.length === 0 || !existsSync(path)) return () => null;
-  const entries = readGmdText(path);
-  return (id) => {
-    const t = entries[id - base]?.text;
-    return t && t !== 'Invalid Message' ? t : null;
-  };
-}
-
-/** つながないファイルの法廷記録の増減を、その前の（無ければ後の）つなぐファイルに移す */
-function moveSkippedGains(gains: Map<string, Step[]>, all: string[], kept: Set<string>) {
-  all.forEach((f, i) => {
-    const g = gains.get(f);
-    if (kept.has(f) || !g) return;
-    const to =
-      all.slice(0, i).findLast((x) => kept.has(x)) ?? all.slice(i).find((x) => kept.has(x));
-    if (to) gains.set(to, [...(gains.get(to) ?? []), ...g]);
-  });
-  return gains;
 }
 
 if (import.meta.main) main();
