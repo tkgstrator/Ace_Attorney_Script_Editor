@@ -224,6 +224,8 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
   let demand: { step: Step; present: Record<string, Step[]>; wrongFrom: number } | null = null;
   let spots: { text: string; then: Step[] }[] = [];
   let spotsFrom = 0;
+  // 指紋検出の失敗のハンドラ（<E558 指紋なし 粉が多い 粉が足りない …>）を登録した位置
+  let fingerprint: { at: number; labels: number[] } | null = null;
   let conds: string[] = [];
 
   const finish = (auto: boolean) => {
@@ -324,6 +326,10 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       demand.wrongFrom = steps.length;
       continue;
     }
+    if (name === 'E558' && args.length >= 3) {
+      fingerprint = { at: steps.length, labels: args.slice(0, 3) };
+      continue;
+    }
     if (name === 'E004' && demand && args[0] === self) continue;
     if (name === 'E307') {
       const pick = ctx.pointOut(self);
@@ -374,6 +380,23 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
     steps.push({ native: name, args });
   }
   finish(false);
+  if (fingerprint) {
+    // ここから先は指紋が検出できたとき。失敗するとゲームが登録したハンドラの台詞に入り、終わると遊びに戻る
+    const fp = fingerprint;
+    const ok = steps.splice(fp.at);
+    const fail = ['指紋のない所を調べる', '粉が多すぎる', '粉が足りない'];
+    steps.push({
+      choice: [
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        { text: '指紋を検出できた', then: ok },
+        ...fp.labels.map((l, i) => ({
+          text: fail[i]!,
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          then: ctx.jump(l),
+        })),
+      ],
+    });
+  }
   if (demand) demand.step.wrong = steps.splice(demand.wrongFrom);
   return steps;
 }

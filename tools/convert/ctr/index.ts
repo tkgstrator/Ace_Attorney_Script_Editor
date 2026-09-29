@@ -262,15 +262,60 @@ function dropRedundant(
   // 出力からは goto されないシーンを落とす: 中身が空のもの、霊媒ビジョンの内部の輪、そして元の台本からは飛び先にされていた
   // （= 呼び出し・尋問・選択肢の中に展開されて、単独では要らなくなった）ものの写し。飛び先にされていないもの
   // （ゲーム本体の仕組みで入るもの）は落とさない
+  // 立ち絵を出し入れするだけの命令（台詞・流れ・フラグ・法廷記録は変えない）。ゲーム本体が場所の切り替えで呼ぶ後始末
+  const DISPLAY = new Set([
+    'E118',
+    'E119',
+    'E120',
+    'E121',
+    'E140',
+    'E141',
+    'E142',
+    'E144',
+    'E145',
+    'E147',
+    'E149',
+    'E152',
+    'E153',
+    'E157',
+    'E158',
+  ]);
+  const body = (id: string): unknown[] | null => {
+    const s = scenes[id];
+    if (!Array.isArray(s)) return null;
+    // 終わりの goto（次へ進むだけ）は内容に数えない
+    return s.length > 0 && 'goto' in s[s.length - 1] ? s.slice(0, -1) : s;
+  };
+  const displayOnly = (id: string) => {
+    const b = body(id);
+    // 終わりの E039 が持つ法廷記録の増減は、ファイルの本筋の終わりにもある写しなので数えない
+    const glue = (x: any) => ['give', 'giveProfile', 'take', 'takeProfile'].some((k) => k in x);
+    return (
+      b !== null &&
+      b.some((x: any) => DISPLAY.has(x.native)) &&
+      b.every((x: any) => DISPLAY.has(x.native) || glue(x))
+    );
+  };
+  const copyOf = (id: string) => {
+    const b = body(id);
+    if (b === null || b.length === 0) return false;
+    const key = JSON.stringify(b);
+    return Object.keys(scenes).some(
+      (o) => o !== id && text.includes(`"goto":"${o}"`) && JSON.stringify(body(o)) === key,
+    );
+  };
   const candidate = (id: string) =>
-    (Array.isArray(scenes[id]) && scenes[id].length === 0) ||
+    (Array.isArray(scenes[id]) && (scenes[id].length === 0 || body(id)!.length === 0)) ||
+    displayOnly(id) ||
+    copyOf(id) ||
     /_spirit_(check|hint|no_hint|retry)(_\d+)?$/.test(id) ||
     origRef.has(id) ||
     // X_END の X が出力に無く、X_END自身も飛び先にされていない（ゲーム本体が X の後に続けて入る組の、X ごと使われない側）
     (/_end$/.test(id) && !scenes[id.replace(/_end$/, '')]) ||
     [...called].some((n) => id.endsWith(`_${n}`));
+  let text = '';
   for (;;) {
-    const text = JSON.stringify(where);
+    text = JSON.stringify(where);
     const gone = Object.keys(scenes).filter(
       (id) => candidate(id) && !roots.includes(id) && !text.includes(`"goto":"${id}"`),
     );
