@@ -16,6 +16,8 @@ export type CallOpts = {
   dir: string;
   /** シーンにしたファイル（c200_0100 など） */
   converted: Set<string>;
+  /** 今の話の物語のファイルのラベルを呼んだとき、そのシーンの ID を知らせる（展開したので、単独のシーンは要らなくなる） */
+  onCall?: (sceneId: string) => void;
 };
 
 const native = (to: number, idx: number): Step[] => [{ native: 'E033', args: [to, idx] }];
@@ -88,7 +90,9 @@ export function makeCall(
     if (!name || !entries || k < 0) return native(to, idx);
     // 今の話の物語のファイルならシーン名と同じ短い名前、ほか（場所・人物の台本）は名前のまま
     const story = name.startsWith(`${o.sce}_`) && /_c\d{3}_\d{4}$/.test(name);
-    return block(story ? name.replace(`${o.sce}_`, '') : name, entries, k);
+    const short = story ? name.replace(`${o.sce}_`, '') : name;
+    if (story) o.onCall?.(sceneId(short, label!, mainLabel(entries)));
+    return block(short, entries, k);
   };
 
   return { call, block, load };

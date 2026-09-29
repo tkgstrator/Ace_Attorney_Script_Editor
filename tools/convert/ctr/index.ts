@@ -86,6 +86,8 @@ function main() {
   );
 
   const short = files.map((f) => f.replace(`_${sce}_`, '').replace('_jpn.txt', ''));
+  // <E033> で呼ばれて展開されたシーン（単独のシーンとしては要らなくなる）
+  const called = new Set<string>();
   const { call, block, load } = makeCall(
     {
       sceIdx: ep - 1,
@@ -99,6 +101,7 @@ function main() {
       ]),
       dir,
       converted: new Set(short),
+      onCall: (id) => called.add(id),
     },
     () => shared,
   );
@@ -116,6 +119,7 @@ function main() {
   });
   const shared: Shared = {
     ep: ep - 1,
+    perceiveChoice: ep <= 4,
     call,
     investigate: invest.investigate,
     names,
@@ -143,12 +147,10 @@ function main() {
   // 1 つ。ファイルの最初で gameover_at に何番目かを入れ、ゲームオーバーの場面でその番号のものへ分ける
   const gameovers: string[] = [];
   const origRef = new Set<string>();
-  const called = new Set<string>();
   files.forEach((f, i) => {
     const r = convertFile(readGmdText(join(dir, f)), short[i]!, short[i + 1] ?? null, shared);
     for (const [id, s] of r.scenes) scenes[id] = s;
     for (const id of r.origRef) origRef.add(id);
-    for (const n of r.called) called.add(n);
     const first = r.scenes[0]?.[1];
     if (r.gameover && Array.isArray(first)) {
       gameovers.push(r.gameover);
@@ -252,6 +254,17 @@ function main() {
  * - 中身が空の場面（読み込みだけの L_PO_INIT など）
  * - 霊媒ビジョンの中身（L_SPIRIT_CHECK・HINT・NO_HINT・RETRY。託宣と感覚の選択肢・解けたものに置き換えた遊びの輪）
  */
+/** ステップが、そこから先の同じシーンの続きには進まない（移動・終わりで抜ける）か。選択肢・if は、すべての枝が抜けるとき */
+function terminates(step: any): boolean {
+  if (!step || typeof step !== 'object') return false;
+  if (['goto', 'end', 'gameover', 'investigate'].some((k) => k in step)) return true;
+  const all = (list: any): boolean =>
+    Array.isArray(list) && list.length > 0 && terminates(list.at(-1));
+  if (Array.isArray(step.choice)) return step.choice.every((o: any) => all(o.then));
+  if ('if' in step) return all(step.then) && all(step.else);
+  return false;
+}
+
 function dropRedundant(
   scenes: Record<string, any>,
   where: Record<string, any>[],
@@ -300,13 +313,14 @@ function dropRedundant(
       b.every((x: any) => DISPLAY.has(x.native) || glue(x))
     );
   };
+  // 反復ごとに、goto されているシーンの集まりと、それらの中身（JSON）の索引を作る（組ごとに全体を検索しない）
+  let referenced = new Set<string>();
+  let referencedBodies = new Map<string, Set<string>>();
   const copyOf = (id: string) => {
     const b = body(id);
     if (b === null || b.length === 0) return false;
-    const key = JSON.stringify(b);
-    return Object.keys(scenes).some(
-      (o) => o !== id && text.includes(`"goto":"${o}"`) && JSON.stringify(body(o)) === key,
-    );
+    const same = referencedBodies.get(JSON.stringify(b));
+    return !!same && [...same].some((o) => o !== id);
   };
   const candidate = (id: string) =>
     (Array.isArray(scenes[id]) && (scenes[id].length === 0 || body(id)!.length === 0)) ||
@@ -316,12 +330,31 @@ function dropRedundant(
     origRef.has(id) ||
     // X_END の X が出力に無く、X_END自身も飛び先にされていない（ゲーム本体が X の後に続けて入る組の、X ごと使われない側）
     (/_end$/.test(id) && !scenes[id.replace(/_end$/, '')]) ||
-    [...called].some((n) => id.endsWith(`_${n}`));
-  let text = '';
+    called.has(id);
   for (;;) {
-    text = JSON.stringify(where);
+    const text = JSON.stringify(where);
+    referenced = new Set([...text.matchAll(/"goto":"([^"]+)"/g)].map((m) => m[1]!));
+    // 会話シーンの最後に移動（goto・end・gameover・investigate）が無いと、YAML で次に書かれたシーンへそのまま進む。
+    // 落とすとその流れが切れるので、続き先も「飛ばれている」と数える
+    for (const map of where) {
+      const ids = Object.keys(map);
+      ids.forEach((id, i) => {
+        const steps = map[id];
+        if (!Array.isArray(steps) || i + 1 >= ids.length) return;
+        const ends = terminates(steps.at(-1));
+        if (!ends) referenced.add(ids[i + 1]!);
+      });
+    }
+    referencedBodies = new Map();
+    for (const o of referenced) {
+      const b = body(o);
+      if (b === null || b.length === 0) continue;
+      const key = JSON.stringify(b);
+      if (!referencedBodies.has(key)) referencedBodies.set(key, new Set());
+      referencedBodies.get(key)!.add(o);
+    }
     const gone = Object.keys(scenes).filter(
-      (id) => candidate(id) && !roots.includes(id) && !text.includes(`"goto":"${id}"`),
+      (id) => !roots.includes(id) && !referenced.has(id) && candidate(id),
     );
     if (gone.length === 0) return;
     for (const id of gone) delete scenes[id];

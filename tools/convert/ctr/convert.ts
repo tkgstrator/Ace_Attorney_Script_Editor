@@ -33,6 +33,12 @@ export type Ctx = {
   callLocal: (n: number) => Step[];
   /** 探偵パートの近似の中で展開しているとき、その入口の物語のファイルの章・シーン（<E052> で見る） */
   hub?: { chap: number; scene: number };
+  /**
+   * <E177 開始 成功 やめる 外れ>（みぬくの登録）を、入ったときに成功・やめる・外れを選ぶ選択肢にするか。
+   * 第 2 話で話題を選べるようにするために入れたが、第 5 話では成功の先が取り上げ済みの証拠品を求めて詰みになる
+   * （第 5 話はまだ対象外なので、第 1〜4 話だけ）
+   */
+  perceiveChoice?: boolean;
   /** <E394>: 探偵パートを終える */
   endInvest: () => Step[];
   /**
@@ -327,7 +333,7 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       continue;
     }
     // みぬく（<E177 開始 成功 やめる 外れ>）: 開始の台詞の後、成功・やめる・外れの先を選ぶ
-    if (name === 'E177' && args.length >= 4) {
+    if (name === 'E177' && args.length >= 4 && ctx.perceiveChoice) {
       steps.push({ native: 'perceive', args: [] }, ...ctx.jump(args[0]!), {
         choice: [
           // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）

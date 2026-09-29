@@ -6,7 +6,7 @@ import { findExam } from './exam.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { perceive } from './games-kokoro.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
-import { calledNames, reachableFrom, referencedLabels } from './refs.ts';
+import { reachableFrom, referencedLabels } from './refs.ts';
 
 export type Shared = Omit<
   Ctx,
@@ -45,8 +45,6 @@ export type FileResult = {
   gameover: string | null;
   /** 元の台本のほかのブロックから飛び先にされているラベルのシーン ID */
   origRef: string[];
-  /** <E033> で呼ばれているラベルの名前（シーン ID の後ろの部分） */
-  called: string[];
 };
 
 /** L_INIT・L_LOAD（と L_LOAD_nn。読み込み時の準備）は変換しない */
@@ -495,7 +493,6 @@ export function convertFile(
   return {
     scenes: sorted.map(([k, s]) => [idOf(file, labelOf(k)!), s]),
     gameover: gameover >= 0 && scenes.has(gameover) ? idOf(file, 'L_GAMEOVER') : null,
-    called: [...calledNames(blocks)],
     origRef: [...referencedLabels(blocks)].flatMap((n) =>
       labelOf(n) ? [idOf(file, labelOf(n)!)] : [],
     ),

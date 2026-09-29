@@ -43,16 +43,6 @@ export function referencedLabels(blocks: Token[][]): Set<number> {
   return out;
 }
 
-/** <E033 話 番号 ラベル名> で呼ばれているラベルの名前（`L_` を除いた小文字。シーン ID の後ろの部分） */
-export function calledNames(blocks: Token[][]): Set<string> {
-  const out = new Set<string>();
-  for (const b of blocks)
-    for (const t of b)
-      if (t.kind === 'cmd' && t.name === 'E033' && t.label)
-        out.add(t.label.replace(/^L_/, '').toLowerCase());
-  return out;
-}
-
 /** 入口のラベルから、飛ぶ・呼ぶ・選ぶ命令だけでたどれるラベルの番号の集まり（入口自身を含む） */
 export function reachableFrom(blocks: Token[][], entry: number): Set<number> {
   const seen = new Set<number>();
