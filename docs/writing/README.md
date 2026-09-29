@@ -3,31 +3,31 @@
 公式の 3 作（逆転裁判 蘇る逆転・逆転裁判2・逆転裁判3）の変換済みシナリオを数えて、文量・演出・文字の使い方・構成の型を
 まとめたもの。オリジナルのシナリオをこのエンジンで書くときの目安にする。
 
-YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenario-games.md](../scenario-games.md)、
-カタカナの表記は [../katakana.md](../katakana.md)、人物ごとの話し方は [../characters/README.md](../characters/README.md) を参照。
+YAML の書き方そのものは [シナリオの書き方](../scenario.md) と [遊びの書き方](../scenario-games.md)、
+[カタカナの表記](../katakana.md)、[人物ごとの話し方](../characters/README.md) を参照。
 
 ## シナリオを書くときに最初に読むもの
 
 | ガイド | 中身 |
 |---|---|
-| [trial/README.md](trial/README.md) | **裁判パートの書き方。** 何を覆すかの設計から、証言・尋問・追い詰め・判決・日をまたぐまでの手順と、決まり文句の一覧 |
-| [investigation/README.md](investigation/README.md) | **探偵パートの書き方。** 何を知るかの設計から、調べる・話す・つきつける・サイコ・ロック・捜査の終わりまでの手順と、決まり文句の一覧 |
-| [text-length.md](text-length.md) | 文字数の決まり: 画面の枠ごとの上限、公式の長さの目安、`--check-fit` での点検 |
-| [pitfalls.md](pitfalls.md) | よくある失敗と直し方、機械のチェックの案 |
+| [裁判パートの書き方](trial/README.md) | 何を覆すかの設計から、証言・尋問・追い詰め・判決・日をまたぐまでの手順と、決まり文句の一覧 |
+| [探偵パートの書き方](investigation/README.md) | 何を知るかの設計から、調べる・話す・つきつける・サイコ・ロック・捜査の終わりまでの手順と、決まり文句の一覧 |
+| [文字数の決まり](text-length.md) | 画面の枠ごとの上限、公式の長さの目安、`--check-fit` での点検 |
+| [失敗と直し方](pitfalls.md) | よくある失敗と直し方、機械のチェックの案 |
 
-ガイドは、この下の分析（文量・演出・文字・構成）とひな形を、書く順に並べ直したもの。数の出どころは分析と [numbers/](numbers/)。
+ガイドは、この下の分析（文量・演出・文字・構成）とひな形を、書く順に並べ直したもの。数の出どころは分析と [集計の結果](numbers/)。
 
 ## 目次
 
-| ファイル | 中身 |
+| 資料 | 中身 |
 |---|---|
-| [volume.md](volume.md) | 文量: 話・編・シーンの台詞の数と文字数、1 ページの長さ、話し手の割合 |
-| [effects.md](effects.md) | 演出: 揺れ・フラッシュ・効果音・BGM・フェード・立ち絵の動き・吹き出しの頻度と、使われる場面の型 |
-| [typography.md](typography.md) | 文字の使い方: 文中コマンド、色、句読点と「‥‥」、改行、ページの終わり方 |
-| [structure.md](structure.md) | 書き方の型: 探偵パート・法廷パートの構成、ペナルティ、ヒントの出し方 |
-| [templates-trial.md](templates-trial.md) | YAML のひな形（法廷パート。別の事件「時計塔」）: 証言・尋問・ゆさぶり・つきつけの後・ペナルティ。[trial/](trial/) から参照する |
-| [templates-investigation.md](templates-investigation.md) | YAML のひな形（探偵パート。同じ事件）と、驚き・気づきなどの小さな演出の並び。[investigation/](investigation/) から参照する |
-| [numbers/](numbers/) | 集計スクリプトの出力そのもの（上のファイルの数の出どころ） |
+| [文量](volume.md) | 話・編・シーンの台詞の数と文字数、1 ページの長さ、話し手の割合 |
+| [演出の使い方](effects.md) | 揺れ・フラッシュ・効果音・BGM・フェード・立ち絵の動き・吹き出しの頻度と、使われる場面の型 |
+| [文字の使い方](typography.md) | 文中コマンド、色、句読点と「‥‥」、改行、ページの終わり方 |
+| [書き方の型（構成）](structure.md) | 探偵パート・法廷パートの構成、ペナルティ、ヒントの出し方 |
+| [法廷パートのひな形](templates-trial.md) | 別の事件「時計塔」で書いた YAML のひな形: 証言・尋問・ゆさぶり・つきつけの後・ペナルティ。[裁判パートの書き方](trial/) から参照する |
+| [探偵パートのひな形](templates-investigation.md) | 同じ事件で書いた YAML のひな形と、驚き・気づきなどの小さな演出の並び。[探偵パートの書き方](investigation/) から参照する |
+| [集計の結果](numbers/) | 集計スクリプトの出力そのもの（上のファイルの数の出どころ） |
 
 ## いちばん大事な傾向
 
@@ -48,8 +48,8 @@ YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenar
 
 - 材料: `assets/extracted/converted/ep1〜5.yaml`（蘇る逆転）、`assets/extracted/aa2/converted/ep1〜4.yaml`、
   `assets/extracted/aa3/converted/ep1〜5.yaml`。ROM から変換したもので、手元だけにあり配布しない。
-- スクリプト: [tools/analysis/](../../tools/analysis/)（Bun）。`bun tools/analysis/all.ts` で
-  [numbers/](numbers/) と [../characters/](../characters/) の数を作り直す。個別に流すときは `bun tools/analysis/volume.ts` など。
+- スクリプト: [集計のスクリプト](../../tools/analysis/)（Bun）。`bun tools/analysis/all.ts` で
+  [集計の結果](numbers/) と [人物の話し方](../characters/) の数を作り直す。個別に流すときは `bun tools/analysis/volume.ts` など。
 
 | スクリプト | 数えるもの |
 |---|---|
@@ -61,7 +61,7 @@ YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenar
 | `structure.ts` | 探偵パート・法廷パートの構成 |
 | `typography.ts` | 文字の使い方 |
 | `charstats.ts`・`characters.ts` | 人物ごとの話し方（docs/characters/） |
-| `phrases.ts`・`phrases-list.ts` | 決まり文句の出現回数（[numbers/phrases.md](numbers/phrases.md)）と、許可リストの確かめ |
+| `phrases.ts`・`phrases-list.ts` | 決まり文句の出現回数（[決まり文句の集計](numbers/phrases.md)）と、許可リストの確かめ |
 | `check-quotes.ts`（`stock.ts`・`quotes.ts`） | docs に公式の文が 10 字以上そのまま載っていないか。許可リストの決まり文句と、出典つきの実例は除く |
 
 数え方の決まり:
@@ -74,14 +74,14 @@ YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenar
 - **編:** 同じ種類（探偵・法廷）の part が続く所を 1 つの編とし、探偵1・法廷1・探偵2… と呼ぶ。
 - **中央値（最小〜最大）** で書く。話は 14、探偵編は 23、法廷編は 27 しかないので、平均より中央値と幅を見る。
 - 効果音・BGM は作品ごとの SDAT の名前（`SE019`・`BGM014` など）。音の中身は聞いて確かめていないので、
-  役割は「どんな演出と一緒に鳴るか」から推し量ったもの（[effects.md](effects.md#効果音の役割)）。
+  役割は「どんな演出と一緒に鳴るか」から推し量ったもの（[演出の使い方](effects.md#効果音の役割)）。
 
 ## 公式の文の載せ方
 
 リポジトリは公開されているので、公式の文は次の 2 つに限って載せる。それ以外（長い掛け合い・ストーリー固有の台詞）は載せない。
 
 - **決まり文句:** 開廷・準備完了・静粛に・証拠品の知らせのような、短い定型句（1 文・20 字程度まで）。
-  [../../tools/analysis/stock-phrases.json](../../tools/analysis/stock-phrases.json)（許可リスト）に入れ、複数の話・複数の話し手に
+  [決まり文句の許可リスト](../../tools/analysis/stock-phrases.json)（許可リスト）に入れ、複数の話・複数の話し手に
   出ることを `phrases.ts` で確かめる。
 - **実例:** 節の型を示すのにいちばん分かりやすい公式の文。**1 節（見出しの単位）に 5 文程度まで**、出典（作品・話）を添える。
   - 引用の行: `> 「文」（蘇る逆転 第2話）`（話し手を前に付けてもよい）。
@@ -89,14 +89,14 @@ YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenar
   - 真犯人・真相・どんでん返し・決定的な証拠の中身・人物の正体に触れる場面は使わない。使うのは各話の序盤（開廷・最初の証言・
     最初の探偵パート）と、手続き・通知・日常の掛け合い。迷ったら自作の例にする。
 - 例の台詞とひな形の文は、実例と決まり文句のほかはすべて自作。
-- 集計の中間ファイルは作らず、スクリプトの出力（数の表）だけを [numbers/](numbers/) に置く。
+- 集計の中間ファイルは作らず、スクリプトの出力（数の表）だけを [集計の結果](numbers/) に置く。
 - `bun tools/analysis/check-quotes.ts docs/writing docs/characters` で確かめる（許可リストと実例の行は一致に数えず、
   1 節の実例が 5 文を超えると警告する）。
 
 ## 事件設計メモの書式
 
-台詞を書く前に、話ごとに次のメモを作る。裁判パート（[trial/design.md](trial/design.md)）と探偵パート
-（[investigation/design.md](investigation/design.md)）の設計は、このメモを埋めながら進める。
+台詞を書く前に、話ごとに次のメモを作る。裁判パート（[裁判パートの設計](trial/design.md)）と探偵パート
+（[探偵パートの設計](investigation/design.md)）の設計は、このメモを埋めながら進める。
 
 1. **実際の時系列:** だれが、いつ、どこで、何をしたか（分単位でよい）と、そのとき残ったもの（証拠）。
 2. **検察側の説明:** 検察が信じている筋書きと、その根拠。
@@ -112,11 +112,11 @@ YAML の書き方そのものは [../scenario.md](../scenario.md) と [../scenar
 
 ## 書き始める前のチェックリスト
 
-書く手順そのものは [trial/README.md](trial/README.md) と [investigation/README.md](investigation/README.md)。ここは分析から見た目安。
+書く手順そのものは [裁判パートの書き方](trial/README.md) と [探偵パートの書き方](investigation/README.md)。ここは分析から見た目安。
 
-1. 話の規模を決める（第 1 話型: 法廷だけ 800〜2,000 ページ／ふつう: 探偵 2・法廷 2 で 3,500〜6,500 ページ）。→ [volume.md](volume.md)
-2. 法廷編ごとに証言を 5 つ前後、各 5〜6 文で並べ、どの文にどの証拠品をつきつけるかを先に決める。→ [structure.md](structure.md)
-3. 探偵編ごとに場所を 8 か所前後、1 か所に話題 3〜4、調べる所 6〜7 を用意する。→ [structure.md](structure.md)
-4. 台詞は 1 ページ 2 行・1 行 16 字に収め、句読点の後に wait を入れる。→ [typography.md](typography.md)
-5. 山場（正しいつきつけ・新しい事実・動揺）に演出の定番の並びを当てる。→ [effects.md](effects.md)、[templates-trial.md](templates-trial.md)
-6. 人物ごとに一人称・呼び方・語尾を決め、[../characters/README.md](../characters/README.md) のテンプレートで書いておく。
+1. 話の規模を決める（第 1 話型: 法廷だけ 800〜2,000 ページ／ふつう: 探偵 2・法廷 2 で 3,500〜6,500 ページ）。→ [文量](volume.md)
+2. 法廷編ごとに証言を 5 つ前後、各 5〜6 文で並べ、どの文にどの証拠品をつきつけるかを先に決める。→ [書き方の型（構成）](structure.md)
+3. 探偵編ごとに場所を 8 か所前後、1 か所に話題 3〜4、調べる所 6〜7 を用意する。→ [書き方の型（構成）](structure.md)
+4. 台詞は 1 ページ 2 行・1 行 16 字に収め、句読点の後に wait を入れる。→ [文字の使い方](typography.md)
+5. 山場（正しいつきつけ・新しい事実・動揺）に演出の定番の並びを当てる。→ [演出の使い方](effects.md)、[法廷パートのひな形](templates-trial.md)
+6. 人物ごとに一人称・呼び方・語尾を決め、[人物の話し方](../characters/README.md) のテンプレートで書いておく。

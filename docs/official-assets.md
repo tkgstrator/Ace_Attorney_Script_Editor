@@ -8,8 +8,8 @@
   - [背景・法廷のパン・机](official-assets/backgrounds.md)
   - [人物・吹き出し・カットイン・重ね絵・サイコ・ロック](official-assets/objects.md)
   - [法廷記録・名札・下画面の UI・テクスチャ・フォント](official-assets/record-ui-font.md)
-- 人物の立ち絵の細かい決まり（線・影・動き・差分コマ）は [`tools/sprites/SPEC.md`](../tools/sprites/SPEC.md)、
-  立ち位置は [`tools/sprites/STAND_SPEC.md`](../tools/sprites/STAND_SPEC.md)。この文書と重なる所はそちらが正。
+- 人物の立ち絵の細かい決まり（線・影・動き・差分コマ）は [立ち絵の仕様](../tools/sprites/SPEC.md)、
+  立ち位置は [立ち位置の仕様](../tools/sprites/STAND_SPEC.md)。この文書と重なる所はそちらが正。
 
 表の「中央値（p10〜p90）」は、その種類の全部の分布。作品の違いが無いものは 1 つの値だけ書く。
 蘇る逆転 = 蘇、逆転裁判 2 = 2、逆転裁判 3 = 3（どれも DS 版の日本語版）。
