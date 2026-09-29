@@ -1,6 +1,13 @@
 // 公式の文の実例（出典つきの引用）の見分けと、節ごとの数の決まりのテスト
 import { describe, expect, it } from 'vitest';
-import { MAX_QUOTED_SENTENCES, overQuotedSections, quotedText, sentenceCount } from '../quotes.ts';
+import {
+  citedBlockLines,
+  MAX_QUOTED_SENTENCES,
+  overQuotedSections,
+  quotedText,
+  sentenceCount,
+  yamlLineSentences,
+} from '../quotes.ts';
 
 describe('出典つきの引用', () => {
   it('「文」（作品 第N話）の行を引用として読む', () => {
@@ -38,5 +45,37 @@ describe('節ごとの実例の数', () => {
   it('コードブロックの中の見出しや引用は数えない', () => {
     const lines = ['# 一', '```', '# 見出しではない', ...q(9), '```', ...q(1)];
     expect(overQuotedSections(lines)).toEqual([]);
+  });
+});
+
+describe('出典つきの YAML の例', () => {
+  const block = [
+    '## 節',
+    '> 出典: 蘇る逆転 第2話（法廷1 の始まり）',
+    '',
+    '```yaml',
+    '- se: SE010',
+    '- judge: "これは例です。[wait 8]\\n次の文です。"',
+    '```',
+  ];
+
+  it('出典の行の直後のブロックの中身だけを実例にする', () => {
+    expect([...citedBlockLines(block)]).toEqual([4, 5]);
+    expect(citedBlockLines(['```yaml', '- a: 例', '```'])).toEqual(new Set());
+  });
+
+  it('台詞の文を数え、キーや命令だけの行は数えない', () => {
+    expect(yamlLineSentences('- se: SE010')).toBe(0);
+    expect(yamlLineSentences('- judge: "これは例です。[wait 8]\\n次の文です。"')).toBe(2);
+    expect(yamlLineSentences('  text: （心の声‥‥）  # 注')).toBe(1);
+  });
+
+  it('ブロックの中の文も節の数に入れる', () => {
+    const lines = [
+      ...block,
+      '> 「一。二。三。」（逆転裁判3 第1話）',
+      '> 「四。」（逆転裁判3 第1話）',
+    ];
+    expect(overQuotedSections(lines)).toEqual([{ line: 1, heading: '節', sentences: 6 }]);
   });
 });
