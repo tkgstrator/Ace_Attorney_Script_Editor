@@ -35,10 +35,17 @@ export type Ctx = {
   hub?: { chap: number; scene: number };
   /** <E394>: 探偵パートを終える */
   endInvest: () => Step[];
-  /** 探偵パートの入口（L_DTC_START）の代わりのステップ（end は L_DTC_END への goto） */
-  investigate: (chap: number, scene: number, end: Step[]) => Step[];
-  /** <E393 ? ラベル>: ここで探偵パートに入り、終わるとラベルへ（L_DTC_START の無い形） */
-  freeRoam: (label: number) => Step[];
+  /**
+   * 探偵パートに入る（<E393 場所 ラベル>）。場所の台本の版は場所の番号（表 12）で決まり、探偵パートの間に
+   * 行き来できる場所は、直前の <E386 背景 場所> で並べたもの。終わる（<E394>）とラベルへ進む
+   */
+  freeRoam: (place: number, endLabel: number) => Step[];
+  /** <E386 背景 場所>: 探偵パートで行き来できる場所を足す */
+  mapPlace: (place: number) => void;
+  /** <E392 バンク 番号>: 探偵パートの終わりの条件のフラグ（すべて立つと、ゲームが場所の LABEL_0000 を実行する） */
+  endFlag: (flag: string) => void;
+  /** 場所の話題（<E377 人 話題 ラベル> で足す、<E378 人 旧 新 ラベル> で差し替える）の増減 */
+  topics: (swap: boolean, args: number[]) => Step[];
   /** 法廷記録の番号 → 証拠品 ID（種類 0）・人物 ID（種類 1） */
   recordId: (kind: number, idx: number) => string | null;
   flags: Set<string>;
@@ -49,6 +56,21 @@ export type Ctx = {
 /** 表示にも流れにも関係しない命令（行番号・区切り・字の配置の印・吹き出しの準備など） */
 const SKIP = new Set([
   'E293',
+  // 探偵パートの場所の準備（メニューの有効化・調べる所・つきつけの入口など。場所は invest.ts が組み立てる）
+  'E369',
+  'E370',
+  'E371',
+  'E372',
+  'E373',
+  'E374',
+  'E375',
+  'E376',
+  'E379',
+  'E380',
+  'E382',
+  'E383',
+  'E311',
+  'E313',
   'E800',
   'E063',
   'RDFG',
@@ -107,7 +129,19 @@ function control(ctx: Ctx, name: string, args: number[]): Step[] | null {
     case 'E031':
       return ctx.script(args[0]!, args[1]!);
     case 'E393':
-      return ctx.freeRoam(args[1]!);
+      return ctx.freeRoam(args[0]!, args[1]!);
+    case 'E392': {
+      const f = flagName(args[0]!, args[1]!);
+      ctx.flags.add(f);
+      ctx.endFlag(f);
+      return [];
+    }
+    case 'E386':
+      ctx.mapPlace(args[1]!);
+      return [];
+    case 'E377':
+    case 'E378':
+      return ctx.topics(name === 'E378', args);
     case 'E394':
       return ctx.endInvest();
     case 'E026':
@@ -133,6 +167,22 @@ function control(ctx: Ctx, name: string, args: number[]): Step[] | null {
     }
     case 'E249':
       return [{ random: args.map((n) => ctx.jump(n)) }];
+    // 法廷記録に加える（<E107 種類 番号 ?>。続く <E103 番号> が「ファイルした」の知らせ）/ 差し替える（<E106 種類 旧 新>）。
+    // 種類 0 は証拠品、1 は人物ファイル。<E101 種類 番号> は章の始めにフラグの初期化と並んで持ち物を外す命令と思われるが、
+    // 物語のファイルをファイル名の順につなぐ近似では取り直す道ができず詰むので、native で残す
+    case 'E107': {
+      const id = ctx.recordId(args[0]!, args[1]!);
+      return id ? [{ [args[0] === 0 ? 'give' : 'giveProfile']: id }] : [];
+    }
+    case 'E103':
+      return [];
+    case 'E106': {
+      const [from, to] = [ctx.recordId(args[0]!, args[1]!), ctx.recordId(args[0]!, args[2]!)];
+      if (!from || !to || from === to) return [];
+      return args[0] === 0
+        ? [{ take: from }, { give: to }]
+        : [{ takeProfile: from }, { giveProfile: to }];
+    }
     case 'E060': {
       const id = ctx.recordId(args[0]!, args[1]!);
       return id && args[0] === 0 ? [{ showEvidence: id }] : null;

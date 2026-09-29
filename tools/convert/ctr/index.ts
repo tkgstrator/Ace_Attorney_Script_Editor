@@ -2,8 +2,7 @@
 // 会話・選択肢・ラベル間の移動・フラグ・呼び出し（<E033>・<E026>）・台本の番号表での移動（<E031>）・尋問（証言シーン）・
 // つきつけ・法廷記録の増減まで。対応していない命令は native で残す。近似にしているもの:
 // - 話の順: 物語のファイル（_sceNN_cXXX_YYYY）をファイル名の順につなぐ（ゲームは台本の番号表と探偵パートの進み具合で決める）
-// - 探偵パート（L_DTC_START・<E393>）: 場所の台本の出来事のうち、その場面を <E052> で指すものを展開する（calls.ts）。
-//   場所を回る・話す・調べる・人物につきつける、は入らない
+// - 探偵パート（<E393>）: 探索編の場所にする（invest.ts）。調べる所の位置は 3D の部品で取れないので、画面を縦に切った帯で選ばせる
 // - 霊媒ビジョン・指し示す・みぬく・箱の仕掛けなど台本の外の遊び: 解けたものとして成功の先へ（file.ts）
 //
 // 先に aa-ctr で台本を文章にしておく（assets/extracted-rs/aa6/script/、配布しない）:
@@ -12,7 +11,7 @@
 //   bun tools/convert/ctr/index.ts --episode 1 [--title 題] [--out ファイル] [--stats]   # → assets/extracted/aa6/converted/ep1.yaml
 //
 // 話 N の台本は romfs/script/_output/_sce{N-1}_c*_jpn。法廷記録の番号表はゲーム本体（exefs/code.bin、code-tables.ts）から読む。
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { toYaml } from '../index.ts';
 import { makeCall } from './calls.ts';
@@ -20,6 +19,7 @@ import { loadCodeTables } from './code-tables.ts';
 import { charId, type NameEntry, type Step } from './convert.ts';
 import { convertFile, type Shared } from './file.ts';
 import { labelMap, readGmdText } from './gmd.ts';
+import { makeInvest } from './invest.ts';
 import { loadGains, loadRecord } from './record.ts';
 import { loadScriptIds, SCRIPT_TABLE } from './scripts.ts';
 
@@ -85,7 +85,7 @@ function main() {
   );
 
   const short = files.map((f) => f.replace(`_${sce}_`, '').replace('_jpn.txt', ''));
-  const { call, investigate } = makeCall(
+  const { call, block, load } = makeCall(
     {
       sceIdx: ep - 1,
       sce,
@@ -101,10 +101,21 @@ function main() {
     },
     () => shared,
   );
+  const invest = makeInvest({
+    bgScripts: loadScriptIds(join(TABLE, 'APP_PARAM_ID_SCRIPT_BG.prp')),
+    bgNames: new Map(
+      readGmdText(join(cmn, 'bg_jpn.txt')).flatMap((e) => (e.label ? [[e.label, e.text]] : [])),
+    ),
+    chrScripts: loadScriptIds(join(TABLE, 'APP_PARAM_ID_SCRIPT_CHR.prp')),
+    topicName: topicNames(dir, sce),
+    load,
+    block,
+    shared: () => shared,
+  });
   const shared: Shared = {
     ep: ep - 1,
     call,
-    investigate,
+    investigate: invest.investigate,
     names,
     choiceText,
     recordId: (kind, idx) =>
@@ -134,7 +145,7 @@ function main() {
   });
 
   // 法廷記録で使う証拠品・人物だけを載せる
-  const text = JSON.stringify(scenes);
+  const text = JSON.stringify([scenes, invest.places, invest.scenes]);
   // 操作する弁護士は、成歩堂・王泥喜・心音のうち台詞のいちばん多い人（4 話は心音）
   const lines = (id: string) => text.split(`"${id}":`).length - 1;
   const player = ['p000', 'p002', 'p003'].reduce((a, b) => (lines(b) > lines(a) ? b : a));
@@ -161,7 +172,20 @@ function main() {
     flags: Object.fromEntries([...shared.flags].sort().map((f) => [f, false])),
     start: { scene: short[0], evidence: [], profiles: [] },
     ...(gameover ? { gameover } : {}),
-    scenes,
+    ...(Object.keys(invest.places).length
+      ? {
+          parts: [
+            { id: 'story', kind: 'trial', title: '物語', scenes },
+            {
+              id: 'investigation',
+              kind: 'investigation',
+              title: '探偵パート',
+              ...(Object.keys(invest.scenes).length ? { scenes: invest.scenes } : {}),
+              places: invest.places,
+            },
+          ],
+        }
+      : { scenes }),
   };
   const out = arg(args, '--out') ?? join(ROOT, 'assets/extracted/aa6/converted', `${id}.yaml`);
   mkdirSync(dirname(out), { recursive: true });
@@ -173,6 +197,27 @@ function main() {
       `証拠品 ${Object.keys(evidence).length}、フラグ ${shared.flags.size}、native ${total}`,
   );
   if (args.includes('--stats')) for (const [k, n] of natives) console.log(`${n}\t${k}`);
+}
+
+/**
+ * 話題の番号 → 名前。話題の名前は topic_sceNN の並びで、その話で使う最小の番号が先頭
+ * （<E377 人 話題 ラベル>・<E378 人 旧 新 ラベル> の話題を、場所の台本から集めて求める）
+ */
+function topicNames(dir: string, sce: string): (id: number) => string | null {
+  const ids: number[] = [];
+  for (const f of readdirSync(dir).filter((f) => f.startsWith(`_${sce}_bg`))) {
+    const text = readFileSync(join(dir, f), 'utf8');
+    for (const m of text.matchAll(/<E377 \d+ (\d+) /g)) ids.push(Number(m[1]));
+    for (const m of text.matchAll(/<E378 \d+ (\d+) (\d+) /g)) ids.push(Number(m[1]), Number(m[2]));
+  }
+  const path = join(SCRIPT, `romfs/msg/topic_${sce}_jpn.txt`);
+  const base = Math.min(...ids);
+  if (ids.length === 0 || !existsSync(path)) return () => null;
+  const entries = readGmdText(path);
+  return (id) => {
+    const t = entries[id - base]?.text;
+    return t && t !== 'Invalid Message' ? t : null;
+  };
 }
 
 /** つながないファイルの法廷記録の増減を、その前の（無ければ後の）つなぐファイルに移す */

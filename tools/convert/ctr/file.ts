@@ -18,11 +18,24 @@ export type Shared = Omit<
   | 'freeRoam'
   | 'pointOut'
   | 'spotName'
+  | 'endFlag'
 > & {
   /** ファイル → その終わりで行う法廷記録の増減 */
   gains: Map<string, Step[]>;
   /** 話の番号 - 1（sce00 → 0） */
   ep: number;
+  /**
+   * 探偵パート（物語のファイル file の中の <E393>）の代わりのステップ。place は入る場所（表 12 の番号）、
+   * others は行き来できる場所。end は探偵パートを終えた後に行うステップ
+   */
+  investigate: (
+    file: string,
+    hub: { chap: number; scene: number },
+    end: Step[],
+    place: number,
+    others: number[],
+    endFlags: string[],
+  ) => Step[];
 };
 
 export type FileResult = {
@@ -135,6 +148,10 @@ export function convertFile(
   const atEnd = early ? [] : gains;
   const inlined = new Set<number>();
   const calling = new Set<number>();
+  /** 直前の <E386> で並べた、探偵パートで行き来できる場所（次の <E393> で使い切る） */
+  let mapPlaces: number[] = [];
+  /** 同じく <E392> で登録した、探偵パートの終わりの条件のフラグ */
+  let endFlags: string[] = [];
   const pending: number[] = [];
   const inlinable = (n: number) =>
     !!exam && labelOf(n) !== entry && labelOf(n) !== 'L_GAMEOVER' && !answers.has(n);
@@ -172,14 +189,29 @@ export function convertFile(
     choicesAt: (n) => (n === null ? [] : (choicesAt.get(n) ?? [])),
     script: (sce, idx) => [...atEnd, ...shared.script(sce, idx)],
     endInvest: () => [{ native: 'E394', args: [] }],
-    freeRoam: (n) => {
+    freeRoam: (place, n) => {
       const hub = file.match(/^c(\d+)_(\d+)$/);
-      if (!hub || !labelOf(n)) return [{ native: 'E393', args: [0, n] }];
+      if (!hub || !labelOf(n)) return [{ native: 'E393', args: [place, n] }];
       pending.push(n);
-      return shared.investigate(Number(hub[1]), Number(hub[2]), [
-        { goto: idOf(file, labelOf(n)!) },
-      ]);
+      const steps = shared.investigate(
+        file,
+        { chap: Number(hub[1]), scene: Number(hub[2]) },
+        [{ goto: idOf(file, labelOf(n)!) }],
+        place,
+        mapPlaces,
+        endFlags,
+      );
+      mapPlaces = [];
+      endFlags = [];
+      return steps;
     },
+    mapPlace: (place) => {
+      mapPlaces.push(place);
+    },
+    endFlag: (f) => {
+      endFlags.push(f);
+    },
+    topics: () => [],
     callLocal: (n) => {
       if (calling.has(n) || !blocks[n]) return [];
       calling.add(n);
@@ -301,8 +333,6 @@ export function convertFile(
     // 遊びの入口（ヒント・やり直し・外れとの輪は台本の外の遊びで抜けるので、遊びの代わりを置く）
     const game = GAMES[labelOf(k) ?? ''];
     const loop = loopGame(labelOf(k));
-    const dtcEnd = entries.findIndex((e) => e.label === 'L_DTC_END');
-    const hub = file.match(/^c(\d+)_(\d+)$/);
     // 指し示す遊びの成功の先は、L_PO_CHECK(_n) の最初の <E030 … ラベル>（成功でゲームが立てるフラグを見る）
     const isPo = /^L_PO_START(_\d+)?$/.test(labelOf(k) ?? '');
     const po = isPo ? poSuccess(labelOf(k)!) : null;
@@ -315,12 +345,7 @@ export function convertFile(
     else if (po) scenes.set(k, solved('point_out', [po]));
     else if (game) scenes.set(k, solved(game));
     else if (loop) scenes.set(k, solved(loop.game, [loop.to]));
-    else if (labelOf(k) === 'L_DTC_START' && dtcEnd >= 0 && hub) {
-      // 探偵パート（ここでゲームが場所を回る操作に入る）。終わると L_DTC_END で次へ分かれる
-      pending.push(dtcEnd);
-      const end = [{ goto: idOf(file, 'L_DTC_END') }];
-      scenes.set(k, shared.investigate(Number(hub[1]), Number(hub[2]), end));
-    } else
+    else
       scenes.set(
         k,
         convertBlock(blocks[k]!, makeCtx(null), k).filter((s) => !isTitle(s)),
