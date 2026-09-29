@@ -6,6 +6,7 @@ import { findExam } from './exam.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { perceive } from './games-kokoro.ts';
 import { type Entry, type Token, tokenize } from './gmd.ts';
+import { calledNames, referencedLabels } from './refs.ts';
 
 export type Shared = Omit<
   Ctx,
@@ -42,6 +43,10 @@ export type Shared = Omit<
 export type FileResult = {
   scenes: [string, Step[] | Record<string, unknown>][];
   gameover: string | null;
+  /** 元の台本のほかのブロックから飛び先にされているラベルのシーン ID */
+  origRef: string[];
+  /** <E033> で呼ばれているラベルの名前（シーン ID の後ろの部分） */
+  called: string[];
 };
 
 /** L_INIT・L_LOAD（読み込み時の準備）は変換しない */
@@ -277,7 +282,7 @@ export function convertFile(
         failOracle: go('L_FAIL_ORACLE').length ? go('L_FAIL_ORACLE') : check,
         failSense: go('L_FAIL_SENSE').length ? go('L_FAIL_SENSE') : check,
       },
-      kind?.kind === 'cmd' ? kind.args[0]! - 1 : 0,
+      kind?.kind === 'cmd' ? Math.max(0, kind.args[0]! - 1) : 0,
     );
   };
   const poSuccess = (start: string): string | null => {
@@ -409,7 +414,12 @@ export function convertFile(
     // 当たりが読めるものは、そのまま変換して <E307> を pick にする（続く L_PO_CHECK がフラグで分ける）
     const poIdx = isPo ? pointOutIndex(k) : null;
     const seanceK = labelOf(k) === 'L_SPIRIT' ? seanceSteps() : null;
-    if (poIdx !== null && pointOut(poIdx))
+    // 中身が何も無い（行番号と終わりだけの）ラベルは、遊びの入口であっても代わりを置かず、空のシーンにする
+    const bare = blocks[k]!.every((t) =>
+      t.kind === 'text' ? !t.text.trim() : ['RDFG', 'E800', 'E001'].includes(t.name),
+    );
+    if (bare) scenes.set(k, []);
+    else if (poIdx !== null && pointOut(poIdx))
       scenes.set(k, convertBlock(blocks[k]!, makeCtx(null), k));
     else if (seanceK) scenes.set(k, seanceK);
     else if (po) scenes.set(k, solved('point_out', [po], labelOf(k)!.replace('START', 'CHECK')));
@@ -437,5 +447,9 @@ export function convertFile(
   return {
     scenes: sorted.map(([k, s]) => [idOf(file, labelOf(k)!), s]),
     gameover: gameover >= 0 && scenes.has(gameover) ? idOf(file, 'L_GAMEOVER') : null,
+    called: [...calledNames(blocks)],
+    origRef: [...referencedLabels(blocks)].flatMap((n) =>
+      labelOf(n) ? [idOf(file, labelOf(n)!)] : [],
+    ),
   };
 }

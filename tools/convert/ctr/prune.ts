@@ -62,3 +62,35 @@ export function setTrue(x: unknown, into: Set<string>): void {
     for (const v of Object.values(x)) setTrue(v, into);
   }
 }
+
+/** 条件（`if` と `when`）に書かれている名前の集まり（フラグとは限らない名前も入る） */
+export function readNames(x: unknown, into: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(x)) for (const e of x) readNames(e, into);
+  else if (isObj(x))
+    for (const [k, v] of Object.entries(x)) {
+      if ((k === 'if' || k === 'when') && typeof v === 'string')
+        for (const m of v.matchAll(/[A-Za-z_]\w*/g)) into.add(m[0]);
+      else readNames(v, into);
+    }
+  return into;
+}
+
+/**
+ * どの条件からも読まれないフラグへの `set` を落とす（書くだけのフラグは結果を変えない）。
+ * 空になった `set` のステップも落とす。木は書き換える
+ */
+export function dropUnreadSets(x: unknown, read: Set<string>): void {
+  if (Array.isArray(x)) {
+    for (let i = x.length - 1; i >= 0; i--) {
+      const el = x[i];
+      if (isObj(el) && isObj(el.set) && Object.keys(el).length === 1) {
+        for (const f of Object.keys(el.set)) if (!read.has(f)) delete el.set[f];
+        if (Object.keys(el.set).length === 0) {
+          x.splice(i, 1);
+          continue;
+        }
+      }
+      dropUnreadSets(el, read);
+    }
+  } else if (isObj(x)) for (const v of Object.values(x)) dropUnreadSets(v, read);
+}

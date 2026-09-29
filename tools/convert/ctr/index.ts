@@ -20,6 +20,7 @@ import { charId, type NameEntry, type Step } from './convert.ts';
 import { convertFile, type Shared } from './file.ts';
 import { labelMap, readGmdText } from './gmd.ts';
 import { makeInvest } from './invest.ts';
+import { dropUnreadSets, readNames } from './prune.ts';
 import { loadGains, loadRecord } from './record.ts';
 import { loadScriptIds, SCRIPT_TABLE } from './scripts.ts';
 
@@ -141,9 +142,13 @@ function main() {
   // ゲームオーバーの場面（L_GAMEOVER）はファイルごとにある（負けの判決の台詞が違う）が、シナリオのゲームオーバーは
   // 1 つ。ファイルの最初で gameover_at に何番目かを入れ、ゲームオーバーの場面でその番号のものへ分ける
   const gameovers: string[] = [];
+  const origRef = new Set<string>();
+  const called = new Set<string>();
   files.forEach((f, i) => {
     const r = convertFile(readGmdText(join(dir, f)), short[i]!, short[i + 1] ?? null, shared);
     for (const [id, s] of r.scenes) scenes[id] = s;
+    for (const id of r.origRef) origRef.add(id);
+    for (const n of r.called) called.add(n);
     const first = r.scenes[0]?.[1];
     if (r.gameover && Array.isArray(first)) {
       gameovers.push(r.gameover);
@@ -161,7 +166,27 @@ function main() {
     scenes[gameover].push({ goto: gameovers[0]! });
   }
 
-  dropRedundant(scenes, [scenes, invest.places, invest.scenes], [short[0]!, gameover]);
+  dropRedundant(
+    scenes,
+    [scenes, invest.places, invest.scenes],
+    [short[0]!, gameover],
+    origRef,
+    called,
+  );
+
+  if (args.includes('--dead')) {
+    // どこからも goto されずに残ったシーン（ゲーム本体の仕組みで入るものなど）を見る
+    const text = JSON.stringify([scenes, invest.places, invest.scenes]);
+    for (const id of Object.keys(scenes))
+      if (id !== short[0] && id !== gameover && !text.includes(`"goto":"${id}"`))
+        console.log(`dead\t${id}`);
+  }
+
+  // 書くだけで、どの条件からも読まれないフラグは、フラグの定義ごと落とす
+  const trees = [scenes, invest.places, invest.scenes];
+  const read = readNames(trees);
+  dropUnreadSets(trees, read);
+  const flagNames = [...shared.flags].filter((f) => read.has(f));
 
   // 法廷記録で使う証拠品・人物だけを載せる
   const text = JSON.stringify([scenes, invest.places, invest.scenes]);
@@ -189,7 +214,7 @@ function main() {
     characters,
     evidence,
     flags: {
-      ...Object.fromEntries([...shared.flags].sort().map((f) => [f, false])),
+      ...Object.fromEntries(flagNames.sort().map((f) => [f, false])),
       ...(gameover ? { gameover_at: 0 } : {}),
     },
     start: { scene: short[0], evidence: [], profiles: [] },
@@ -231,10 +256,19 @@ function dropRedundant(
   scenes: Record<string, any>,
   where: Record<string, any>[],
   roots: (string | null)[],
+  origRef: Set<string>,
+  called: Set<string>,
 ): void {
+  // 出力からは goto されないシーンを落とす: 中身が空のもの、霊媒ビジョンの内部の輪、そして元の台本からは飛び先にされていた
+  // （= 呼び出し・尋問・選択肢の中に展開されて、単独では要らなくなった）ものの写し。飛び先にされていないもの
+  // （ゲーム本体の仕組みで入るもの）は落とさない
   const candidate = (id: string) =>
     (Array.isArray(scenes[id]) && scenes[id].length === 0) ||
-    /_spirit_(check|hint|no_hint|retry)$/.test(id);
+    /_spirit_(check|hint|no_hint|retry)(_\d+)?$/.test(id) ||
+    origRef.has(id) ||
+    // X_END の X が出力に無く、X_END自身も飛び先にされていない（ゲーム本体が X の後に続けて入る組の、X ごと使われない側）
+    (/_end$/.test(id) && !scenes[id.replace(/_end$/, '')]) ||
+    [...called].some((n) => id.endsWith(`_${n}`));
   for (;;) {
     const text = JSON.stringify(where);
     const gone = Object.keys(scenes).filter(
