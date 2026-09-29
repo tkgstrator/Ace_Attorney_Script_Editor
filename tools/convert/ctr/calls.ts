@@ -57,7 +57,7 @@ export function makeCall(
       ...shared(),
       jump: (n) => {
         const label = entries[n]?.label;
-        if (!label || /^L_(INIT|LOAD)$/.test(label)) return [];
+        if (!label || /^L_(INIT|LOAD)(_\d+)?$/.test(label)) return [];
         return o.converted.has(short)
           ? [{ goto: sceneId(short, label, main) }]
           : block(short, entries, n, hub);

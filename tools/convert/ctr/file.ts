@@ -49,8 +49,9 @@ export type FileResult = {
   called: string[];
 };
 
-/** L_INIT・L_LOAD（読み込み時の準備）は変換しない */
-const skipLabel = (l: string | null | undefined) => !l || l === 'L_INIT' || l === 'L_LOAD';
+/** L_INIT・L_LOAD（と L_LOAD_nn。読み込み時の準備）は変換しない */
+// L_LOAD_01 のような番号付きのものも、途中から始めるときの状態を整える読み込み用のフック（通常の進行では通らない）
+const skipLabel = (l: string | null | undefined) => !l || /^L_(INIT|LOAD)(_\d+)?$/.test(l);
 
 /** ファイルの入口のラベル。飛ばさない最初のラベル（L_INIT・L_LOAD の後の L_MAIN か L_START、または LABEL_0000） */
 export function mainLabel(entries: Entry[]): string {

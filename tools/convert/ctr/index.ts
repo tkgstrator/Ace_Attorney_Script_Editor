@@ -49,7 +49,7 @@ function main() {
     .filter((f) => f.startsWith(`_${sce}_`) && /_c\d{3}_\d{4}_jpn\.txt$/.test(f))
     .sort();
   const files = all.filter((f) =>
-    readGmdText(join(dir, f)).some((e) => e.label && !/^L_(INIT|LOAD)$/.test(e.label)),
+    readGmdText(join(dir, f)).some((e) => e.label && !/^L_(INIT|LOAD)(_\d+)?$/.test(e.label)),
   );
   const shortOf = (f: string) => f.replace(`_${sce}_`, '').replace('_jpn.txt', '');
   if (files.length === 0) {
