@@ -50,7 +50,7 @@ plaza:
             - flash: true
             - naruse: "（[color red]修理中[color blue]‥‥！[wait 12]\n　鐘は止まっていたのか）"
             - give: repair
-            - narrate: 《修理票》を法廷記録に加えた。
+            - narrate: 証拠品《修理票》を法廷記録にファイルした。
   talk:
     - id: night
       topic: 事件の夜のこと
