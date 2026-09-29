@@ -326,6 +326,20 @@ export function convertBlock(tokens: Token[], ctx: Ctx, self: number | null = nu
       demand.wrongFrom = steps.length;
       continue;
     }
+    // みぬく（<E177 開始 成功 やめる 外れ>）: 開始の台詞の後、成功・やめる・外れの先を選ぶ
+    if (name === 'E177' && args.length >= 4) {
+      steps.push({ native: 'perceive', args: [] }, ...ctx.jump(args[0]!), {
+        choice: [
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          { text: 'みぬく（正解）', then: ctx.jump(args[1]!) },
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          { text: 'やめる', then: ctx.jump(args[2]!) },
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          { text: 'みぬく（はずれ）', then: ctx.jump(args[3]!) },
+        ],
+      });
+      continue;
+    }
     if (name === 'E558' && args.length >= 3) {
       fingerprint = { at: steps.length, labels: args.slice(0, 4) };
       continue;
