@@ -1,7 +1,7 @@
 // 3DS 版（逆転裁判6）の台本 1 ファイル（_sceNN_cXXX_YYYY）を、シーンの集まりにする。
 // ラベル 1 つが 1 シーン（入口のラベルはファイル名、ほかは ファイル名_ラベル）。尋問のあるファイルでは、
 // 尋問の入口のラベルを証言シーンにし、ゆさぶり・外れ・最後の証言の後など尋問の中から飛ぶラベルはその場に展開する。
-import { type Ctx, charId, convertBlock, plain, type Step } from './convert.ts';
+import { type Ctx, charId, convertBlock, flagName, plain, type Step } from './convert.ts';
 import { findExam } from './exam.ts';
 import { pointOut, pointOutFlags, seance, spotLabel } from './games.ts';
 import { perceive } from './games-kokoro.ts';
@@ -285,6 +285,32 @@ export function convertFile(
       kind?.kind === 'cmd' ? Math.max(0, kind.args[0]! - 1) : 0,
     );
   };
+  /**
+   * 指し示す遊びで当たりが読めないとき、L_PO_CHECK の <E030 バンク 番号 値 ラベル> が分ける結果ごとに選択肢にする。
+   * 選ぶとそのフラグを立てて L_PO_CHECK へ進む（ゲームが当たりを選んだときにフラグを立てるのと同じ）。
+   * L_PO_CHECK に <E030> が無ければ null
+   */
+  const poByFlags = (start: string): Step[] | null => {
+    const check = start.replace('START', 'CHECK');
+    const ci = entries.findIndex((e) => e.label === check);
+    const conds = (blocks[ci] ?? []).filter((t) => t.kind === 'cmd' && t.name === 'E030');
+    if (ci < 0 || conds.length === 0) return null;
+    pending.push(ci);
+    const back = [{ goto: idOf(file, check) }];
+    const opts = conds.map((t, i) => {
+      const a = t.kind === 'cmd' ? t.args : [];
+      const f = flagName(a[0]!, a[1]!);
+      shared.flags.add(f);
+      return {
+        text: i === 0 ? '正解する' : `ほかを選ぶ（${labelOf(a[3]!) ?? a[3]}）`,
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        then: [{ set: { [f]: a[2] === 1 } }, ...back],
+      };
+    });
+    // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+    opts.push({ text: 'はずれる', then: back });
+    return [{ native: 'point_out', args: [] }, { choice: opts }];
+  };
   const poSuccess = (start: string): string | null => {
     const check = blocks[entries.findIndex((e) => e.label === start.replace('START', 'CHECK'))];
     const t = check?.find((t) => t.kind === 'cmd' && t.name === 'E030');
@@ -333,7 +359,8 @@ export function convertFile(
         id: `s${i + 1}`,
         text,
         ...(s.hidden ? { when: revealFlag.get(s.msg) } : {}),
-        press: inline(s.press),
+        // ゆさぶれない証言（<E414>）は、何もしないゆさぶりにする（印は native。ゆさぶる動きだけは残る）
+        press: s.press !== null ? inline(s.press) : [{ native: 'unpressable', args: [] }],
         ...(answerId
           ? { present: { [answerId]: [{ goto: idOf(file, labelOf(s.correct)!) }] } }
           : {}),
@@ -422,6 +449,7 @@ export function convertFile(
     else if (poIdx !== null && pointOut(poIdx))
       scenes.set(k, convertBlock(blocks[k]!, makeCtx(null), k));
     else if (seanceK) scenes.set(k, seanceK);
+    else if (isPo && poByFlags(labelOf(k)!)) scenes.set(k, poByFlags(labelOf(k)!)!);
     else if (po) scenes.set(k, solved('point_out', [po], labelOf(k)!.replace('START', 'CHECK')));
     else if (game) scenes.set(k, solved(game));
     else if (loop) {
