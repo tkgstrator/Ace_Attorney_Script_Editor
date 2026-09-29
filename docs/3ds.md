@@ -1,0 +1,101 @@
+# 3DS 版（逆転裁判5・6）の解析
+
+自分で吸い出した 3DS のカードイメージ（`.3ds`）から、台本・BGM・効果音を取り出す。DS 版と違い、人物・背景は 3D モデルなので、
+このエンジンで使うのは主に**台本と音声**。取り出したものは**配布しないこと**。
+
+## ROM
+
+`assets/roms/` に置く（gitignore 済み）。どれもファイル名がタイトル ID で、中の名前（ExHeader）と製品コードで見分けた。
+
+| ファイル | 製品コード | 中の名前 | 作品 |
+|---|---|---|---|
+| `00040000000BAA00_v00.trim.3ds` | CTR-P-AGKJ | GS5 | 逆転裁判5 |
+| `0004000000166A00_v00.trim.3ds` | CTR-P-BG6J | GS6 | 逆転裁判6 |
+| `000400000014AD00_v00.trim.3ds` | CTR-P-BDGJ | GO | 大逆転裁判（扱わない） |
+
+カードイメージは暗号化されたまま。復号には本体から吸い出した鍵のファイル `aes_keys.txt`
+（`generatorConstant`・`slot0x2CKeyX`・`slot0x25KeyX` などの行）が要る。これも `assets/roms/` に置く。
+5 は通常の鍵（slot 0x2C）、6 と大逆転裁判は 7.x 以降の鍵（RomFS と .code が slot 0x25）。
+
+## 取り出し方
+
+Rust 版（速い。2 本とも数秒で終わる）:
+
+```sh
+cargo build --release -p aa-ctr
+target/release/aa-ctr assets/roms/00040000000BAA00_v00.trim.3ds --keys assets/roms/aes_keys.txt --out assets/extracted-rs/aa5
+target/release/aa-ctr assets/roms/0004000000166A00_v00.trim.3ds --keys assets/roms/aes_keys.txt --out assets/extracted-rs/aa6
+# 一部だけ: --only romfs,arc,script,audio（後の手順は前の手順の出力を読む）
+```
+
+| 出力 | 中身 |
+|---|---|
+| `exheader.bin`・`exefs/` | ExHeader と ExeFS（`code.bin` は BLZ で圧縮されたまま） |
+| `romfs/`・`romfs.tsv` | RomFS のファイルそのまま（5 は 1861 個、6 は 3073 個） |
+| `arc/`・`arc/index.tsv` | `.arc` を展開したもの。`arc/<.arc のパス>/<中の名前>.<種類>`（5 は 4827 個、6 は 5534 個） |
+| `script/`・`index.tsv`・`commands.tsv` | `.gmd`（文章）を読める形にしたもの。`commands.tsv` は `<Ennn>` 命令の種類ごとの数 |
+| `sound/`・`sound/index.json` | 音声を WAV（16 ビット、32728 Hz）にしたもの。`index.json` に長さとループの位置（秒） |
+
+Python 版（`tools/rom/`、`uv run` で動かす。出力は `assets/extracted/aa5`・`aa6`）:
+
+| スクリプト | 役目 |
+|---|---|
+| `ctr.py <rom> --keys <aes_keys.txt> <出力先>` | 復号して exheader・exefs・romfs を書き出す（`--info` で一覧だけ） |
+| `mt_arc.py <romfs> <出力先>` | ARC の展開 |
+| `mt_gmd.py <フォルダー…> --out <出力先>` | GMD を文章に。出力は Rust 版の `script/` と同じ（突き合わせ済み） |
+| `mt_tex.py <フォルダー…> --out <出力先>` | テクスチャを PNG に（Rust 版には無い） |
+| `mt_sound.py <フォルダー…> --out <出力先>` | ffmpeg で MCA を ogg に。6 の 58 本は ffmpeg が読めない（下の「音声」） |
+
+RomFS・ExeFS・ARC・台本は、Rust 版と Python 版の出力がバイト単位で同じことを確かめた。
+
+## 形式
+
+どちらもカプコンの MT Framework（3DS 版）。細かい形式は各スクリプト・`crates/aa-ctr/src/` の各ファイルの先頭に書いた。
+
+### ARC
+
+`"ARC\0"`、版（5 は 0x10、6 は 0x11）、項目 0x50 バイト（名前 64 バイト、種類のハッシュ、圧縮後・展開後の大きさ、位置）。
+中身は zlib。拡張子は中身の先頭 4 バイトから付けた（`tex`・`gmd`・`madp`・`mod`・`lmt`・`sdl`・`gui` など 29 種類）。
+
+### 台本（GMD）
+
+- 本編の台本は `romfs/script/_output/_sceNN_*_jpn.gmd`（5 は 688 個、6 は 952 個）。そのほかの文章（章の題、選択肢、法廷記録など）は
+  `romfs/msg/` と ARC の中（`msg_cmn_jpn` など）にある
+- 版 0x10201（5）は文を 2 つの 32 バイトの鍵で XOR してある。版 0x10302（6）は暗号化されていない
+- 文は「ラベル（`L_LOAD`、`L_START` など、無いこともある）＋命令の混ざった文章」の並び。全体で 5 は 11,456 文、6 は 11,710 文
+- 命令は `<E番号 引数…>` と `<PAGE>`・`<CNTR>`・`<RDFG n>` など（5 は 454 種類、6 は 501 種類）。多いものは
+  `<E800 n>`（n が文の中で増えていくので、もとの台本の行番号と思われる）、`<E025 n>`（文字の速さと思われる）、
+  `<E003 n>`（待ち）、`<E023><PAGE>`（ページ送り）
+- 6 の `sce08` に、引数が全角数字の命令（`<E025 ８>`）が 4 か所ある。命令として数えている
+
+```text
+== 2 L_START
+<RDFG 258><E800 37><E120 0>…<E042><CNTR>地方裁判所　第５法廷<E025 3><E005><E023><PAGE>
+<E800 88>…<E041 4 2><E025 3>べ、<E003 16>弁護側、<E003 12>準備完了しています。<E023><PAGE>
+```
+
+`sceNN` の番号と話の対応はまだ確かめていない。6 は `msg/chapterN_jpn`（0 がクライン王国のプロローグ、5 が披露宴）と対応すると思われる。
+5 のカードには `sce02` が無い（5 は 00・01・03・04・05・06、6 は 00〜04・06・08）。
+
+### 音声（MCA / MADP）
+
+- BGM・ボイス・長い効果音は `romfs/` の `.mca`、人物などの効果音は ARC の中の `.madp`（形式は同じ）。
+  5 は 162 + 388 本（約 119 分）、6 は 378 + 572 本（約 149 分）。ループするものは `index.json` の `loop.start`〜`loop.end` を繰り返す
+- 中身は DSP ADPCM（GameCube 系の 4 ビット ADPCM）。見出しのあとにマーカー（0x14 バイト）がいくつか並び、その後ろに係数が来る
+  （マーカーの数: 版 4 = 5 は 0x28 の u16、版 5 = 6 は 0x28 の u32）
+- ffmpeg は版 5 でマーカーのあるもの（6 の 58 本）を読めない。Rust 版は読める
+- ffmpeg は ADPCM を丸めずに計算するので、DSP の標準の式（+1024 して丸める。Rust 版はこちら）と ±数の差が出る。
+  ffmpeg と同じ式にすると ffmpeg の出力と全サンプルが一致することを確かめた（読み方そのものは正しい）
+- 効果音の鳴らし方（`SBKR`・`SRQR`、台本の命令との対応）はまだ調べていない
+
+### テクスチャ（TEX）
+
+8×8 のタイルの中が Z 順の 3DS の並び。形式は RGBA8・RGB8・RGBA5551・ETC1・ETC1A4・A8・L8・LA8・A4・L4。
+3DS のほかのゲームと違い、上下を戻さずに並べると正しい向きになる（文字の入ったテクスチャで確かめた）。キューブマップ（各作 2 個）は未対応。
+
+## まだ分かっていないこと
+
+- `sceNN` と話の対応、`c`・`bg`・`chr`・`q` などのファイル名の意味（`bgNNNN` は背景の番号と同じ形）
+- 命令（`<Ennn>`）の意味。DS 版の台本の命令との対応
+- 効果音のバンク（`SBKR`・`SRQR`）と、台本からの鳴らし方
+- ムービー（`.moflex`、Mobiclip 400×240）は ffmpeg で読めるが、まだ変換していない
