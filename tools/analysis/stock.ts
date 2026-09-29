@@ -25,9 +25,14 @@ function strip(s: string): string {
 /**
  * 句を、そろえた文（normalize の後）に当てる正規表現にする。
  * 「○○」は名前などの差し替える所（1〜20 字）。感嘆符・疑問符は全角と半角のどちらにも当てる。
+ * 終わりの句読点（。！？）は無くても当てる（表の中で句読点を省いて書くことがあるため）。
  */
 export function stockRegex(phrase: string): RegExp {
-  const body = strip(phrase)
+  const stripped = strip(phrase);
+  const tail = stripped.match(/[。!！?？]$/)?.[0];
+  const head = tail ? stripped.slice(0, -1) : stripped;
+  const end = tail ? `(?:${tail === '。' ? '。' : /[!！]/.test(tail) ? '[!！]' : '[?？]'})?` : '';
+  const body = head
     .split('○○')
     .map((part) =>
       [...part]
@@ -39,5 +44,5 @@ export function stockRegex(phrase: string): RegExp {
         .join(''),
     )
     .join('[^。!！?？]{1,20}?');
-  return new RegExp(body, 'g');
+  return new RegExp(body + end, 'g');
 }

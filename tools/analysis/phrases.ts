@@ -54,9 +54,27 @@ interface Rec {
 const recs: Rec[] = [];
 const cards: Rec[] = [];
 const steps: { ep: Episode; type: string; step: Record<string, unknown> }[] = [];
+/** 証拠品・人物ファイルを加える・外すステップ（編の種類ごと）と、give の後 3 ステップ以内に名前なしの青字の知らせがあるか */
+const files = {
+  give: new Counter<string>(),
+  notice: new Counter<string>(),
+  profile: new Counter<string>(),
+};
+/** 探偵パートの日時の表示が、場所に来たとき（enter）にあるか */
+const invCards = new Counter<string>();
 for (const ep of eps) {
   const ls: Line[] = [];
   for (const r of walkEpisode(ep)) {
+    if (r.type === 'give') {
+      files.give.add(r.ctx.kind);
+      const next = r.siblings.slice(r.index + 1, r.index + 4);
+      if (next.some((x) => x && x.say === null && x.color === 'blue')) files.notice.add(r.ctx.kind);
+    }
+    if (r.type === 'giveProfile' || r.type === 'takeProfile') files.profile.add(r.type);
+    if (r.type === 'card' && r.ctx.kind === 'investigation')
+      invCards.add(
+        r.ctx.scene.startsWith('place:') && r.ctx.where[0] === 'enter' ? 'enter' : 'other',
+      );
     const l = lineOf(r);
     if (l) ls.push(l);
     else if (['shout', 'banner', 'card'].includes(r.type)) {
@@ -154,12 +172,33 @@ for (const s of steps) {
     if (/N/.test(first)) card.add(first);
   }
 }
+const kinds = new Counter<string>();
+for (const s of steps) if (s.type === 'shout') kinds.add(String(s.step.shout));
+const kindText = kinds
+  .top(5)
+  .map(([k, v]) => `${k} ${v}`)
+  .join('、');
 out.push('## YAML に書かれた吹き出し（shout と by）', '');
+out.push(`合計: ${kindText}（takethat は YAML に無い。つきつけの要求の後にエンジンが出す）`, '');
 out.push(
   table(
     ['吹き出しと人物', '数'],
     shout.top(12).map(([k, v]) => [k, String(v)]),
   ),
+  '',
+);
+out.push('## 証拠品と人物ファイルを加える所', '');
+out.push(
+  table(
+    ['編', 'give', 'うち 3 ステップ以内に名前なしの青字の知らせ'],
+    (['trial', 'investigation'] as const).map((k) => [
+      k === 'trial' ? '法廷' : '探偵',
+      String(files.give.get(k)),
+      String(files.notice.get(k)),
+    ]),
+  ),
+  '',
+  `人物ファイル: giveProfile ${files.profile.get('giveProfile')}、takeProfile ${files.profile.get('takeProfile')}（知らせの文は出さない）`,
   '',
 );
 out.push('## 判決の大きな文字（banner）', '');
@@ -176,6 +215,10 @@ out.push(
     ['形', '数'],
     card.top(10).map(([k, v]) => [k, String(v)]),
   ),
+  '',
+);
+out.push(
+  `探偵パートの日時の表示 ${invCards.total()} のうち、場所に来たとき（enter）の中にあるもの ${invCards.get('enter')}。`,
   '',
 );
 
