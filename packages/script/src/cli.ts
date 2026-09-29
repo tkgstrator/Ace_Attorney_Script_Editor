@@ -4,6 +4,7 @@
 //   bun run check --engine rust 大きな章.yaml     （整合性チェックを Rust 版 crates/aa-verify でする。編ごとに調べるので大きな章も終わる）
 //   bun run check --light 章.yaml                 （Rust 版の軽いチェック: 状態を区別しない近似で、すぐ終わる）
 //   bun run check --check-font 章.yaml             （DS 版フォントに無い文字も診断する。docs/katakana.md 参照）
+//   bun run check --check-fit 章.yaml              （画面の枠に収まらない文を警告する。docs/writing/text-length.md 参照）
 import { readFileSync } from 'node:fs';
 import { formatDiagnostic, loadScenario } from './load.ts';
 import { hasRustBinary, rustBinary, verifyWithRust } from './rust-engine.ts';
@@ -14,6 +15,7 @@ let limit = DEFAULT_LIMIT;
 let engine = 'ts';
 let light = false;
 let checkFont = false;
+let checkFit = false;
 const files: string[] = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i]!;
@@ -23,6 +25,7 @@ for (let i = 0; i < args.length; i++) {
   else if (e) engine = e[1] ?? args[++i] ?? '';
   else if (a === '--light') light = true;
   else if (a === '--check-font') checkFont = true;
+  else if (a === '--check-fit') checkFit = true;
   else files.push(a);
 }
 if (
@@ -32,7 +35,7 @@ if (
   !['ts', 'rust'].includes(engine)
 ) {
   console.error(
-    '使い方: bun run check [--limit 状態の数] [--engine ts|rust] [--light] [--check-font] <シナリオ.yaml> ...',
+    '使い方: bun run check [--limit 状態の数] [--engine ts|rust] [--light] [--check-font] [--check-fit] <シナリオ.yaml> ...',
   );
   process.exit(2);
 }
@@ -46,6 +49,7 @@ let failed = false;
 for (const file of files) {
   const { scenario, diagnostics } = loadScenario(readFileSync(file, 'utf8'), {
     checkFont,
+    checkFit,
   });
   for (const d of diagnostics) console.log(formatDiagnostic(d, file));
   if (diagnostics.some((d) => d.severity === 'error')) failed = true;
