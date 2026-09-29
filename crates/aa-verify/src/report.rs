@@ -139,11 +139,27 @@ pub fn compact(ops: &[String]) -> String {
     out.join(" ")
 }
 
+/// ライフが尽きたときに入るシーン（gameover に指定したシーン・life_out）と、そこから goto / investigate だけで行けるシーン
+/// （verify.ts の lifeOutClosure と同じ）
+fn life_out_closure(m: &Model) -> Vec<bool> {
+    let mut seen = vec![false; m.scenes.len()];
+    let mut todo: Vec<u32> = m.gameover_scene.into_iter().chain(m.life_out.iter().copied()).collect();
+    while let Some(i) = todo.pop() {
+        let Some(sc) = m.scenes.get(i as usize) else { continue };
+        if std::mem::replace(&mut seen[i as usize], true) { continue; }
+        for op in &sc.program {
+            if let Op::Goto(t) | Op::Investigate(t) = op { todo.push(*t); }
+        }
+    }
+    seen
+}
+
 /// 一度も到達しないシーン・場所・調べる所・話題
 pub fn unreached_findings(m: &Model, r: &Search, out: &mut Vec<Finding>) {
+    let life_out = life_out_closure(m);
     for (i, sc) in m.scenes.iter().enumerate() {
-        // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
-        if sc.id.starts_with("__") || m.gameover_scene == Some(i as u32) || m.life_out.contains(&(i as u32)) { continue; }
+        // ライフが尽きたときのシーン（とその先）は、ライフを減らさずに調べるので除く
+        if sc.id.starts_with("__") || life_out[i] { continue; }
         let Some(p) = sc.place() else {
             if !r.visited.has(i as u32) { out.push(Finding::warning(format!("シーン「{}」には、どう遊んでもたどり着きません", sc.id), Some(sc.id.clone()))); }
             continue;

@@ -32,6 +32,31 @@ start:
 scenes:
 ${scenes}`;
 
+const GAMEOVER_CHAIN = `
+id: t
+title: t
+player: a
+characters:
+  a: { name: A }
+evidence: {}
+flags: {}
+start:
+  scene: s
+gameover: g
+scenes:
+  s:
+    - a: こんにちは
+    - end: true
+  g:
+    - a: ライフが尽きた
+    - goto: g2
+  g2:
+    - a: 判決
+    - gameover: true
+  orphan:
+    - a: どこからも来ない
+    - end: true`;
+
 describe('整合性チェック', () => {
   it('サンプル事件には問題がない', () => {
     const r = verify(sample);
@@ -262,5 +287,10 @@ parts:
       expect(a.findings).toEqual(b.findings);
       expect(a.states).toBe(b.states);
     }
+  });
+
+  it('ゲームオーバーのシーンとその先は、到達しない警告に出さない', () => {
+    const warned = verify(GAMEOVER_CHAIN).findings.map((f) => f.scene);
+    expect(warned).toEqual(['orphan']);
   });
 });
