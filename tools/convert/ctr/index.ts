@@ -279,6 +279,10 @@ function dropRedundant(
     'E153',
     'E157',
     'E158',
+    'E088',
+    'E525',
+    'E526',
+    'E527',
   ]);
   const body = (id: string): unknown[] | null => {
     const s = scenes[id];

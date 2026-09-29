@@ -461,7 +461,22 @@ export function convertFile(
               ng: go(loop.ng),
             })
           : null;
-      scenes.set(k, pick ? [pick] : solved(loop.game, [loop.to], loop.ng));
+      // 映像の指し示し: <E568 映像の点 ラベル> は、その点を選んだときの反応（終わると遊びに戻る）
+      const wrongs =
+        loop.game === 'point_out_movie'
+          ? blocks[k]!.flatMap((t) => (t.kind === 'cmd' && t.name === 'E568' ? [t.args] : []))
+          : [];
+      if (pick) scenes.set(k, [pick]);
+      else if (wrongs.length > 0) {
+        const ok = solved(loop.game, [loop.to]);
+        const opts = wrongs.map((a) => ({
+          text: `ほかの点を選ぶ（${a[0]}）`,
+          // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+          then: go(labelOf(a[1]!) ?? ''),
+        }));
+        // biome-ignore lint/suspicious/noThenProperty: シナリオの形（then はステップ列）
+        scenes.set(k, [ok[0]!, { choice: [{ text: '正解する', then: ok.slice(1) }, ...opts] }]);
+      } else scenes.set(k, solved(loop.game, [loop.to], loop.ng));
     } else
       scenes.set(
         k,
