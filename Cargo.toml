@@ -4,7 +4,7 @@ members = ["crates/aa-rom", "crates/aa-extract", "crates/aa-wasm", "crates/aa-ve
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.1"
 license = "MIT"
 publish = false
 
