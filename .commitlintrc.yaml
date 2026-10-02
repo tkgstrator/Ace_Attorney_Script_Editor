@@ -6,6 +6,10 @@ rules:
     - 2
     - always
     - 128
+  body-max-line-length:
+    - 2
+    - always
+    - 128
   type-enum:
     - 2
     - always
