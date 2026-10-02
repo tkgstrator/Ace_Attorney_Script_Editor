@@ -73,7 +73,11 @@ pub fn read_pack(d: &[u8], base: usize) -> Option<(Vec<(usize, usize)>, usize)> 
     read_pack_max(d, base, 4096)
 }
 
-pub fn read_pack_max(d: &[u8], base: usize, max_count: usize) -> Option<(Vec<(usize, usize)>, usize)> {
+pub fn read_pack_max(
+    d: &[u8],
+    base: usize,
+    max_count: usize,
+) -> Option<(Vec<(usize, usize)>, usize)> {
     if base + 4 > d.len() {
         return None;
     }
@@ -81,8 +85,14 @@ pub fn read_pack_max(d: &[u8], base: usize, max_count: usize) -> Option<(Vec<(us
     if !(1..=max_count).contains(&n) || base + 4 + 8 * n > d.len() {
         return None;
     }
-    let ents: Vec<(usize, usize)> =
-        (0..n).map(|k| (u32le(d, base + 4 + 8 * k) as usize, u32le(d, base + 8 + 8 * k) as usize)).collect();
+    let ents: Vec<(usize, usize)> = (0..n)
+        .map(|k| {
+            (
+                u32le(d, base + 4 + 8 * k) as usize,
+                u32le(d, base + 8 + 8 * k) as usize,
+            )
+        })
+        .collect();
     let mut end = 4 + 8 * n;
     if ents[0].0 != end {
         return None;
@@ -105,8 +115,12 @@ pub fn tex_header(d: &[u8], p: usize) -> Option<TexHeader> {
         return None;
     }
     let bpp = tex_bpp(d[p])? as usize;
-    let (px_off, px_size, pal_off, pal_size) =
-        (u32le(d, p + 4) as usize, u32le(d, p + 8) as usize, u32le(d, p + 12) as usize, u32le(d, p + 16) as usize);
+    let (px_off, px_size, pal_off, pal_size) = (
+        u32le(d, p + 4) as usize,
+        u32le(d, p + 8) as usize,
+        u32le(d, p + 12) as usize,
+        u32le(d, p + 16) as usize,
+    );
     let (w, h) = (8usize << d[p + 1], 8usize << d[p + 2]);
     if px_off != 0x14 || px_size != w * h * bpp / 8 {
         return None;
@@ -114,7 +128,15 @@ pub fn tex_header(d: &[u8], p: usize) -> Option<TexHeader> {
     if pal_off != px_off + px_size || pal_size > 0x200 || pal_size % 4 != 0 {
         return None;
     }
-    let t = TexHeader { fmt: d[p], w, h, px_off, px_size, pal_off, pal_size };
+    let t = TexHeader {
+        fmt: d[p],
+        w,
+        h,
+        px_off,
+        px_size,
+        pal_off,
+        pal_size,
+    };
     (p + t.total() <= d.len()).then_some(t)
 }
 
@@ -138,17 +160,29 @@ pub fn walk(d: &[u8]) -> Vec<Item> {
     let mut p = 0usize;
     while p + 4 < d.len() {
         if let Some((ents, size)) = read_pack(d, p) {
-            items.push(Item { offset: p, size, info: ItemInfo::Pack(ents) });
+            items.push(Item {
+                offset: p,
+                size,
+                info: ItemInfo::Pack(ents),
+            });
             p = (p + size + 3) & !3;
             continue;
         }
         if let Some(t) = tex_header(d, p) {
-            items.push(Item { offset: p, size: t.total(), info: ItemInfo::Tex(t) });
+            items.push(Item {
+                offset: p,
+                size: t.total(),
+                info: ItemInfo::Tex(t),
+            });
             p = (p + t.total() + 3) & !3;
             continue;
         }
         if let Some((used, size)) = try_blob(d, p) {
-            items.push(Item { offset: p, size: used, info: ItemInfo::Blob(size) });
+            items.push(Item {
+                offset: p,
+                size: used,
+                info: ItemInfo::Blob(size),
+            });
             p = (p + used + 3) & !3;
             continue;
         }
@@ -181,7 +215,11 @@ fn cstr_name(a: &[u8], ptr: u32) -> Option<String> {
         return None;
     }
     // Python の a.find(b'\0', o) が -1 のときは a[o:-1]（最後の 1 バイトを除く）
-    let e = a[o..].iter().position(|&b| b == 0).map(|e| o + e).unwrap_or(a.len() - 1);
+    let e = a[o..]
+        .iter()
+        .position(|&b| b == 0)
+        .map(|e| o + e)
+        .unwrap_or(a.len() - 1);
     let t = crate::bytes::py_slice(a, o, e);
     if t.len() < 3 || !t.iter().all(|&c| 32 < c && c < 127) {
         return None;
@@ -194,7 +232,11 @@ pub fn named_resources(a: &[u8], data_size: usize) -> BTreeMap<usize, String> {
     let mut out = BTreeMap::new();
     let mut i = 0;
     while i + 12 < a.len() {
-        let (ptr, off, size) = (u32le(a, i), u32le(a, i + 4) as usize, u32le(a, i + 8) as usize);
+        let (ptr, off, size) = (
+            u32le(a, i),
+            u32le(a, i + 4) as usize,
+            u32le(a, i + 8) as usize,
+        );
         if (0x0200_0000..0x0200_0000 + a.len() as u64).contains(&(ptr as u64))
             && 0 < off
             && off < data_size

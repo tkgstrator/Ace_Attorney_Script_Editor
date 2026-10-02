@@ -28,30 +28,44 @@
         <button type="button" id="save">セーブ</button>
         <button type="button" id="load">ロード</button>
       </div>
-      <div class="row">
-        <button type="button" id="export">書き出す</button>
-        <button type="button" id="import">読み込む</button>
-      </div>
-      <label class="row">シーンへ移動
+      <label class="row"><input type="checkbox" id="autosave" checked />オートセーブ</label>
+      <label class="field">シーンへ移動
         <select id="jump"></select>
       </label>
-      <label class="row">章
+      <p id="message" class="muted" role="status"></p>
+    </div>
+    <div class="group">
+      <span class="label">章と表示</span>
+      <label class="field">タイトル
+        <select id="series"></select>
+      </label>
+      <label class="field">章
         <select id="case"></select>
       </label>
-      <label class="row">絵
+      <label class="field">グラフィック
         <select id="art">
-          <option value="official">DS 版（取り出したもの）</option>
+          <option value="official">公式</option>
           <option value="generated">生成したドット絵</option>
         </select>
       </label>
-      <label class="row">画面の幅
+      <label class="field">サウンド
+        <select id="sound">
+          <option value="ncsf">DS（原音）</option>
+          <option value="compat">DS（互換）</option>
+          <option value="synth">仮の音</option>
+        </select>
+      </label>
+      <label class="field">音量
+        <input type="range" id="volume" min="0" max="100" step="5" />
+      </label>
+      <label class="row"><input type="checkbox" id="mute" />ミュート</label>
+      <label class="field">レイアウト
         <select id="aspect">
           <option value="4:3">4:3（DS 版と同じ）</option>
           <option value="16:9">16:9（試験的）</option>
         </select>
       </label>
       <label class="row"><input type="checkbox" id="markers" checked />調べられる所に目印を出す</label>
-      <p id="message" class="muted" role="status"></p>
     </div>
     <div class="group">
       <span class="label">現在地</span>

@@ -380,3 +380,29 @@ describe('サンプル事件', () => {
     expect(e.beat.kind).toBe('gameover');
   });
 });
+
+describe('話し手の立ち絵', () => {
+  it('主人公の立ち絵は法廷でだけ出し、場所の背景の間は相手のままにする', () => {
+    const e = new Engine(
+      load(
+        BASE +
+          `
+start: { scene: one }
+scenes:
+  one:
+    - location: lobby
+    - w: 控え室です
+    - me: そうですね
+    - location: null
+    - me: 法廷です
+    - end: true
+`,
+      ),
+    );
+    expect(e.state.stage.character).toBe('w');
+    e.advance();
+    expect(e.state.stage.character).toBe('w');
+    e.advance();
+    expect(e.state.stage.character).toBe('me');
+  });
+});

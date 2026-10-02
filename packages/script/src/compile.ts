@@ -12,6 +12,7 @@ import {
 } from '@gyakusai/core';
 import type { z } from 'zod';
 import { Builder } from './builder.ts';
+import { compileCharacters } from './compile-description.ts';
 import { compileInspect } from './compile-inspect.ts';
 import { collectLocks, emitEnd, lockEndScenes, lockFlags, lockOutScenes } from './compile-lock.ts';
 import { compilePlace, type PlaceContext, presentKindOf, seenIds } from './compile-place.ts';
@@ -282,6 +283,7 @@ export function compile(raw: unknown): CompileResult {
   inTrial = false;
   for (const { id, body, path } of placeEntries)
     scenes[id] = compilePlace(placeCtx, id, body, path);
+  const characterDefs = compileCharacters(characters, cond);
   const evidenceDefs = compileInspect(placeCtx, evidence, scenes);
   if (gameoverScene === BUILTIN_GAMEOVER) {
     scenes[BUILTIN_GAMEOVER] = {
@@ -312,7 +314,7 @@ export function compile(raw: unknown): CompileResult {
       title: src.title,
       player,
       maxLife: src.life ?? DEFAULT_LIFE,
-      characters,
+      characters: characterDefs,
       evidence: evidenceDefs,
       flags,
       startScene: src.start.scene,

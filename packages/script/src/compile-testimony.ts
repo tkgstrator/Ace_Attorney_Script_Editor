@@ -118,10 +118,15 @@ export function compileTestimony(
     compileSteps(t.loop, [...path, 'loop'], b);
     b.emit({ op: 'resume', to: 'first' });
   }
+  // つきつけで抜けられなくても、ゆさぶり・最後の証言の後（loop）に移動（goto など）があれば、そこから抜けられる
+  const leaves = (ops: readonly { op: string }[]) =>
+    ops.some((i) => ['goto', 'end', 'gameover', 'investigate'].includes(i.op));
   if (
     statements.every(
       (st) => Object.keys(st.present).length + Object.keys(st.presentProfile ?? {}).length === 0,
-    )
+    ) &&
+    !leaves(b.code.slice(0, scene.wrong)) &&
+    !(scene.loop !== undefined && leaves(b.code.slice(scene.loop)))
   ) {
     warn(path, 'どの証言にも present がありません（尋問から抜け出せません）');
   }

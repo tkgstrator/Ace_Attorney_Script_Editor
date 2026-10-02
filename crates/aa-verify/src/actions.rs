@@ -39,7 +39,10 @@ impl Act {
             Act::Talk(i) => e.talk(i),
             Act::Inspect(ev, n) => {
                 e.inspect(ev)?;
-                match n { Some(n) => e.choose(n), None => Ok(()) }
+                match n {
+                    Some(n) => e.choose(n),
+                    None => Ok(()),
+                }
             }
             Act::GiveUp => e.give_up(),
         }
@@ -52,10 +55,17 @@ impl Act {
             Act::Press => "p".into(),
             Act::Choose(i) => format!("c{i}"),
             Act::Pick(i) => format!("k{i}"),
-            Act::Present(ev) => format!("{}{}", if m.is_profile(ev) { 'r' } else { 'v' }, m.evidence[ev as usize].id),
+            Act::Present(ev) => format!(
+                "{}{}",
+                if m.is_profile(ev) { 'r' } else { 'v' },
+                m.evidence[ev as usize].id
+            ),
             Act::Examine(x, y) => format!("e{x},{y}"),
             Act::Move(p) => format!("m{}", m.scene_name(p)),
-            Act::Talk(i) => format!("t{}", m.seen_ids[e.place().map(|p| p.talk[i].seen).unwrap_or(0) as usize]),
+            Act::Talk(i) => format!(
+                "t{}",
+                m.seen_ids[e.place().map(|p| p.talk[i].seen).unwrap_or(0) as usize]
+            ),
             Act::Inspect(ev, Some(n)) => format!("i{}:{n}", m.evidence[ev as usize].id),
             Act::Inspect(ev, None) => format!("i{}", m.evidence[ev as usize].id),
             Act::GiveUp => "g".into(),
@@ -72,24 +82,54 @@ const SCREEN_H: i64 = 192;
 /// 画面の幅（4:3 / 16:9）によらない: プレイヤーは 16:9 でも、背景の座標でこの範囲の点しか調べさせない
 pub fn examine_points(p: &Place) -> Vec<(i64, i64)> {
     let cut = |lo: Vec<i64>, max: i64| {
-        let mut v: Vec<i64> = std::iter::once(0).chain(lo).filter(|&v| v >= 0 && v < max).collect();
+        let mut v: Vec<i64> = std::iter::once(0)
+            .chain(lo)
+            .filter(|&v| v >= 0 && v < max)
+            .collect();
         v.sort_unstable();
         v.dedup();
         v
     };
-    let max_x = p.examine.iter().map(|e| e.area[0] + e.area[2]).fold(SCREEN_W, i64::max);
-    let max_y = p.examine.iter().map(|e| e.area[1] + e.area[3]).fold(SCREEN_H, i64::max);
-    let xs = cut(p.examine.iter().flat_map(|e| [e.area[0], e.area[0] + e.area[2]]).collect(), max_x);
-    let ys = cut(p.examine.iter().flat_map(|e| [e.area[1], e.area[1] + e.area[3]]).collect(), max_y);
+    let max_x = p
+        .examine
+        .iter()
+        .map(|e| e.area[0] + e.area[2])
+        .fold(SCREEN_W, i64::max);
+    let max_y = p
+        .examine
+        .iter()
+        .map(|e| e.area[1] + e.area[3])
+        .fold(SCREEN_H, i64::max);
+    let xs = cut(
+        p.examine
+            .iter()
+            .flat_map(|e| [e.area[0], e.area[0] + e.area[2]])
+            .collect(),
+        max_x,
+    );
+    let ys = cut(
+        p.examine
+            .iter()
+            .flat_map(|e| [e.area[1], e.area[1] + e.area[3]])
+            .collect(),
+        max_y,
+    );
     let mut pts = vec![];
     let mut sigs: Vec<Vec<bool>> = vec![];
     for &y in &ys {
         for &x in &xs {
-            let sig: Vec<bool> = p.examine.iter().map(|e| {
-                let [ax, ay, w, h] = e.area;
-                x >= ax && x < ax + w && y >= ay && y < ay + h
-            }).collect();
-            if !sigs.contains(&sig) { sigs.push(sig); pts.push((x, y)); }
+            let sig: Vec<bool> = p
+                .examine
+                .iter()
+                .map(|e| {
+                    let [ax, ay, w, h] = e.area;
+                    x >= ax && x < ax + w && y >= ay && y < ay + h
+                })
+                .collect();
+            if !sigs.contains(&sig) {
+                sigs.push(sig);
+                pts.push((x, y));
+            }
         }
     }
     pts
@@ -101,14 +141,25 @@ pub struct ExamineHits(Vec<Result<bool, String>>);
 impl ExamineHits {
     pub fn new(e: &Engine) -> Option<ExamineHits> {
         let p = e.place().ok()?;
-        if e.s.mode != Mode::Investigate { return None; }
-        Some(ExamineHits(p.examine.iter().map(|x| e.test(x.when.as_ref())).collect()))
+        if e.s.mode != Mode::Investigate {
+            return None;
+        }
+        Some(ExamineHits(
+            p.examine.iter().map(|x| e.test(x.when.as_ref())).collect(),
+        ))
     }
     /// 点 (x, y) で当たる調べる所（core と同じく、条件は前から順に、範囲より先に調べる）
     pub fn hit(&self, p: &Place, x: i64, y: i64) -> Res<Option<usize>> {
         for (i, ex) in p.examine.iter().enumerate() {
             let [ax, ay, w, h] = ex.area;
-            if *self.0[i].as_ref().map_err(Clone::clone)? && x >= ax && x < ax + w && y >= ay && y < ay + h { return Ok(Some(i)); }
+            if *self.0[i].as_ref().map_err(Clone::clone)?
+                && x >= ax
+                && x < ax + w
+                && y >= ay
+                && y < ay + h
+            {
+                return Ok(Some(i));
+            }
         }
         Ok(None)
     }
@@ -122,7 +173,13 @@ pub struct Prep {
 
 impl Prep {
     pub fn new(m: &Model) -> Prep {
-        Prep { points: m.scenes.iter().map(|s| s.place().map(examine_points).unwrap_or_default()).collect() }
+        Prep {
+            points: m
+                .scenes
+                .iter()
+                .map(|s| s.place().map(examine_points).unwrap_or_default())
+                .collect(),
+        }
     }
 }
 
@@ -137,50 +194,107 @@ pub fn actions(e: &Engine, prep: &Prep, passed: Option<&mut Bits>) -> Res<Vec<Ac
         let is_answer = |list: &[(u32, u32)], ev: u32| list.iter().any(|(a, _)| *a == ev);
         let evs = || s.evidence.iter().copied().filter(|&x| !m.is_profile(x));
         let wrong = evs().find(|&ev| !is_answer(answers, ev));
-        out.extend(evs().filter(|&ev| is_answer(answers, ev) || Some(ev) == wrong).map(Act::Present));
+        out.extend(
+            evs()
+                .filter(|&ev| is_answer(answers, ev) || Some(ev) == wrong)
+                .map(Act::Present),
+        );
         let Some(pa) = profiles else { return };
         let held = || s.evidence.iter().copied().filter(|&x| m.is_profile(x));
-        let wrong_profile = if wrong.is_none() { held().find(|&x| !is_answer(pa, x)) } else { None };
-        out.extend(held().filter(|&x| is_answer(pa, x) || Some(x) == wrong_profile).map(Act::Present));
+        let wrong_profile = if wrong.is_none() {
+            held().find(|&x| !is_answer(pa, x))
+        } else {
+            None
+        };
+        out.extend(
+            held()
+                .filter(|&x| is_answer(pa, x) || Some(x) == wrong_profile)
+                .map(Act::Present),
+        );
     };
-    let mut inspect = if e.can_inspect_at(b) { inspect_acts(m, s, e.inspectable(), passed) } else { vec![] };
+    let mut inspect = if e.can_inspect_at(b) {
+        inspect_acts(m, s, e.inspectable(), passed)
+    } else {
+        vec![]
+    };
     let mut out = vec![];
     match b {
-        BeatKind::Line | BeatKind::Card => { out.push(Act::Advance); out.append(&mut inspect); }
-        BeatKind::Shout | BeatKind::Banner | BeatKind::Fade | BeatKind::Wait => out.push(Act::Advance),
+        BeatKind::Line | BeatKind::Card => {
+            out.push(Act::Advance);
+            out.append(&mut inspect);
+        }
+        BeatKind::Shout | BeatKind::Banner | BeatKind::Fade | BeatKind::Wait => {
+            out.push(Act::Advance)
+        }
         BeatKind::Choice => {
-            let Op::Choice(opts) = e.instr()? else { unreachable!() };
+            let Op::Choice(opts) = e.instr()? else {
+                unreachable!()
+            };
             let mut n = 0;
-            for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Choose(n)); n += 1; } }
+            for o in opts {
+                if e.test(o.when.as_ref())? {
+                    out.push(Act::Choose(n));
+                    n += 1;
+                }
+            }
             out.append(&mut inspect);
         }
         // 範囲を選ぶ間は法廷記録を開けない（詳しく調べない）
         BeatKind::Pick => {
-            let Op::Pick(opts) = e.instr()? else { unreachable!() };
+            let Op::Pick(opts) = e.instr()? else {
+                unreachable!()
+            };
             let mut n = 0;
-            for o in opts { if e.test(o.when.as_ref())? { out.push(Act::Pick(n)); n += 1; } }
+            for o in opts {
+                if e.test(o.when.as_ref())? {
+                    out.push(Act::Pick(n));
+                    n += 1;
+                }
+            }
         }
         BeatKind::Demand => {
-            let Op::Demand { options, profiles, give_up, .. } = e.instr()? else { unreachable!() };
+            let Op::Demand {
+                options,
+                profiles,
+                give_up,
+                ..
+            } = e.instr()?
+            else {
+                unreachable!()
+            };
             present(options, profiles.as_deref(), &mut out);
-            if give_up.is_some() { out.push(Act::GiveUp); }
+            if give_up.is_some() {
+                out.push(Act::GiveUp);
+            }
             out.append(&mut inspect);
         }
         BeatKind::Statement { cross } => {
             out.push(Act::Advance);
             if cross {
                 let st = e.testimony()?.statements.get(s.statement as usize);
-                if st.is_some_and(|st| st.press.is_some()) { out.push(Act::Press); }
-                present(st.map_or(&[][..], |st| &st.present), st.and_then(|st| st.present_profile.as_deref()), &mut out);
+                if st.is_some_and(|st| st.press.is_some()) {
+                    out.push(Act::Press);
+                }
+                present(
+                    st.map_or(&[][..], |st| &st.present),
+                    st.and_then(|st| st.present_profile.as_deref()),
+                    &mut out,
+                );
             }
             out.append(&mut inspect);
         }
         BeatKind::Investigate => {
             let p = e.place()?;
-            out.extend(prep.points[s.scene as usize].iter().map(|&(x, y)| Act::Examine(x, y)));
+            out.extend(
+                prep.points[s.scene as usize]
+                    .iter()
+                    .map(|&(x, y)| Act::Examine(x, y)),
+            );
             out.extend(e.moves()?.into_iter().map(Act::Move));
             out.extend(e.talks()?.into_iter().map(Act::Talk));
-            if e.person_here(p)? { present(&p.present, Some(&p.present_profile), &mut out); }
+            if e.person_here(p)? {
+                present(&p.present, Some(&p.present_profile), &mut out);
+            }
             out.append(&mut inspect);
         }
         BeatKind::End | BeatKind::Gameover => {}
@@ -194,7 +308,9 @@ const MERGE_RATIO: usize = 2;
 /// キーに入る変数の数（詳しく調べている途中なら、戻り先で生きている変数も数える）
 pub fn live_count(flow: &Flow, s: &State) -> usize {
     let mut n = flow.live(flow.node_of(s.scene, s.pc, s.mode)).len();
-    if let Some(f) = s.inspect_from { n += flow.live(flow.node_of(f.scene, f.pc, f.mode)).len(); }
+    if let Some(f) = s.inspect_from {
+        n += flow.live(flow.node_of(f.scene, f.pc, f.mode)).len();
+    }
     n
 }
 
@@ -217,19 +333,33 @@ pub fn step(stop: Stop, e: &mut Engine, act: Act, passed: Option<&mut Bits>) -> 
 }
 
 /// step の、操作を関数で渡す形
-pub fn step_run(stop: Stop, e: &mut Engine, act: impl FnOnce(&mut Engine) -> Res, mut passed: Option<&mut Bits>) -> Res<usize> {
+pub fn step_run(
+    stop: Stop,
+    e: &mut Engine,
+    act: impl FnOnce(&mut Engine) -> Res,
+    mut passed: Option<&mut Bits>,
+) -> Res<usize> {
     let mut scene = e.s.scene;
-    let live = match stop { Stop::Merge(flow) => live_count(flow, &e.s), Stop::Part { .. } => 0 };
+    let live = match stop {
+        Stop::Merge(flow) => live_count(flow, &e.s),
+        Stop::Part { .. } => 0,
+    };
     act(e)?;
     let mut n = 0;
     while n < CHAIN_LIMIT && linear(e) {
         if e.s.scene != scene {
             scene = e.s.scene;
             match stop {
-                Stop::Merge(flow) => if live_count(flow, &e.s) * MERGE_RATIO < live { break },
+                Stop::Merge(flow) => {
+                    if live_count(flow, &e.s) * MERGE_RATIO < live {
+                        break;
+                    }
+                }
                 Stop::Part { part_of, part } => {
                     let q = part_of.get(scene as usize).copied().unwrap_or(NO_PART);
-                    if q != NO_PART && q != part { break; }
+                    if q != NO_PART && q != part {
+                        break;
+                    }
                 }
             }
         }
@@ -240,25 +370,46 @@ pub fn step_run(stop: Stop, e: &mut Engine, act: impl FnOnce(&mut Engine) -> Res
             let sc = &e.m.scenes[e.s.scene as usize];
             let (last, count) = sc.stop_run[e.s.pc as usize];
             if !may_stop_inspect(e.m, &e.s) {
-                ((count > 1 && n + count as usize <= CHAIN_LIMIT).then_some((last, count)), false)
+                (
+                    (count > 1 && n + count as usize <= CHAIN_LIMIT).then_some((last, count)),
+                    false,
+                )
             } else {
                 // 最後の台詞・日時の表示と、そこまでに飛ばす止まる命令の数
-                let rec = |pc: u32| matches!(sc.program[pc as usize], Op::Stop(StopKind::Line | StopKind::Card));
+                let rec = |pc: u32| {
+                    matches!(
+                        sc.program[pc as usize],
+                        Op::Stop(StopKind::Line | StopKind::Card)
+                    )
+                };
                 let to = (e.s.pc + 1..=last).rev().find(|&pc| rec(pc));
-                let k = to.map_or(0, |to| (e.s.pc..to).filter(|&pc| matches!(sc.program[pc as usize], Op::Stop(_))).count());
-                match to { Some(to) if n + k <= CHAIN_LIMIT => (Some((to, k as u32 + 1)), true), _ => (None, false) }
+                let k = to.map_or(0, |to| {
+                    (e.s.pc..to)
+                        .filter(|&pc| matches!(sc.program[pc as usize], Op::Stop(_)))
+                        .count()
+                });
+                match to {
+                    Some(to) if n + k <= CHAIN_LIMIT => (Some((to, k as u32 + 1)), true),
+                    _ => (None, false),
+                }
             }
-        } else { (None, false) };
+        } else {
+            (None, false)
+        };
         // 止まった場面のシーンを記録する（探索編の場所は、探偵メニューに着くまで visited に残らないため）。
         // 法廷記録を開けるなら、詳しく調べられるシーンも記録する
         if let Some(p) = passed.as_deref_mut() {
-            if (scene as usize) < e.m.scenes.len() { p.add(scene); }
+            if (scene as usize) < e.m.scenes.len() {
+                p.add(scene);
+            }
             mark_inspect(e.m, &e.s, p, skip.map_or(e.s.pc, |(last, _)| last));
         }
         if let Some((last, count)) = skip {
             e.s.pc = last;
             n += count as usize - 1;
-            if recheck { continue; }
+            if recheck {
+                continue;
+            }
         }
         e.advance()?;
         n += 1;

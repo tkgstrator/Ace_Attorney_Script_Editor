@@ -4,14 +4,14 @@
 use crate::Args;
 use aa_ctr::keys::Keys;
 use aa_ctr::ncch::{self, Ncch, Part};
-use aa_ctr::{arc, gmd, mca, romfs};
+use aa_ctr::{arc, conv, gmd, mca, romfs};
 use rayon::prelude::*;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const STEPS: &[&str] = &["romfs", "arc", "script", "audio"];
+pub const STEPS: &[&str] = &["romfs", "arc", "script", "audio", "yaml"];
 
 type R<T> = aa_ctr::Result<T>;
 
@@ -61,6 +61,7 @@ pub fn run(a: &Args) -> R<()> {
             "arc" => step_arc(&a.out)?,
             "script" => step_script(&a.out)?,
             "audio" => step_audio(&a.out)?,
+            "yaml" => step_yaml(a)?,
             _ => unreachable!(),
         };
         println!("{step}: {msg}（{:.1} 秒）", t.elapsed().as_secs_f64());
@@ -204,6 +205,23 @@ fn round4(x: f64) -> f64 {
 }
 
 /// romfs/ の .mca（BGM・ボイス・長い効果音）と arc/ の .madp（ARC に入った効果音。形式は同じ）
+fn step_yaml(a: &Args) -> R<String> {
+    let paths = conv::index::run(&conv::index::YamlArgs {
+        root: a.out.clone(),
+        episode: a.episode,
+        out: a.yaml_out.clone(),
+    })?;
+    Ok(format!(
+        "{} 話 → {}",
+        paths.len(),
+        paths
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
+}
+
 fn step_audio(out: &Path) -> R<String> {
     let dst = out.join("sound");
     let mut jobs = Vec::new();

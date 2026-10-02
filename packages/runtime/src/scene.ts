@@ -1,5 +1,5 @@
 // 背景 → 立ち絵 → 手前（机）→ フェードの覆い、の順に描く。
-// 立ち絵・机・重ね絵は 4:3 の枠（256×192。広い画面では中央に置く）の座標で描く。
+// 立ち絵・机・重ね絵は画面（256×192）の座標で描く。
 import type { Beat, Engine, Pose } from '@gyakusai/core';
 import type { BackgroundView } from './background.ts';
 import type { ScreenEffects } from './effects.ts';
@@ -33,13 +33,12 @@ export function drawScene(
   const view = views.bg;
   const key = location ?? (who ? engine.scenario.characters[who]?.stand : undefined) ?? 'court';
   const bg = key === 'black' ? undefined : assets.background?.(key);
-  const { ox, w, h } = p.layout;
   // 背景が無ければ黒（元のゲームの「背景なし」と同じ）。画面より大きい背景（横に流す背景など）は縮めずに左上から描く
-  p.rect(0, 0, w, h, '#000000');
+  p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
   view.sync(key, bg, assets.backgroundStart?.(key));
   // 視点の流しの最中（と、流し終えた後）は、全景・人物・机をその表のとおりに描く
   if (views.pan.draw(p, engine, t.typing, () => view.draw(ctx))) {
-    views.overlays.draw(ctx, assets, overlays, ox, 0);
+    views.overlays.draw(ctx, assets, overlays, 0, 0);
     fx.drawCover(p, fade);
     return;
   }
@@ -52,14 +51,14 @@ export function drawScene(
   const cf = fx.charFade;
   if (cf?.dir === 'out' && cf.character) {
     ctx.globalAlpha = 1 - cf.elapsed / cf.frames;
-    drawPortrait(p, cf.character, cf.pose, b, t);
+    drawPortrait(p, engine, cf.character, cf.pose, b, t);
   }
   ctx.globalAlpha = cf?.dir === 'in' ? cf.elapsed / cf.frames : 1;
-  if (who) drawPortrait(p, who, pose, b, t);
+  if (who) drawPortrait(p, engine, who, pose, b, t);
   ctx.globalAlpha = 1;
   ctx.restore();
   const fg = assets.foreground?.(key);
-  if (fg) ctx.drawImage(fg, ox, 0, SCREEN_W, SCREEN_H);
+  if (fg) ctx.drawImage(fg, 0, 0, SCREEN_W, SCREEN_H);
   // 重ね絵は机の手前・文字の枠の奥（背景と一緒にスクロールする）
   views.overlays.draw(ctx, assets, overlays, tx, ty);
   if (engine.state.stage.palette === 'grayscale') grayscale(ctx);
@@ -67,22 +66,42 @@ export function drawScene(
   fx.drawCover(p, fade);
 }
 
-/** 人物の立ち絵（動きの指定があれば 4:3 の画面の大きさの絵、なければ 4:3 の枠の下端・中央に合わせた絵） */
-function drawPortrait(p: Painter, who: string, pose: Pose | null, b: Beat, t: SceneTiming) {
+/** 人物の立ち絵（動きの指定があれば画面の大きさの絵、なければ画面の下端・中央に合わせた絵） */
+function drawPortrait(
+  p: Painter,
+  engine: Engine,
+  who: string,
+  pose: Pose | null,
+  b: Beat,
+  t: SceneTiming,
+) {
   const { ctx, assets } = p;
-  if (pose) {
-    // 動きの指定があるときは元のゲームと同じく、話し手によらず文字送りの間は talk、止まっている間は idle
-    const img = assets.portrait?.(who, {
-      talking: t.typing,
-      blink: false,
-      anim: t.typing ? pose.talk : pose.idle,
-    });
-    if (img) ctx.drawImage(img, 0, 0);
-    return;
-  }
   const speaking =
     (b.kind === 'line' && b.speaker === who && b.color !== 'blue') ||
     (b.kind === 'statement' && b.witness === who);
+  // show の動きの指定がなければ、人物の既定の動き（話している間だけ talk）
+  const ch = engine.scenario.characters[who];
+  const base = (engine.state.stage.location !== null && ch?.placePose) || ch?.pose;
+  const anim = pose
+    ? t.typing
+      ? pose.talk
+      : pose.idle
+    : base
+      ? speaking && t.typing
+        ? base.talk
+        : base.idle
+      : undefined;
+  if (anim !== undefined) {
+    // 動きの指定があるときは元のゲームと同じく、話し手によらず文字送りの間は talk、止まっている間は idle
+    const img = assets.portrait?.(who, { talking: t.typing, blink: false, anim }) as
+      | HTMLCanvasElement
+      | undefined;
+    // 動きの絵は画面の大きさ。動きの絵が無く仮の立ち絵が返ったときは、下端・中央に合わせる
+    if (img && img.width !== SCREEN_W && !pose)
+      ctx.drawImage(img, Math.round((SCREEN_W - img.width) / 2), SCREEN_H - img.height);
+    else if (img) ctx.drawImage(img, 0, 0);
+    return;
+  }
   const talking = speaking && t.typing && (t.frame >> 3) % 2 === 0;
   const img = assets.portrait?.(who, { talking, blink: t.blink }) as HTMLCanvasElement | undefined;
   if (img) ctx.drawImage(img, Math.round((SCREEN_W - img.width) / 2), SCREEN_H - img.height);

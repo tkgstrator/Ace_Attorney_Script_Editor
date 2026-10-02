@@ -61,11 +61,16 @@ impl Writer<'_> {
     }
 
     fn log(&mut self, offset: usize, kind: &str, size: usize, note: &str, dest: &str) {
-        self.index.push(format!("{offset:#09x}\t{kind}\t{size}\t{note}\t{dest}"));
+        self.index
+            .push(format!("{offset:#09x}\t{kind}\t{size}\t{note}\t{dest}"));
     }
 }
 
-fn stem(off: usize, names: &BTreeMap<usize, String>, bgs: Option<&HashMap<usize, usize>>) -> String {
+fn stem(
+    off: usize,
+    names: &BTreeMap<usize, String>,
+    bgs: Option<&HashMap<usize, usize>>,
+) -> String {
     let mut s = format!("{off:07x}");
     if let Some(n) = bgs.and_then(|b| b.get(&off)) {
         s = format!("bg{n:03}_{s}");
@@ -84,7 +89,13 @@ fn pack(w: &mut Writer, d: &[u8], offset: usize, size: usize, ents: &[(usize, us
     if parts[0].1 == "raw" && parts[1..].iter().all(|(_, k)| k != "raw") {
         if let Some(png) = tailfmt::bg_pack(&data) {
             w.image("bg", st, Some(png));
-            w.log(offset, "pack/bg", size, &format!("{} 個", ents.len()), &format!("bg/{st}.png"));
+            w.log(
+                offset,
+                "pack/bg",
+                size,
+                &format!("{} 個", ents.len()),
+                &format!("bg/{st}.png"),
+            );
             return;
         }
     }
@@ -94,10 +105,20 @@ fn pack(w: &mut Writer, d: &[u8], offset: usize, size: usize, ents: &[(usize, us
         if w.raw {
             for (i, b) in data.iter().enumerate() {
                 let kind = if i % 2 == 0 { "gfx" } else { "anim" };
-                w.binary(&format!("{group}/raw"), &format!("{:03}_{kind}", i / 2), b.clone());
+                w.binary(
+                    &format!("{group}/raw"),
+                    &format!("{:03}_{kind}", i / 2),
+                    b.clone(),
+                );
             }
         }
-        w.log(offset, "pack/chars", size, &format!("アニメーション {} 個", data.len() / 2), &format!("{group}/"));
+        w.log(
+            offset,
+            "pack/chars",
+            size,
+            &format!("アニメーション {} 個", data.len() / 2),
+            &format!("{group}/"),
+        );
         return;
     }
     let group = format!("packs/{st}");
@@ -114,20 +135,41 @@ fn pack(w: &mut Writer, d: &[u8], offset: usize, size: usize, ents: &[(usize, us
             w.binary(&group, &name, b);
         }
     }
-    w.log(offset, "pack", size, &format!("{} 個、画像 {made} 枚", ents.len()), &format!("{group}/"));
+    w.log(
+        offset,
+        "pack",
+        size,
+        &format!("{} 個、画像 {made} 枚", ents.len()),
+        &format!("{group}/"),
+    );
 }
 
 /// data/tail を書き出す（out の根は data/tail）
 pub fn export(d: &[u8], arm9: &[u8], out: &mut dyn Sink, raw: bool) -> Result<TailSummary> {
     let all = walk(d);
     let packs: Vec<_> = all.iter().filter(|it| it.kind() == "pack").collect();
-    let last = packs.get(ARCHIVE_COUNT - 1).ok_or_else(|| crate::bytes::Error("アーカイブが足りません".into()))?;
+    let last = packs
+        .get(ARCHIVE_COUNT - 1)
+        .ok_or_else(|| crate::bytes::Error("アーカイブが足りません".into()))?;
     let start = last.offset + last.size; // 先頭のアーカイブの後ろ
-    let items: Vec<_> = all.iter().filter(|it| it.offset >= start).cloned().collect();
+    let items: Vec<_> = all
+        .iter()
+        .filter(|it| it.offset >= start)
+        .cloned()
+        .collect();
     let names = named_resources(arm9, d.len());
-    let pack_offs: HashSet<usize> = items.iter().filter(|it| it.kind() == "pack").map(|it| it.offset).collect();
+    let pack_offs: HashSet<usize> = items
+        .iter()
+        .filter(|it| it.kind() == "pack")
+        .map(|it| it.offset)
+        .collect();
     let bgs = bg_table(arm9, &pack_offs);
-    let mut w = Writer { out, raw, index: Vec::new(), sum: TailSummary::default() };
+    let mut w = Writer {
+        out,
+        raw,
+        index: Vec::new(),
+        sum: TailSummary::default(),
+    };
     let mut seen: HashSet<Vec<u8>> = HashSet::new();
     for it in &items {
         match &it.info {
@@ -139,7 +181,13 @@ pub fn export(d: &[u8], arm9: &[u8], out: &mut dyn Sink, raw: bool) -> Result<Ta
                 let st = stem(it.offset, &names, None);
                 let png = tailfmt::texture(&d[it.offset..it.offset + it.size]);
                 w.image("tex", &st, png);
-                w.log(it.offset, "tex", it.size, &format!("形式 {} {}×{}", t.fmt, t.w, t.h), &format!("tex/{st}.png"));
+                w.log(
+                    it.offset,
+                    "tex",
+                    it.size,
+                    &format!("形式 {} {}×{}", t.fmt, t.w, t.h),
+                    &format!("tex/{st}.png"),
+                );
             }
             ItemInfo::Blob(_) => {
                 let (b, _) = decompress(d, it.offset)?;
@@ -158,26 +206,54 @@ pub fn export(d: &[u8], arm9: &[u8], out: &mut dyn Sink, raw: bool) -> Result<Ta
                     w.binary("blobs", &st, b);
                 }
                 let kind = format!("blob/lz{:02x}", d[it.offset]);
-                w.log(it.offset, &kind, it.size, &format!("展開後 {n}"), if ok { "png" } else { "bin" });
+                w.log(
+                    it.offset,
+                    &kind,
+                    it.size,
+                    &format!("展開後 {n}"),
+                    if ok { "png" } else { "bin" },
+                );
             }
         }
     }
-    let index = format!("位置\t種類\t大きさ\tメモ\t書き出し先\n{}\n", w.index.join("\n"));
+    let index = format!(
+        "位置\t種類\t大きさ\tメモ\t書き出し先\n{}\n",
+        w.index.join("\n")
+    );
     w.out.put("index.tsv", index.into_bytes());
-    let unknown: Vec<(usize, usize)> = gaps(&items, d.len(), 256).into_iter().filter(|g| g.0 >= start).collect();
+    let unknown: Vec<(usize, usize)> = gaps(&items, d.len(), 256)
+        .into_iter()
+        .filter(|g| g.0 >= start)
+        .collect();
     let rows: Vec<String> = unknown
         .iter()
-        .map(|&(o, s)| format!("{o:#09x}\t{s}\t{}", names.get(&o).map_or("", |s| s.as_str())))
+        .map(|&(o, s)| {
+            format!(
+                "{o:#09x}\t{s}\t{}",
+                names.get(&o).map_or("", |s| s.as_str())
+            )
+        })
         .collect();
-    w.out.put("unknown.tsv", format!("位置\t大きさ\t名前\n{}\n", rows.join("\n")).into_bytes());
+    w.out.put(
+        "unknown.tsv",
+        format!("位置\t大きさ\t名前\n{}\n", rows.join("\n")).into_bytes(),
+    );
     let total: usize = unknown.iter().map(|g| g.1).sum();
-    w.out.log(&format!("  拾ったもの {} 個、未解明の領域 {} 個（計 {:.1} MB）", items.len(), unknown.len(), total as f64 / 1e6));
+    w.out.log(&format!(
+        "  拾ったもの {} 個、未解明の領域 {} 個（計 {:.1} MB）",
+        items.len(),
+        unknown.len(),
+        total as f64 / 1e6
+    ));
     // 未解明の領域の中にあって ARM9 に名前が載っているもの（itm*** など）を、次の名前か領域の終わりまで書き出す
     for &(s, size) in &unknown {
         let offs: Vec<usize> = names.range(s..s + size).map(|(o, _)| *o).collect();
         for (k, &o) in offs.iter().enumerate() {
             let nxt = offs.get(k + 1).copied().unwrap_or(s + size);
-            w.out.put(&format!("named/{o:07x}_{}.bin", names[&o]), py_slice(d, o, nxt).to_vec());
+            w.out.put(
+                &format!("named/{o:07x}_{}.bin", names[&o]),
+                py_slice(d, o, nxt).to_vec(),
+            );
         }
     }
     Ok(w.sum)

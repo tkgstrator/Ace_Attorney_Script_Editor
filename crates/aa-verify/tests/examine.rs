@@ -4,7 +4,11 @@ use aa_verify::actions::examine_points;
 use aa_verify::{load::load, verify_complete, CompleteOptions};
 
 fn model() -> aa_verify::model::Model {
-    let text = std::fs::read_to_string(format!("{}/tests/data/wide-examine.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let text = std::fs::read_to_string(format!(
+        "{}/tests/data/wide-examine.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap();
     load(&text).unwrap()
 }
 
@@ -22,7 +26,22 @@ fn 画面の幅より右の範囲も試す点に入る() {
 fn 右にだけある話を進める所に着ける() {
     let m = model();
     for ts_exact in [true, false] {
-        let r = verify_complete(&m, CompleteOptions { limit: 100_000, liveness: true, ts_exact, parts: true, confirm: Some(100_000), progress: None }).unwrap();
-        assert!(r.findings.is_empty(), "{:?}", r.findings.iter().map(|f| &f.message).collect::<Vec<_>>());
+        let r = verify_complete(
+            &m,
+            CompleteOptions {
+                limit: 100_000,
+                liveness: true,
+                ts_exact,
+                parts: true,
+                confirm: Some(100_000),
+                progress: None,
+            },
+        )
+        .unwrap();
+        assert!(
+            r.findings.is_empty(),
+            "{:?}",
+            r.findings.iter().map(|f| &f.message).collect::<Vec<_>>()
+        );
     }
 }

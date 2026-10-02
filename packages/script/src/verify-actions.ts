@@ -21,8 +21,7 @@ const pointCache = new WeakMap<PlaceScene, [number, number][]>();
  * 重なった範囲の奥の範囲や、どの範囲にも入らない所も漏れなく試せる。
  * 背景の大きさは分からないので、画面の大きさと、範囲の右・下の端のうち大きい方までを背景とみなす
  * （横長の背景は、調べる間にスクロールすればどこでも調べられる）。
- * 画面の幅（4:3 / 16:9）によらない: プレイヤーは 16:9 でも、背景の座標でこの範囲（4:3 の画面と背景の大きい方）の
- * 点しか調べさせない（狭い背景の左右の黒い所は調べられない。runtime の BackgroundView.examinable）
+ * 画面の幅（4:3 / 16:9）によらない: どちらも調べる画面は 256×192 で同じ
  */
 function examinePoints(place: PlaceScene): [number, number][] {
   const cached = pointCache.get(place);

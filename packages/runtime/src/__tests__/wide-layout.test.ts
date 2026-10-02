@@ -1,99 +1,87 @@
-// 16:9 の画面での背景の置き方・スクロールと、部品の寄せ方のテスト
+// 画面の幅（4:3 / 16:9）の配置、16:9 の右の欄のボタンの置き方、背景の置き方・スクロールのテスト
 import { describe, expect, it } from 'vitest';
 import { BackgroundView } from '../background.ts';
-import { EXAMINE_SCROLL_SPEED, examineScrollStep } from '../examine-scroll.ts';
-import { TOP, UI } from '../layout.ts';
-import { layoutFor, screenWidth, WIDE_W } from '../screen.ts';
+import { EXAMINE_SCROLL_SPEED } from '../examine-scroll.ts';
+import type { Rect } from '../layout.ts';
+import { buttonRect } from '../panel.ts';
+import { layoutFor, PANEL_W, screenWidth, WIDE_W } from '../screen.ts';
 
 const image = (width: number, height: number) => ({ width, height }) as unknown as HTMLImageElement;
-const wide = layoutFor(WIDE_W);
+const inside = (r: Rect, outer: Rect) =>
+  r.x >= outer.x &&
+  r.y >= outer.y &&
+  r.x + r.w <= outer.x + outer.w &&
+  r.y + r.h <= outer.y + outer.h;
+const overlaps = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 describe('layoutFor', () => {
-  it('4:3 は元の配置のまま', () => {
+  it('4:3 は 256×192 で、右の欄は無い', () => {
     const L = layoutFor(screenWidth('4:3'));
-    expect(L.w).toBe(256);
-    expect(L.ox).toBe(0);
-    expect(L.top.box).toEqual(TOP.box);
-    expect(L.ui.recordTab).toEqual(UI.recordTab);
-    expect(L.ui.choice(1, 3)).toEqual(UI.choice(1, 3));
-    expect(L.ui.invButton(2)).toEqual(UI.invButton(2));
+    expect(L).toEqual({ w: 256, h: 192, panel: null });
   });
 
-  it('16:9 は 342 幅で、4:3 の枠は左右 43 ドットずつ空けて中央に置く', () => {
-    expect(screenWidth('16:9')).toBe(342);
-    expect(wide.ox).toBe(43);
-    expect(wide.ox * 2 + 256).toBe(342);
-  });
-
-  it('16:9 は左・右・中央に寄せる', () => {
-    // 幅いっぱい
-    expect(wide.top.box).toEqual({ ...TOP.box, w: 342 });
-    expect(wide.top.added.w).toBe(342);
-    // 右寄せ
-    expect(wide.ui.recordTab.x + wide.ui.recordTab.w).toBe(342);
-    expect(wide.ui.presentTab.x + wide.ui.presentTab.w).toBe(342);
-    expect(wide.ui.examineScroll.x + wide.ui.examineScroll.w).toBe(342);
-    expect(wide.top.arrow.x).toBe(TOP.arrow.x + 86);
-    // 左寄せ
-    expect(wide.ui.invBack).toEqual(UI.invBack);
-    // 中央寄せ
-    const c = wide.ui.choice(0, 2);
-    expect(c.x + c.w / 2).toBe(171);
-    expect(wide.ui.invButton(0).x).toBe(UI.invButton(0).x + 43);
-    // 法廷記録は 4:3 の枠の座標のまま
-    expect(wide.ui.rec).toBe(UI.rec);
+  it('16:9 は 342 幅で、左の 256×192 の右に 86 ドットの欄を置く', () => {
+    const L = layoutFor(screenWidth('16:9'));
+    expect(WIDE_W).toBe(342);
+    expect(L.w).toBe(342);
+    expect(L.panel).toEqual({ x: 256, y: 0, w: PANEL_W, h: 192 });
   });
 });
 
-describe('BackgroundView（16:9）', () => {
-  it('4:3 の幅の背景は中央に置き、人物も 4:3 の枠ごと中央へずらす', () => {
-    const v = new BackgroundView(wide);
+describe('右の欄のボタン', () => {
+  const panel = layoutFor(WIDE_W).panel;
+  if (!panel) throw new Error('16:9 には右の欄がある');
+
+  it('5 段とも DS 版と同じ 80×32 で、欄の中に重ならずに並ぶ', () => {
+    const slots = [0, 1, 2, 3, 4].map((slot) => buttonRect(panel, { slot }));
+    for (const [i, r] of slots.entries()) {
+      expect(r.w).toBe(80);
+      expect(r.h).toBe(32);
+      expect(inside(r, panel)).toBe(true);
+      for (const other of slots.slice(i + 1)) expect(overlaps(r, other)).toBe(false);
+    }
+  });
+
+  it('大きなボタンは段をまたいでのび、左右半分のボタンは重ならない', () => {
+    const big = buttonRect(panel, { slot: [1, 4] });
+    expect(big.y).toBe(buttonRect(panel, { slot: 1 }).y);
+    expect(big.y + big.h).toBe(buttonRect(panel, { slot: 4 }).y + 32);
+    expect(inside(big, panel)).toBe(true);
+    const left = buttonRect(panel, { slot: [3, 4], half: 'left' });
+    const right = buttonRect(panel, { slot: [3, 4], half: 'right' });
+    expect(overlaps(left, right)).toBe(false);
+    expect(left.x).toBe(big.x);
+    expect(right.x + right.w).toBe(big.x + big.w);
+  });
+});
+
+describe('BackgroundView', () => {
+  it('画面の幅の背景は左上に置き、人物はずらさない', () => {
+    const v = new BackgroundView();
     v.sync('room', image(256, 192), [0, 0]);
-    expect(v.x).toBe(0);
-    expect(v.origin).toEqual([-43, 0]);
-    expect(v.offset).toEqual([43, 0]);
-    expect(v.toBackground(43, 10)).toEqual([0, 10]);
-    // 左右の黒い所は調べられない
-    expect(v.examinable).toEqual({ x: 43, y: 0, w: 256, h: 192 });
+    expect(v.origin).toEqual([0, 0]);
+    expect(v.offset).toEqual([0, 0]);
+    expect(v.toBackground(10, 20)).toEqual([10, 20]);
     expect(v.slideStep()).toBeNull();
   });
 
-  it('横長の背景は見える幅いっぱいに見せ、4:3 と同じ所を中央に置く（端を越えない）', () => {
-    const v = new BackgroundView(wide);
-    v.sync('wide', image(512, 192), [128, 0]);
-    expect(v.x).toBe(85);
-    expect(v.offset).toEqual([43, 0]);
-    // 右端（4:3 の 0x100）から始まる背景は、見える幅の右端（170）に詰める
-    v.sync('wide2', image(512, 192), [256, 0]);
-    expect(v.x).toBe(170);
-    // 人物は背景の同じ所に来る（4:3 の画面の中央 128 → 背景の 384 → 画面の 214）
-    expect(128 + v.offset[0]).toBe(384 - 170);
-    expect(v.examinable).toEqual({ x: 0, y: 0, w: 342, h: 192 });
-  });
-
-  it('調べるのスクロールは見える幅の端まで動く', () => {
-    const v = new BackgroundView(wide);
+  it('横長の背景は最初の位置から見せ、調べるのスクロールで端まで動く。人物も一緒に動く', () => {
+    const v = new BackgroundView();
     v.sync('wide', image(512, 192), [0, 0]);
     expect(v.slideStep()).toEqual({ x: EXAMINE_SCROLL_SPEED, y: 0 });
     v.slide(null);
     while (v.sliding) v.tick(null);
-    expect(v.x).toBe(170);
+    expect(v.x).toBe(256);
+    expect(v.offset).toEqual([-256, 0]);
+    expect(v.toBackground(0, 0)).toEqual([256, 0]);
     expect(v.slideStep()).toEqual({ x: -EXAMINE_SCROLL_SPEED, y: 0 });
   });
 
-  it('見える幅より狭い横長の背景は中央に置いて動かさない', () => {
-    const v = new BackgroundView(wide);
-    v.sync('mid', image(300, 192), [0, 0]);
-    expect(v.origin).toEqual([-21, 0]);
-    expect(v.slideStep()).toBeNull();
-  });
-});
-
-describe('examineScrollStep（16:9）', () => {
-  it('0x80・0x100 は 4:3 の枠の位置で比べる', () => {
-    const s = EXAMINE_SCROLL_SPEED;
-    expect(examineScrollStep({ x: 0x80 - 43, y: 0, w: 768, h: 192 }, 342)).toEqual({ x: -s, y: 0 });
-    expect(examineScrollStep({ x: 0x80, y: 0, w: 768, h: 192 }, 342)).toBeNull();
-    expect(examineScrollStep({ x: 0, y: 0, w: 342, h: 192 }, 342)).toBeNull();
+  it('台本のスクロールは端で止まる', () => {
+    const v = new BackgroundView();
+    v.sync('wide', image(300, 192), [0, 0]);
+    for (let i = 0; i < 20; i++) v.tick({ x: 6, y: 0 });
+    expect(v.x).toBe(44);
   });
 });

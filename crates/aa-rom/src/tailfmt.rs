@@ -16,11 +16,18 @@ pub fn texture(b: &[u8]) -> Option<Vec<u8>> {
     match t.fmt {
         2..=4 => {
             let idx: Vec<u8> = match bpp {
-                2 => px.iter().flat_map(|&a| [a & 3, (a >> 2) & 3, (a >> 4) & 3, (a >> 6) & 3]).collect(),
+                2 => px
+                    .iter()
+                    .flat_map(|&a| [a & 3, (a >> 2) & 3, (a >> 4) & 3, (a >> 6) & 3])
+                    .collect(),
                 4 => gfx::unpack4(px),
                 _ => px.to_vec(),
             };
-            let img = Indexed { w: t.w, h: t.h, px: idx[..n].to_vec() };
+            let img = Indexed {
+                w: t.w,
+                h: t.h,
+                px: idx[..n].to_vec(),
+            };
             let cols = 1usize << bpp;
             let mut p: Vec<Rgb> = pal.iter().take(cols).copied().collect();
             if p.is_empty() {
@@ -47,7 +54,12 @@ pub fn texture(b: &[u8]) -> Option<Vec<u8>> {
             for i in 0..n {
                 let c = u16::from_le_bytes([px[2 * i], px[2 * i + 1]]) as u32;
                 let f = |x: u32| (x * 255 / 31) as u8;
-                out.px[i * 4..i * 4 + 4].copy_from_slice(&[f(c & 31), f(c >> 5 & 31), f(c >> 10 & 31), ((c >> 15) * 255) as u8]);
+                out.px[i * 4..i * 4 + 4].copy_from_slice(&[
+                    f(c & 31),
+                    f(c >> 5 & 31),
+                    f(c >> 10 & 31),
+                    ((c >> 15) * 255) as u8,
+                ]);
             }
             Some(gfx::png_rgba(&out))
         }
@@ -103,7 +115,11 @@ pub fn gray_bitmap(b: &[u8]) -> Option<Vec<u8>> {
     }
     let top = (*b.iter().max().unwrap_or(&0) as u32).max(1);
     let px = b.iter().map(|&v| (v as u32 * 255 / top) as u8).collect();
-    Some(gfx::png_indexed(&Indexed { w: 256, h: 192, px }, &gfx::gray(8), false))
+    Some(gfx::png_indexed(
+        &Indexed { w: 256, h: 192, px },
+        &gfx::gray(8),
+        false,
+    ))
 }
 
 /// 法廷記録の説明文（4096 バイト = 4bpp、64×32 の OBJ ブロック 4 個）を 128×64 にする
@@ -125,7 +141,11 @@ pub fn profile_text_image(b: &[u8]) -> Option<Indexed> {
 }
 
 pub fn profile_text(b: &[u8]) -> Option<Vec<u8>> {
-    Some(gfx::png_indexed(&profile_text_image(b)?, &gfx::gray(4), false))
+    Some(gfx::png_indexed(
+        &profile_text_image(b)?,
+        &gfx::gray(4),
+        false,
+    ))
 }
 
 /// 法廷記録の名前（1024 バイト = 4bpp、32×16 の OBJ ブロック 4 個を横に並べた 128×16）
@@ -137,12 +157,19 @@ pub fn name_label_image(b: &[u8]) -> Option<Indexed> {
 }
 
 pub fn name_label(b: &[u8]) -> Option<Vec<u8>> {
-    Some(gfx::png_indexed(&name_label_image(b)?, &gfx::gray(4), false))
+    Some(gfx::png_indexed(
+        &name_label_image(b)?,
+        &gfx::gray(4),
+        false,
+    ))
 }
 
 /// キャラクターのパック: (画像, 動き) の組が並ぶ。画像は u32 (0x80000000 | パレット数) で始まる
 pub fn is_char_pack(parts: &[Vec<u8>]) -> bool {
     parts.len() >= 4
         && parts.len().is_multiple_of(2)
-        && parts.iter().step_by(2).all(|p| p.len() >= 4 && u32le(p, 0) >> 24 == 0x80)
+        && parts
+            .iter()
+            .step_by(2)
+            .all(|p| p.len() >= 4 && u32le(p, 0) >> 24 == 0x80)
 }

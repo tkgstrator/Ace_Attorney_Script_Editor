@@ -39,7 +39,11 @@ impl<'a> JsVal<'a> {
             JsVal::Num(n) => *n,
             JsVal::Str(s) => {
                 let t = s.trim();
-                if t.is_empty() { 0.0 } else { t.parse().unwrap_or(f64::NAN) }
+                if t.is_empty() {
+                    0.0
+                } else {
+                    t.parse().unwrap_or(f64::NAN)
+                }
             }
         }
     }
@@ -71,7 +75,11 @@ pub fn num_string(n: f64) -> String {
     if n.is_nan() {
         "NaN".into()
     } else if n.is_infinite() {
-        if n > 0.0 { "Infinity".into() } else { "-Infinity".into() }
+        if n > 0.0 {
+            "Infinity".into()
+        } else {
+            "-Infinity".into()
+        }
     } else if n == n.trunc() && n.abs() < 1e21 {
         format!("{}", n as i64)
     } else {
@@ -99,8 +107,12 @@ pub fn eval<'a, E: Env>(e: &Expr, env: &E, m: &'a Model) -> Result<JsVal<'a>, St
         Expr::Visited(x) => JsVal::Bool(env.visited(*x)),
         Expr::Seen(x) => JsVal::Bool(env.seen(*x)),
         Expr::Not(x) => JsVal::Bool(!eval(x, env, m)?.truthy()),
-        Expr::Bin(BinOp::And, l, r) => JsVal::Bool(eval(l, env, m)?.truthy() && eval(r, env, m)?.truthy()),
-        Expr::Bin(BinOp::Or, l, r) => JsVal::Bool(eval(l, env, m)?.truthy() || eval(r, env, m)?.truthy()),
+        Expr::Bin(BinOp::And, l, r) => {
+            JsVal::Bool(eval(l, env, m)?.truthy() && eval(r, env, m)?.truthy())
+        }
+        Expr::Bin(BinOp::Or, l, r) => {
+            JsVal::Bool(eval(l, env, m)?.truthy() || eval(r, env, m)?.truthy())
+        }
         Expr::Bin(op, l, r) => binop(*op, eval(l, env, m)?, eval(r, env, m)?),
     })
 }
@@ -126,12 +138,18 @@ fn compare(op: BinOp, a: &JsVal, b: &JsVal) -> bool {
     if let (JsVal::Str(x), JsVal::Str(y)) = (a, b) {
         let (x, y): (Vec<u16>, Vec<u16>) = (x.encode_utf16().collect(), y.encode_utf16().collect());
         return match op {
-            BinOp::Lt => x < y, BinOp::Le => x <= y, BinOp::Gt => x > y, _ => x >= y,
+            BinOp::Lt => x < y,
+            BinOp::Le => x <= y,
+            BinOp::Gt => x > y,
+            _ => x >= y,
         };
     }
     let (x, y) = (a.number(), b.number());
     match op {
-        BinOp::Lt => x < y, BinOp::Le => x <= y, BinOp::Gt => x > y, _ => x >= y,
+        BinOp::Lt => x < y,
+        BinOp::Le => x <= y,
+        BinOp::Gt => x > y,
+        _ => x >= y,
     }
 }
 
@@ -199,14 +217,29 @@ pub fn show(e: &Expr, m: &Model) -> String {
         Expr::Has(x) => format!("has({})", m.evidence[*x as usize].id),
         Expr::Visited(x) => {
             let n = m.scenes.len();
-            format!("visited({})", if (*x as usize) < n { &m.scenes[*x as usize].id } else { &m.extra_visit[*x as usize - n] })
+            format!(
+                "visited({})",
+                if (*x as usize) < n {
+                    &m.scenes[*x as usize].id
+                } else {
+                    &m.extra_visit[*x as usize - n]
+                }
+            )
         }
         Expr::Seen(x) => format!("seen({})", m.seen_ids[*x as usize]),
         Expr::Not(x) => format!("not {}", show_atom(x, m)),
         Expr::Bin(op, l, r) => {
             let o = match op {
-                BinOp::And => "and", BinOp::Or => "or", BinOp::Eq => "==", BinOp::Ne => "!=", BinOp::Lt => "<",
-                BinOp::Le => "<=", BinOp::Gt => ">", BinOp::Ge => ">=", BinOp::Add => "+", BinOp::Sub => "-",
+                BinOp::And => "and",
+                BinOp::Or => "or",
+                BinOp::Eq => "==",
+                BinOp::Ne => "!=",
+                BinOp::Lt => "<",
+                BinOp::Le => "<=",
+                BinOp::Gt => ">",
+                BinOp::Ge => ">=",
+                BinOp::Add => "+",
+                BinOp::Sub => "-",
             };
             format!("{} {o} {}", show_atom(l, m), show_atom(r, m))
         }

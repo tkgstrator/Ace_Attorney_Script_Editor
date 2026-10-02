@@ -8,7 +8,9 @@ use crate::tail::TailSummary;
 use crate::Rom;
 
 /// 手順の名前（行う順）
-pub const STEPS: [&str; 9] = ["files", "archives", "tail", "desks", "sound", "font", "script", "tables", "audio"];
+pub const STEPS: [&str; 9] = [
+    "files", "archives", "tail", "desks", "sound", "font", "script", "tables", "audio",
+];
 
 /// ほかの作品のフォント（glyphs.txt・mapping.tsv・font_fixes.<名前>.tsv の中身）
 #[derive(Clone, Default)]
@@ -101,11 +103,24 @@ fn font_step(rom: &Rom, o: &Options, out: &mut dyn Sink) -> Result<()> {
             for (k, v) in tsv(&f.fixes) {
                 font::tsv_set(&mut m, k, v);
             }
-            OtherFont { glyphs: font::read_glyphs(&f.glyphs), mapping: m }
+            OtherFont {
+                glyphs: font::read_glyphs(&f.glyphs),
+                mapping: m,
+            }
         })
         .collect();
-    let extra = o.font_extra.as_deref().map(font::read_extra).unwrap_or_default();
-    let (png, json) = font::build(&glyphs, &font::read_tsv(mapping), &tsv(&o.font_fixes), &also, &extra);
+    let extra = o
+        .font_extra
+        .as_deref()
+        .map(font::read_extra)
+        .unwrap_or_default();
+    let (png, json) = font::build(
+        &glyphs,
+        &font::read_tsv(mapping),
+        &tsv(&o.font_fixes),
+        &also,
+        &extra,
+    );
     out.put("font/ds-font.png", png);
     out.put("font/ds-font.json", json.into_bytes());
     Ok(())
@@ -161,7 +176,10 @@ fn audio_step(rom: &Rom, o: &Options, st: &State, out: &mut dyn Sink) -> Result<
     for info in &sdat.seqs {
         let (cat, one) = render_one(&sdat, info, o.max_bgm, o.max_se, &mut cache)?;
         out.put(&format!("sound/rendered/{cat}/{}.wav", info.name), one.wav);
-        out.put(&format!("sound/rendered/{cat}/{}.json", info.name), one.json.into_bytes());
+        out.put(
+            &format!("sound/rendered/{cat}/{}.json", info.name),
+            one.json.into_bytes(),
+        );
         entries.push(one.entry);
     }
     let uses = outputs::script_uses(st.script_txt.as_deref().unwrap_or(&[]));
@@ -172,7 +190,13 @@ fn audio_step(rom: &Rom, o: &Options, st: &State, out: &mut dyn Sink) -> Result<
 }
 
 /// 手順を 1 つ行う（書き出し先 out の根は出力の根）
-pub fn run_step(rom: &Rom, step: &str, o: &Options, st: &mut State, out: &mut dyn Sink) -> Result<()> {
+pub fn run_step(
+    rom: &Rom,
+    step: &str,
+    o: &Options,
+    st: &mut State,
+    out: &mut dyn Sink,
+) -> Result<()> {
     match step {
         "files" => rom.export_files(out),
         "archives" => rom.export_archives(out, o.raw),

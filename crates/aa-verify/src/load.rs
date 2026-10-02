@@ -50,13 +50,18 @@ fn err(msg: impl Into<String>) -> String {
 }
 
 fn obj(v: &Value) -> Result<&Obj, String> {
-    v.as_object().ok_or_else(|| err(format!("オブジェクトではありません: {v}")))
+    v.as_object()
+        .ok_or_else(|| err(format!("オブジェクトではありません: {v}")))
 }
 fn str_of<'a>(o: &'a Obj, k: &str) -> Result<&'a str, String> {
-    o.get(k).and_then(Value::as_str).ok_or_else(|| err(format!("{k} がありません")))
+    o.get(k)
+        .and_then(Value::as_str)
+        .ok_or_else(|| err(format!("{k} がありません")))
 }
 fn num_of(o: &Obj, k: &str) -> Result<f64, String> {
-    o.get(k).and_then(Value::as_f64).ok_or_else(|| err(format!("{k} がありません")))
+    o.get(k)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| err(format!("{k} がありません")))
 }
 fn pc_of(o: &Obj, k: &str) -> Result<u32, String> {
     Ok(num_of(o, k)? as u32)
@@ -88,7 +93,11 @@ impl Ctx {
             "lit" => Expr::Lit(self.value(o.get("v").unwrap_or(&Value::Null))),
             "var" => {
                 let name = str_of(o, "name")?;
-                if name == "life" { Expr::Life } else { Expr::Var(self.flags.get(name)) }
+                if name == "life" {
+                    Expr::Life
+                } else {
+                    Expr::Var(self.flags.get(name))
+                }
             }
             "call" => {
                 let arg = str_of(o, "arg")?;
@@ -105,12 +114,23 @@ impl Ctx {
             "not" => Expr::Not(Box::new(self.expr(&o["e"])?)),
             "bin" => {
                 let op = match str_of(o, "op")? {
-                    "&&" => BinOp::And, "||" => BinOp::Or, "==" => BinOp::Eq, "!=" => BinOp::Ne,
-                    "<" => BinOp::Lt, "<=" => BinOp::Le, ">" => BinOp::Gt, ">=" => BinOp::Ge,
-                    "+" => BinOp::Add, "-" => BinOp::Sub,
+                    "&&" => BinOp::And,
+                    "||" => BinOp::Or,
+                    "==" => BinOp::Eq,
+                    "!=" => BinOp::Ne,
+                    "<" => BinOp::Lt,
+                    "<=" => BinOp::Le,
+                    ">" => BinOp::Gt,
+                    ">=" => BinOp::Ge,
+                    "+" => BinOp::Add,
+                    "-" => BinOp::Sub,
                     x => return Err(err(format!("未知の演算子です: {x}"))),
                 };
-                Expr::Bin(op, Box::new(self.expr(&o["l"])?), Box::new(self.expr(&o["r"])?))
+                Expr::Bin(
+                    op,
+                    Box::new(self.expr(&o["l"])?),
+                    Box::new(self.expr(&o["r"])?),
+                )
             }
             t => return Err(err(format!("未知の式です: {t}"))),
         })
@@ -122,20 +142,38 @@ impl Ctx {
 
     /// 証拠品 ID → pc の表（IR の並びのまま）
     fn answers(&mut self, v: Option<&Value>) -> Vec<(u32, u32)> {
-        let Some(Value::Object(m)) = v else { return vec![] };
-        m.iter().map(|(k, v)| (self.evidence.get(k), v.as_f64().unwrap_or(0.0) as u32)).collect()
+        let Some(Value::Object(m)) = v else {
+            return vec![];
+        };
+        m.iter()
+            .map(|(k, v)| (self.evidence.get(k), v.as_f64().unwrap_or(0.0) as u32))
+            .collect()
     }
 
     /// 人物 ID → pc の表（人物ファイルの項目の番号にする。profile の無い人物は除く）
     fn profile_answers(&self, v: Option<&Value>) -> Vec<(u32, u32)> {
-        let Some(Value::Object(m)) = v else { return vec![] };
-        m.iter().filter_map(|(k, v)| self.profiles.get(k).map(|&x| (x, v.as_f64().unwrap_or(0.0) as u32))).collect()
+        let Some(Value::Object(m)) = v else {
+            return vec![];
+        };
+        m.iter()
+            .filter_map(|(k, v)| {
+                self.profiles
+                    .get(k)
+                    .map(|&x| (x, v.as_f64().unwrap_or(0.0) as u32))
+            })
+            .collect()
     }
 
     /// 人物ファイルに載せる・外す（profile の無い人物はつきつけられないので、何もしない）
     fn profile_op(&self, o: &Obj, give: bool) -> Result<Op, String> {
         Ok(match self.profiles.get(str_of(o, "character")?) {
-            Some(&x) => if give { Op::Give(x) } else { Op::Take(x) },
+            Some(&x) => {
+                if give {
+                    Op::Give(x)
+                } else {
+                    Op::Take(x)
+                }
+            }
             None => Op::Nop(if give { "giveProfile" } else { "takeProfile" }),
         })
     }
@@ -150,26 +188,49 @@ impl Ctx {
             "card" => Op::Stop(StopKind::Card),
             "wait" => Op::Stop(StopKind::Wait),
             "fade" => {
-                if o.get("wait").and_then(Value::as_bool).unwrap_or(false) { Op::Stop(StopKind::Fade) } else { Op::Nop("fade") }
+                if o.get("wait").and_then(Value::as_bool).unwrap_or(false) {
+                    Op::Stop(StopKind::Fade)
+                } else {
+                    Op::Nop("fade")
+                }
             }
             "random" => {
-                let to: Vec<u32> = o["to"].as_array().map(|a| a.iter().map(|x| x.as_f64().unwrap_or(0.0) as u32).collect()).unwrap_or_default();
+                let to: Vec<u32> = o["to"]
+                    .as_array()
+                    .map(|a| a.iter().map(|x| x.as_f64().unwrap_or(0.0) as u32).collect())
+                    .unwrap_or_default();
                 // 乱数の行き先は、すべて試せるようプレイヤーが選ぶ選択肢にする（verify-key.ts の prepare）
-                if to.is_empty() { Op::Random(to) } else { Op::Choice(to.into_iter().map(|to| Opt { when: None, to }).collect()) }
+                if to.is_empty() {
+                    Op::Random(to)
+                } else {
+                    Op::Choice(to.into_iter().map(|to| Opt { when: None, to }).collect())
+                }
             }
             "choice" => {
                 let mut opts = vec![];
-                for x in o["options"].as_array().ok_or("choice の options がありません")? {
+                for x in o["options"]
+                    .as_array()
+                    .ok_or("choice の options がありません")?
+                {
                     let xo = obj(x)?;
-                    opts.push(Opt { when: self.when(xo)?, to: pc_of(xo, "to")? });
+                    opts.push(Opt {
+                        when: self.when(xo)?,
+                        to: pc_of(xo, "to")?,
+                    });
                 }
                 Op::Choice(opts)
             }
             "pick" => {
                 let mut opts = vec![];
-                for x in o["options"].as_array().ok_or("pick の options がありません")? {
+                for x in o["options"]
+                    .as_array()
+                    .ok_or("pick の options がありません")?
+                {
                     let xo = obj(x)?;
-                    opts.push(Opt { when: self.when(xo)?, to: pc_of(xo, "to")? });
+                    opts.push(Opt {
+                        when: self.when(xo)?,
+                        to: pc_of(xo, "to")?,
+                    });
                 }
                 Op::Pick(opts)
             }
@@ -187,7 +248,10 @@ impl Ctx {
                 Some(r) => Op::Lock(!r),
                 None => Op::Nop("ui"),
             },
-            "set" => { let f = self.flags.get(str_of(o, "flag")?); Op::Set(f, self.value(&o["value"])) }
+            "set" => {
+                let f = self.flags.get(str_of(o, "flag")?);
+                Op::Set(f, self.value(&o["value"]))
+            }
             "add" => Op::Add(self.flags.get(str_of(o, "flag")?), num_of(o, "amount")?),
             "give" => Op::Give(self.evidence.get(str_of(o, "evidence")?)),
             "take" => Op::Take(self.evidence.get(str_of(o, "evidence")?)),
@@ -197,17 +261,20 @@ impl Ctx {
             "investigate" => Op::Investigate(self.scene_ref(str_of(o, "place")?)),
             "menu" => Op::Menu,
             "resume" => Op::Resume(match str_of(o, "to")? {
-                "next" => ResumeTo::Next, "stay" => ResumeTo::Stay, "first" => ResumeTo::First,
-                "crossIntro" => ResumeTo::CrossIntro, "afterReading" => ResumeTo::AfterReading,
+                "next" => ResumeTo::Next,
+                "stay" => ResumeTo::Stay,
+                "first" => ResumeTo::First,
+                "crossIntro" => ResumeTo::CrossIntro,
+                "afterReading" => ResumeTo::AfterReading,
                 x => return Err(err(format!("未知の resume です: {x}"))),
             }),
             "inspectEnd" => Op::InspectEnd,
             "end" => Op::End,
             "gameover" => Op::Gameover,
             "penalty" => Op::Penalty(num_of(o, "amount")?),
-            "showEvidence" | "palette" | "pan" | "overlay" | "scroll" | "textbox"
-            | "bgmPause" | "show" | "location" | "bgm" | "se" | "shake" | "flash"
-            | "heal" | "lifeRisk" | "locks" => Op::Nop(static_name(op)),
+            "showEvidence" | "palette" | "pan" | "overlay" | "scroll" | "textbox" | "bgmPause"
+            | "show" | "location" | "bgm" | "se" | "shake" | "flash" | "heal" | "lifeRisk"
+            | "locks" => Op::Nop(static_name(op)),
             x => return Err(err(format!("未知の命令です: {x}"))),
         })
     }
@@ -222,11 +289,19 @@ impl Ctx {
             "dialogue" => Kind::Dialogue,
             "testimony" => {
                 let mut statements = vec![];
-                for st in o["statements"].as_array().ok_or("statements がありません")? {
+                for st in o["statements"]
+                    .as_array()
+                    .ok_or("statements がありません")?
+                {
                     let so = obj(st)?;
                     statements.push(Statement {
-                        when: self.when(so)?, press: opt_pc(so, "press"), present: self.answers(so.get("present")),
-                        present_profile: so.get("presentProfile").map(|p| self.profile_answers(Some(p))), before: opt_pc(so, "before"),
+                        when: self.when(so)?,
+                        press: opt_pc(so, "press"),
+                        present: self.answers(so.get("present")),
+                        present_profile: so
+                            .get("presentProfile")
+                            .map(|p| self.profile_answers(Some(p))),
+                        before: opt_pc(so, "before"),
                     });
                 }
                 Kind::Testimony(Testimony {
@@ -241,26 +316,60 @@ impl Ctx {
             "place" => Kind::Place(self.place(o)?),
             k => return Err(err(format!("未知のシーンの種類です: {k}"))),
         };
-        Ok(Scene { id: id.to_string(), kind, program, nop_end: vec![], stop_run: vec![], defer: vec![], segment: vec![], trivial: vec![] })
+        Ok(Scene {
+            id: id.to_string(),
+            kind,
+            program,
+            nop_end: vec![],
+            stop_run: vec![],
+            defer: vec![],
+            segment: vec![],
+            trivial: vec![],
+        })
     }
 }
 
 fn static_name(op: &str) -> &'static str {
     const NAMES: [&str; 16] = [
-        "showEvidence", "palette", "giveProfile", "takeProfile", "pan", "overlay", "scroll", "textbox", "ui", "bgmPause", "show",
-        "location", "bgm", "se", "shake", "flash",
+        "showEvidence",
+        "palette",
+        "giveProfile",
+        "takeProfile",
+        "pan",
+        "overlay",
+        "scroll",
+        "textbox",
+        "ui",
+        "bgmPause",
+        "show",
+        "location",
+        "bgm",
+        "se",
+        "shake",
+        "flash",
     ];
     NAMES.iter().find(|n| **n == op).copied().unwrap_or("nop")
 }
 
 /// IR の JSON のテキストから Model を作る
 pub fn load(text: &str) -> Result<Model, String> {
-    let root: Value = serde_json::from_str(text).map_err(|e| format!("JSON として読めません: {e}"))?;
+    let root: Value =
+        serde_json::from_str(text).map_err(|e| format!("JSON として読めません: {e}"))?;
     let o = obj(&root)?;
-    let scenes_obj = o.get("scenes").and_then(Value::as_object).ok_or("scenes がありません")?;
+    let scenes_obj = o
+        .get("scenes")
+        .and_then(Value::as_object)
+        .ok_or("scenes がありません")?;
     let mut cx = Ctx {
-        flags: Interner::default(), strings: Interner::default(), evidence: Interner::default(), profiles: HashMap::new(), scenes: HashMap::new(),
-        missing: Interner::default(), extra_visit: Interner::default(), seen: Interner::default(), scene_count: scenes_obj.len() as u32,
+        flags: Interner::default(),
+        strings: Interner::default(),
+        evidence: Interner::default(),
+        profiles: HashMap::new(),
+        scenes: HashMap::new(),
+        missing: Interner::default(),
+        extra_visit: Interner::default(),
+        seen: Interner::default(),
+        scene_count: scenes_obj.len() as u32,
     };
     for (i, id) in scenes_obj.keys().enumerate() {
         cx.scenes.insert(id.clone(), i as u32);
@@ -274,60 +383,133 @@ pub fn load(text: &str) -> Result<Model, String> {
         }
     }
     let declared_flags = flag_init.len();
-    let ev_obj = o.get("evidence").and_then(Value::as_object).cloned().unwrap_or_default();
+    let ev_obj = o
+        .get("evidence")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     for k in ev_obj.keys() {
         cx.evidence.get(k);
     }
     // 人物ファイル（profile のある人物、人物の定義の順）は証拠品の後ろに並べる
-    let ch_obj = o.get("characters").and_then(Value::as_object).cloned().unwrap_or_default();
-    let profile_of = |id: &str| ch_obj.get(id).and_then(|c| c.get("profile")).filter(|p| p.is_object());
+    let ch_obj = o
+        .get("characters")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let profile_of = |id: &str| {
+        ch_obj
+            .get(id)
+            .and_then(|c| c.get("profile"))
+            .filter(|p| p.is_object())
+    };
     for id in ch_obj.keys() {
-        if profile_of(id).is_some() { let x = cx.evidence.get(&format!("{PROFILE}{id}")); cx.profiles.insert(id.clone(), x); }
+        if profile_of(id).is_some() {
+            let x = cx.evidence.get(&format!("{PROFILE}{id}"));
+            cx.profiles.insert(id.clone(), x);
+        }
     }
     let mut scenes = vec![];
     for (id, v) in scenes_obj {
         scenes.push(cx.scene(id, v).map_err(|e| format!("シーン {id}: {e}"))?);
     }
     let start_scene = cx.scene_ref(str_of(o, "startScene")?);
-    let mut start_evidence: Vec<u32> = o.get("startEvidence").and_then(Value::as_array).cloned().unwrap_or_default().iter()
-        .filter_map(Value::as_str).map(|s| cx.evidence.get(s)).collect();
+    let mut start_evidence: Vec<u32> = o
+        .get("startEvidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Value::as_str)
+        .map(|s| cx.evidence.get(s))
+        .collect();
     // 最初の人物ファイル（null なら profile のある全員）
     match o.get("startProfiles").and_then(Value::as_array) {
-        Some(list) => start_evidence.extend(list.iter().filter_map(Value::as_str).filter_map(|id| cx.profiles.get(id).copied())),
+        Some(list) => start_evidence.extend(
+            list.iter()
+                .filter_map(Value::as_str)
+                .filter_map(|id| cx.profiles.get(id).copied()),
+        ),
         None => start_evidence.extend(ch_obj.keys().filter_map(|id| cx.profiles.get(id).copied())),
     }
-    let gameover_scene = o.get("gameoverScene").and_then(Value::as_str).map(|s| cx.scene_ref(s));
-    let life_out: Vec<u32> = o.get("lifeOutScenes").and_then(Value::as_array).map(|a| {
-        a.iter().filter_map(Value::as_str).map(|s| cx.scene_ref(s)).collect()
-    }).unwrap_or_default();
+    let gameover_scene = o
+        .get("gameoverScene")
+        .and_then(Value::as_str)
+        .map(|s| cx.scene_ref(s));
+    let life_out: Vec<u32> = o
+        .get("lifeOutScenes")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(|s| cx.scene_ref(s))
+                .collect()
+        })
+        .unwrap_or_default();
     let mut parts = vec![];
-    for p in o.get("parts").and_then(Value::as_array).cloned().unwrap_or_default() {
+    for p in o
+        .get("parts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+    {
         let po = obj(&p)?;
-        let list = po.get("scenes").and_then(Value::as_array).cloned().unwrap_or_default();
+        let list = po
+            .get("scenes")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         parts.push(Part {
             id: str_of(po, "id")?.to_string(),
             kind: str_of(po, "kind").unwrap_or("").to_string(),
             title: str_of(po, "title").unwrap_or("").to_string(),
-            scenes: list.iter().filter_map(Value::as_str).filter_map(|s| cx.scenes.get(s).copied()).collect(),
+            scenes: list
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|s| cx.scenes.get(s).copied())
+                .collect(),
         });
     }
-    let evidence = cx.evidence.names.iter().map(|id| {
-        if let Some(ch) = id.strip_prefix(PROFILE) {
-            // 人物ファイルの表示名（profile.name、なければ name）
-            let c = ch_obj.get(ch);
-            let name = c.and_then(|c| c["profile"].get("name")).or(c.and_then(|c| c.get("name"))).and_then(Value::as_str).unwrap_or(ch);
-            return Evidence { id: ch.to_string(), name: name.to_string(), inspect: None, profile: true, effective: false, effective_index: None };
-        }
-        let e = ev_obj.get(id).and_then(Value::as_object);
-        Evidence {
-            id: id.clone(),
-            name: e.and_then(|e| e.get("name")).and_then(Value::as_str).unwrap_or(id).to_string(),
-            inspect: e.and_then(|e| e.get("inspect")).and_then(Value::as_str).map(|s| cx.scenes.get(s).copied().unwrap_or(u32::MAX)),
-            profile: false,
-            effective: false,
-            effective_index: None,
-        }
-    }).collect();
+    let evidence = cx
+        .evidence
+        .names
+        .iter()
+        .map(|id| {
+            if let Some(ch) = id.strip_prefix(PROFILE) {
+                // 人物ファイルの表示名（profile.name、なければ name）
+                let c = ch_obj.get(ch);
+                let name = c
+                    .and_then(|c| c["profile"].get("name"))
+                    .or(c.and_then(|c| c.get("name")))
+                    .and_then(Value::as_str)
+                    .unwrap_or(ch);
+                return Evidence {
+                    id: ch.to_string(),
+                    name: name.to_string(),
+                    inspect: None,
+                    profile: true,
+                    effective: false,
+                    effective_index: None,
+                };
+            }
+            let e = ev_obj.get(id).and_then(Value::as_object);
+            Evidence {
+                id: id.clone(),
+                name: e
+                    .and_then(|e| e.get("name"))
+                    .and_then(Value::as_str)
+                    .unwrap_or(id)
+                    .to_string(),
+                inspect: e
+                    .and_then(|e| e.get("inspect"))
+                    .and_then(Value::as_str)
+                    .map(|s| cx.scenes.get(s).copied().unwrap_or(u32::MAX)),
+                profile: false,
+                effective: false,
+                effective_index: None,
+            }
+        })
+        .collect();
     flag_init.resize(cx.flags.names.len(), FVal::Undef);
     let mut model = Model {
         id: str_of(o, "id").unwrap_or("").to_string(),

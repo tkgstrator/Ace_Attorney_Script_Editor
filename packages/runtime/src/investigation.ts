@@ -1,9 +1,10 @@
 import { type Beat, type Engine, type ExamineSpot, examineSpots } from '@gyakusai/core';
 import type { BackgroundView } from './background.ts';
 import { drawExamineMarkers } from './examine-markers.ts';
-import { hit, type Rect, TOP } from './layout.ts';
+import { hit, type Rect, SCREEN_H, SCREEN_W, TOP, UI } from './layout.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
+import type { PanelButton } from './panel.ts';
 import { type Layout, layoutFor } from './screen.ts';
 import * as W from './widgets.ts';
 
@@ -12,23 +13,25 @@ type View = 'menu' | 'move' | 'talk' | 'examine';
 const ACTIONS = ['examine', 'move', 'talk', 'present'] as const;
 /** 画面を切り替えた直後の決定を受け付けない時間（押しっぱなしで次の画面まで決定しないように） */
 const GUARD_MS = 250;
+/** 調べられる所（画面の座標） */
+const AREA: Rect = { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H };
 
 /**
  * 探索編の探偵メニュー（調べる・移動する・話す・つきつける）の表示と入力。
- * どの画面を開いているか・カーソルの位置などの表示の状態だけを持ち、決定したらエンジンを操作する
+ * どの画面を開いているか・カーソルの位置などの表示の状態だけを持ち、決定したらエンジンを操作する。
+ * 16:9 では、メニュー・「もどる」・背景を動かすボタンを画面に重ねず、右の欄に出す（panelButtons）
  */
 export class InvestigationUI {
-  readonly #L: Layout;
+  readonly #panel: boolean;
   view: View = 'menu';
   #sel = 0;
-  #cursor: { x: number; y: number };
+  #cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 - 24 };
   #since = 0;
   /** 目印を出す所（状態が変わったときだけ計算し直す） */
   #spots: { engine: Engine; serial: number; list: ExamineSpot[] } | null = null;
 
   constructor(layout: Layout = layoutFor()) {
-    this.#L = layout;
-    this.#cursor = { x: layout.w / 2, y: layout.h / 2 - 24 };
+    this.#panel = layout.panel !== null;
   }
 
   #switch(view: View) {
@@ -84,14 +87,9 @@ export class InvestigationUI {
     return bg ? bg.toBackground(x, y) : [x, y];
   }
 
-  /** 調べられる所（画面の座標。4:3 では画面全体、広い画面では狭い背景の左右の黒い所を除く） */
-  #area(bg: BackgroundView | undefined): Rect {
-    return bg?.examinable ?? { x: 0, y: 0, w: this.#L.w, h: this.#L.h };
-  }
-
-  /** 点 (x, y) を調べる（調べられる所の外なら何もしない） */
+  /** 点 (x, y) を調べる（画面の外なら何もしない） */
   #examine(engine: Engine, x: number, y: number, bg: BackgroundView | undefined) {
-    if (hit(this.#area(bg), x, y)) engine.examine(...this.#toBackground(x, y, bg));
+    if (hit(AREA, x, y)) engine.examine(...this.#toBackground(x, y, bg));
   }
 
   /** bg: 背景の表示（調べる範囲は背景の座標なので、スクロールした位置を足して調べる） */
@@ -123,9 +121,9 @@ export class InvestigationUI {
         this.#slide(engine, b, bg);
         return true;
       }
-      const step = this.#L.ui.cursorStep;
+      const step = UI.cursorStep;
       const c = this.#cursor;
-      const a = this.#area(bg);
+      const a = AREA;
       if (key === 'ArrowLeft') c.x = Math.max(a.x, c.x - step);
       else if (key === 'ArrowRight') c.x = Math.min(a.x + a.w - 1, c.x + step);
       else if (key === 'ArrowUp') c.y = Math.max(a.y, c.y - step);
@@ -151,29 +149,87 @@ export class InvestigationUI {
     bg?: BackgroundView,
   ): void {
     if (this.view === 'menu') {
-      const i = ACTIONS.findIndex((_, j) => hit(this.#L.ui.invButton(j), x, y));
+      if (this.#panel) return;
+      const i = ACTIONS.findIndex((_, j) => hit(UI.invButton(j), x, y));
       if (i >= 0) this.#action(engine, b, i, openRecord);
       return;
     }
     if (this.view === 'examine' && bg?.sliding) return;
-    if (hit(this.#L.ui.invBack, x, y)) {
+    if (!this.#panel && hit(UI.invBack, x, y)) {
       this.#switch('menu');
       return;
     }
-    if (this.view === 'examine' && this.#canSlide(b, bg) && hit(this.#L.ui.examineScroll, x, y)) {
+    if (
+      !this.#panel &&
+      this.view === 'examine' &&
+      this.#canSlide(b, bg) &&
+      hit(UI.examineScroll, x, y)
+    ) {
       this.#slide(engine, b, bg);
       return;
     }
     if (this.#guarded) return;
     if (this.view === 'examine') {
-      if (!hit(this.#area(bg), x, y)) return;
+      if (!hit(AREA, x, y)) return;
       this.#cursor = { x, y };
       this.#examine(engine, x, y, bg);
       return;
     }
     const items = this.#list(b);
-    const i = items.findIndex((_, j) => hit(this.#L.ui.choice(j, items.length), x, y));
+    const i = items.findIndex((_, j) => hit(UI.choice(j, items.length), x, y));
     if (i >= 0) this.#pick(engine, b, i);
+  }
+
+  /** 16:9 の右の欄に出すボタン（メニューなら 4 つ、ほかの画面では「もどる」と背景を動かすボタン） */
+  panelButtons(
+    engine: Engine,
+    b: InvestigateBeat,
+    labels: Labels,
+    openRecord: () => void,
+    bg?: BackgroundView,
+  ): PanelButton[] {
+    if (this.view === 'menu') {
+      const names: Record<(typeof ACTIONS)[number], string> = {
+        examine: labels.examine,
+        move: labels.move,
+        talk: labels.talk,
+        present: labels.present,
+      };
+      const enabled = this.#enabled(b);
+      return ACTIONS.map((a, i) => ({
+        slot: i + 1,
+        label: names[a],
+        enabled: enabled[i] === true,
+        selected: i === this.#sel,
+        run: () => this.#action(engine, b, i, openRecord),
+      }));
+    }
+    const sliding = this.view === 'examine' && !!bg?.sliding;
+    const back: PanelButton = {
+      slot: 4,
+      label: labels.back,
+      enabled: !sliding,
+      run: () => this.#switch('menu'),
+    };
+    if (this.view !== 'examine' || !bg || !this.#canSlide(b, bg)) return [back];
+    const step = bg.slideStep();
+    const arrow = !step
+      ? undefined
+      : step.x > 0
+        ? 'right'
+        : step.x < 0
+          ? 'left'
+          : step.y > 0
+            ? 'down'
+            : 'up';
+    const scroll: PanelButton = {
+      slot: 1,
+      label: '',
+      arrow,
+      enabled: !sliding,
+      run: () => this.#slide(engine, b, bg),
+    };
+    return [scroll, back];
   }
 
   /** 背景を動かすボタンを出すか（動いている間も出したままにする） */
@@ -204,14 +260,23 @@ export class InvestigationUI {
     p.dim({ x: 0, y: 0, w: t.measure(b.name) + 10, h: 14 }, '#000000', 0.55);
     t.draw(b.name, 5, t.centerY(0, 14), { color: '#ffffff' });
 
-    const UI = this.#L.ui;
+    // 16:9 ではボタンを右の欄に出すので、メニューの画面には何も重ねない
     if (this.view === 'menu') {
+      if (this.#panel) return;
       W.textbox(p, null);
       const labelsOf = [labels.examine, labels.move, labels.talk, labels.present];
       const enabled = this.#enabled(b);
       ACTIONS.forEach((_, i) => {
         const r = UI.invButton(i);
-        p.tab(r, 'bottom', labelsOf[i]!, { small: true, k: 6, enabled: enabled[i] });
+        p.button(
+          r,
+          () => {
+            p.tab(r, 'bottom', labelsOf[i]!, { small: true, k: 6, enabled: enabled[i] });
+          },
+          enabled[i] === true,
+          labelsOf[i]!,
+          i === this.#sel,
+        );
         if (i === this.#sel && blinkOn) p.brackets(r);
       });
       return;
@@ -219,11 +284,12 @@ export class InvestigationUI {
     if (this.view === 'examine') {
       W.textbox(p, null);
       const hint = p.fonts.text;
-      hint.draw(labels.examineHint, UI.invBack.x + UI.invBack.w + 8, W.textTop(p) + TOP.lineH / 2, {
-        color: '#ffffff',
-      });
-      p.tab(UI.invBack, 'tr', labels.back);
-      if (this.#canSlide(b, bg)) scrollButton(p, bg!);
+      const hintX = this.#panel ? TOP.textX : UI.invBack.x + UI.invBack.w + 8;
+      hint.draw(labels.examineHint, hintX, W.textTop(p) + TOP.lineH / 2, { color: '#ffffff' });
+      if (!this.#panel) {
+        p.tab(UI.invBack, 'tr', labels.back);
+        if (this.#canSlide(b, bg)) scrollButton(p, bg!);
+      }
       if (markers) {
         const origin: [number, number] = bg ? bg.origin : [0, 0];
         drawExamineMarkers(p, this.#spotsOf(markers.engine), frame, markers.reduceMotion, origin);
@@ -240,7 +306,7 @@ export class InvestigationUI {
       this.view === 'talk' ? b.talk.map((x) => x.seen) : [],
       this.view === 'talk' ? b.talk.map((x) => !!x.locked) : [],
     );
-    p.tab(UI.invBack, 'tr', labels.back);
+    if (!this.#panel) p.tab(UI.invBack, 'tr', labels.back);
   }
 }
 
@@ -258,18 +324,24 @@ export function cursor(p: Painter, x: number, y: number, color: string) {
 
 /** 背景を動かすボタン。動く向きの矢印を描く（動いている間は薄く） */
 function scrollButton(p: Painter, bg: BackgroundView) {
-  const r = p.layout.ui.examineScroll;
-  const step = bg.slideStep();
-  p.tab(r, 'tl', '', { enabled: !bg.sliding });
-  if (!step) return;
-  const dir = step.x > 0 ? 'right' : step.x < 0 ? 'left' : 'down';
-  const cx = r.x + 6 + (r.w - 6) / 2,
-    cy = r.y + r.h / 2;
-  if (dir === 'down' && step.y < 0) {
-    // 上向き（下向きの三角形を上下に反転して描く）
-    for (let i = 0; i < 7; i++)
-      p.rect(Math.round(cx - i), Math.round(cy - 3 + i), i * 2 + 1, 1, '#ffffff');
-    return;
-  }
-  p.triangle(cx, cy, 10, 13, dir, '#ffffff');
+  const r = UI.examineScroll;
+  p.button(
+    r,
+    () => {
+      const step = bg.slideStep();
+      p.tab(r, 'tl', '', { enabled: !bg.sliding });
+      if (!step) return;
+      const dir = step.x > 0 ? 'right' : step.x < 0 ? 'left' : 'down';
+      const cx = r.x + 6 + (r.w - 6) / 2,
+        cy = r.y + r.h / 2;
+      if (dir === 'down' && step.y < 0) {
+        // 上向き（下向きの三角形を上下に反転して描く）
+        for (let i = 0; i < 7; i++)
+          p.rect(Math.round(cx - i), Math.round(cy - 3 + i), i * 2 + 1, 1, '#ffffff');
+        return;
+      }
+      p.triangle(cx, cy, 10, 13, dir, '#ffffff');
+    },
+    !bg.sliding,
+  );
 }

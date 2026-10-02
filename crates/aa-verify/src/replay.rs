@@ -20,9 +20,21 @@ pub fn snapshot(e: &Engine) -> serde_json::Value {
         };
         flags.insert(m.flag_names[i].clone(), j);
     }
-    let mut visited: Vec<String> = e.s.visited.iter().map(|i| m.scenes.get(i as usize).map_or_else(|| "?".into(), |s| s.id.clone())).collect();
+    let mut visited: Vec<String> =
+        e.s.visited
+            .iter()
+            .map(|i| {
+                m.scenes
+                    .get(i as usize)
+                    .map_or_else(|| "?".into(), |s| s.id.clone())
+            })
+            .collect();
     visited.sort();
-    let mut seen: Vec<String> = e.s.seen.iter().map(|i| m.seen_ids[i as usize].clone()).collect();
+    let mut seen: Vec<String> =
+        e.s.seen
+            .iter()
+            .map(|i| m.seen_ids[i as usize].clone())
+            .collect();
     seen.sort();
     serde_json::json!({
         "scene": m.scene_name(e.s.scene), "pc": e.s.pc,
@@ -38,8 +50,13 @@ pub fn snapshot(e: &Engine) -> serde_json::Value {
 /// 操作の書き方から操作を行う
 fn apply(e: &mut Engine, m: &Model, a: &str) -> Result<(), String> {
     let (c, rest) = a.split_at(1);
-    let item = |id: &str, profile: bool| m.evidence.iter().position(|x| x.id == id && x.profile == profile).map(|i| i as u32)
-        .ok_or(format!("未知の証拠品 {id}"));
+    let item = |id: &str, profile: bool| {
+        m.evidence
+            .iter()
+            .position(|x| x.id == id && x.profile == profile)
+            .map(|i| i as u32)
+            .ok_or(format!("未知の証拠品 {id}"))
+    };
     let ev = |id: &str| item(id, false);
     match c {
         "a" => e.advance(),
@@ -56,11 +73,18 @@ fn apply(e: &mut Engine, m: &Model, a: &str) -> Result<(), String> {
         "m" => e.move_to(m.scene_index(rest).unwrap_or(u32::MAX)),
         "t" => {
             let p = e.place()?;
-            let i = p.talk.iter().position(|t| m.seen_ids[t.seen as usize] == rest).ok_or("未知の話題")?;
+            let i = p
+                .talk
+                .iter()
+                .position(|t| m.seen_ids[t.seen as usize] == rest)
+                .ok_or("未知の話題")?;
             e.talk(i)
         }
         "i" => match rest.split_once(':') {
-            Some((id, n)) => { e.inspect(ev(id)?)?; e.choose(n.parse().map_err(|_| "番号")?) }
+            Some((id, n)) => {
+                e.inspect(ev(id)?)?;
+                e.choose(n.parse().map_err(|_| "番号")?)
+            }
             None => e.inspect(ev(rest)?),
         },
         _ => Err(format!("未知の操作 {a}")),
@@ -68,23 +92,37 @@ fn apply(e: &mut Engine, m: &Model, a: &str) -> Result<(), String> {
 }
 
 pub fn main(file: &str) -> i32 {
-    let mut m = match std::fs::read_to_string(file).map_err(|e| e.to_string()).and_then(|t| load(&t)) {
+    let mut m = match std::fs::read_to_string(file)
+        .map_err(|e| e.to_string())
+        .and_then(|t| load(&t))
+    {
         Ok(m) => m,
-        Err(e) => { eprintln!("{e}"); return 1; }
+        Err(e) => {
+            eprintln!("{e}");
+            return 1;
+        }
     };
     m.max_life = aa_verify::IMMORTAL;
     let mut e = match Engine::new(&m) {
         Ok(e) => e,
-        Err(err) => { println!("{}", serde_json::json!({ "error": err })); return 0; }
+        Err(err) => {
+            println!("{}", serde_json::json!({ "error": err }));
+            return 0;
+        }
     };
     println!("{}", snapshot(&e));
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
         let a = line.trim();
-        if a.is_empty() { continue; }
+        if a.is_empty() {
+            continue;
+        }
         match apply(&mut e, &m, a) {
             Ok(()) => println!("{}", snapshot(&e)),
-            Err(err) => { println!("{}", serde_json::json!({ "error": err })); return 0; }
+            Err(err) => {
+                println!("{}", serde_json::json!({ "error": err }));
+                return 0;
+            }
         }
     }
     0
@@ -92,19 +130,31 @@ pub fn main(file: &str) -> i32 {
 
 /// 網羅的な探索で見つけた状態までの操作の列と、着いた状態を 1 行ずつ出す
 pub fn paths(file: &str, count: usize) -> i32 {
-    let m = match std::fs::read_to_string(file).map_err(|e| e.to_string()).and_then(|t| load(&t)) {
+    let m = match std::fs::read_to_string(file)
+        .map_err(|e| e.to_string())
+        .and_then(|t| load(&t))
+    {
         Ok(m) => m,
-        Err(e) => { eprintln!("{e}"); return 1; }
+        Err(e) => {
+            eprintln!("{e}");
+            return 1;
+        }
     };
     let list = match aa_verify::sample_paths(&m, count, aa_verify::DEFAULT_LIMIT * 4) {
         Ok(l) => l,
-        Err(e) => { eprintln!("{e}"); return 1; }
+        Err(e) => {
+            eprintln!("{e}");
+            return 1;
+        }
     };
     let mut mm = m.clone();
     mm.max_life = aa_verify::IMMORTAL;
     for (ops, s) in list {
         let e = Engine::load(&mm, s);
-        println!("{}", serde_json::json!({ "ops": ops, "state": snapshot(&e) }));
+        println!(
+            "{}",
+            serde_json::json!({ "ops": ops, "state": snapshot(&e) })
+        );
     }
     0
 }

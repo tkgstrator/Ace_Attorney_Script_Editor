@@ -23,35 +23,67 @@ pub fn fmt(op: u16, a: &[u16]) -> String {
     let name = op_name(op);
     let g = |k: usize| a.get(k).copied().unwrap_or(0);
     match op {
-        14 => format!("[name {}{}]", g(0) >> 8, if g(0) & 0xFF != 0 { "*" } else { "" }),
+        14 => format!(
+            "[name {}{}]",
+            g(0) >> 8,
+            if g(0) & 0xFF != 0 { "*" } else { "" }
+        ),
         30 => {
             let c = g(0);
             if c == 0 {
                 return "[char off]".into();
             }
-            let pos = if c & 0xC000 == 0 { String::new() } else { format!(" pos{}", c >> 14) };
+            let pos = if c & 0xC000 == 0 {
+                String::new()
+            } else {
+                format!(" pos{}", c >> 14)
+            };
             format!("[char {}{pos} talk {} idle {}]", c & 0x3FFF, g(1), g(2))
         }
         27 => {
             if g(0) == 0xFFF {
                 "[bg off]".into()
             } else {
-                format!("[bg {}{}]", g(0) & 0x7FFF, if g(0) & 0x8000 != 0 { " alt" } else { "" })
+                format!(
+                    "[bg {}{}]",
+                    g(0) & 0x7FFF,
+                    if g(0) & 0x8000 != 0 { " alt" } else { "" }
+                )
             }
         }
-        8 | 9 => format!("[{name} {}]", a.iter().map(|&x| sec(x)).collect::<Vec<_>>().join(" ")),
+        8 | 9 => format!(
+            "[{name} {}]",
+            a.iter().map(|&x| sec(x)).collect::<Vec<_>>().join(" ")
+        ),
         10 | 32 | 44 | 111 => format!("[{name} {}]", sec(g(0))),
         54 | 120 | 122 => format!("[{name} §{}]", g(0)),
         15 => format!("[{name} {} {}]", sec(g(0)), g(1)),
         53 => {
             let (f, want, glob) = (g(0) >> 8, g(0) & 1, g(0) & 0x80);
-            let dest = if glob != 0 { format!("§{}", g(1)) } else { format!("+{}B", g(1)) };
+            let dest = if glob != 0 {
+                format!("§{}", g(1))
+            } else {
+                format!("+{}B", g(1))
+            };
             format!("[if flag {f} == {want} → {dest}]")
         }
-        16 => format!("[flag {}:{} = {}]", (g(0) >> 8) & 0x7F, g(0) & 0xFF, g(0) >> 15),
+        16 => format!(
+            "[flag {}:{} = {}]",
+            (g(0) >> 8) & 0x7F,
+            g(0) & 0xFF,
+            g(0) >> 15
+        ),
         23 | 24 => {
-            let kind = if g(0) & 0x8000 != 0 { "profile" } else { "evidence" };
-            format!("[{name} {kind} {}{}]", g(0) & 0x3FFF, if g(0) & 0x4000 != 0 { " notice" } else { "" })
+            let kind = if g(0) & 0x8000 != 0 {
+                "profile"
+            } else {
+                "evidence"
+            };
+            format!(
+                "[{name} {kind} {}{}]",
+                g(0) & 0x3FFF,
+                if g(0) & 0x4000 != 0 { " notice" } else { "" }
+            )
         }
         3 => format!("[color {}]", g(0)),
         1 => "\n".into(),
@@ -142,48 +174,94 @@ pub fn bg_map(rom: &[u8], bg_pngs: &[String]) -> Result<Vec<String>> {
     let a = crate::nds::arm9(rom)?;
     let files: HashMap<String, &String> = bg_pngs
         .iter()
-        .map(|f| (f.trim_end_matches(".png").rsplit('_').next().unwrap_or("").to_string(), f))
+        .map(|f| {
+            (
+                f.trim_end_matches(".png")
+                    .rsplit('_')
+                    .next()
+                    .unwrap_or("")
+                    .to_string(),
+                f,
+            )
+        })
         .collect();
-    let mut rows = vec!["背景の番号\tdata.bin の位置\t大きさ\tフラグ\t種類\tファイル（data/tail/bg/）".to_string()];
+    let mut rows = vec![
+        "背景の番号\tdata.bin の位置\t大きさ\tフラグ\t種類\tファイル（data/tail/bg/）".to_string(),
+    ];
     for k in 0..BG_COUNT {
         let o = (BG_TABLE - ram + 16 * k) as usize;
-        let (p, size, flags, kind) = (u32_at(a, o)?, u32_at(a, o + 4)?, u32_at(a, o + 8)?, u32_at(a, o + 12)?);
-        let f = files.get(&format!("{p:x}")).map_or("-".to_string(), |s| s.to_string());
+        let (p, size, flags, kind) = (
+            u32_at(a, o)?,
+            u32_at(a, o + 4)?,
+            u32_at(a, o + 8)?,
+            u32_at(a, o + 12)?,
+        );
+        let f = files
+            .get(&format!("{p:x}"))
+            .map_or("-".to_string(), |s| s.to_string());
         rows.push(format!("{k}\t{p:#x}\t{size}\t{flags:#x}\t{kind:#x}\t{f}"));
     }
     Ok(rows)
 }
 
 /// script/ を書き出す（out の根は script）。rom が None なら bg_map.tsv は作らない
-pub fn export(entries: &[Vec<u16>], chars: &HashMap<u16, String>, rom: Option<&[u8]>, bg_pngs: &[String], out: &mut dyn Sink) -> Result<()> {
+pub fn export(
+    entries: &[Vec<u16>],
+    chars: &HashMap<u16, String>,
+    rom: Option<&[u8]>,
+    bg_pngs: &[String],
+    out: &mut dyn Sink,
+) -> Result<()> {
     let mut stats = Stats::default();
     let mut index = vec!["項目\t言語\t区画の数\t最初の日時・場所の表示".to_string()];
     for (i, e) in entries.iter().enumerate() {
         let mut odd = Stats::default();
         let s = if i % 2 == 1 { &mut odd } else { &mut stats };
         let (body, cap) = dump(e, chars, s);
-        out.put(&format!("{i:03}.txt"), format!("{}\n", body.trim_start_matches('\n')).into_bytes());
-        index.push(format!("{i:03}\t{}\t{}\t{cap}", if i % 2 == 1 { "英" } else { "日" }, sections(e).len()));
+        out.put(
+            &format!("{i:03}.txt"),
+            format!("{}\n", body.trim_start_matches('\n')).into_bytes(),
+        );
+        index.push(format!(
+            "{i:03}\t{}\t{}\t{cap}",
+            if i % 2 == 1 { "英" } else { "日" },
+            sections(e).len()
+        ));
     }
     out.put("index.tsv", format!("{}\n", index.join("\n")).into_bytes());
     let mut rows = vec!["名前の番号\t回数\t最初の台詞".to_string()];
     for (k, (n, txts)) in &stats.name {
-        let first = txts.iter().find(|t| t.chars().count() > 3).or(txts.first()).map_or("", |s| s.as_str());
+        let first = txts
+            .iter()
+            .find(|t| t.chars().count() > 3)
+            .or(txts.first())
+            .map_or("", |s| s.as_str());
         rows.push(format!("{k}\t{n}\t{}", head_chars(first, 30)));
     }
     out.put("names.tsv", format!("{}\n", rows.join("\n")).into_bytes());
     let mut rows = vec!["人物の番号\t動きの番号\t直後の名前の番号（回数）".to_string()];
     for (k, (anims, names)) in &stats.chr {
         let an: Vec<u16> = anims.iter().copied().collect();
-        let rng = if an.is_empty() { String::new() } else { format!("{}-{} ({} 個)", an[0], an[an.len() - 1], an.len()) };
+        let rng = if an.is_empty() {
+            String::new()
+        } else {
+            format!("{}-{} ({} 個)", an[0], an[an.len() - 1], an.len())
+        };
         let mut top = names.clone();
         top.sort_by_key(|x| std::cmp::Reverse(x.1)); // 安定な並べ替え = Counter.most_common と同じ
-        let top: Vec<String> = top.iter().take(3).map(|(n, m)| format!("{n}({m})")).collect();
+        let top: Vec<String> = top
+            .iter()
+            .take(3)
+            .map(|(n, m)| format!("{n}({m})"))
+            .collect();
         rows.push(format!("{k}\t{rng}\t{}", top.join(" ")));
     }
     out.put("chars.tsv", format!("{}\n", rows.join("\n")).into_bytes());
     if let Some(rom) = rom {
-        out.put("bg_map.tsv", format!("{}\n", bg_map(rom, bg_pngs)?.join("\n")).into_bytes());
+        out.put(
+            "bg_map.tsv",
+            format!("{}\n", bg_map(rom, bg_pngs)?.join("\n")).into_bytes(),
+        );
     }
     out.log(&format!("{} 項目を書き出しました", entries.len()));
     Ok(())

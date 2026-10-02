@@ -67,7 +67,10 @@ bun tools/convert/index.ts --episode 1            # → assets/extracted/convert
 ```
 
 `bun run dev` でプレイヤーを開き、`?case=ep1` を付けるか章の選択から選ぶ。
-取り出した絵があると、プレイヤーは DS 版の人物・背景・机・吹き出しで表示する（生成したドット絵にするには `?art=generated`）。
+取り出した絵があると、プレイヤーは DS 版の人物・背景・机・吹き出しで表示する（画面の下の「グラフィック」で切り替える。生成したドット絵にするには `?art=generated`）。
+取り出した音も同じく、画面の下の「サウンド」で切り替える。**DS（原音）**（`?sound=ncsf`。NCSF で書き出した音、[下の節](#bgm効果音を-ds原音で書き出すncsf)）・
+**DS（互換）**（`?sound=compat`。手順の 2. で自前の計算で書き出した音 `sound/rendered/`）・**仮の音**（`?sound=synth`）の 3 つ。
+指定がなければ、書き出してあるものの中で 原音 → 互換 → 仮の音 の順に選ぶ。
 
 この節の手順は、各スクリプトの説明とコード、`aa-extract` の出力と Python 版の出力の比べ合わせから組み立てたもの。
 ROM から通しで流して確かめてはいない。
@@ -95,6 +98,35 @@ bun tools/convert/index.ts --episode 2 --game aa2 # → assets/extracted/aa2/con
 
 プレイヤーでは `?case=aa2-ep2`・`?case=aa3-ep1` のように選ぶ。
 表のスクリプトの細かい引数と出力は、各スクリプトの先頭の説明を見る。
+
+## BGM・効果音を DS（原音）で書き出す（NCSF）
+
+DS（互換）の音（`sound/rendered/`、`sseq_render.py`・`aa-extract`）は、DS の音源ドライバーを自前でまねて書き出したもの。
+DS（原音）は、[NCSF](https://github.com/CyberBotX/NCSF)（MIT）の再生部で書き出す。NCSF の再生部は、
+Pokémon Diamond の逆コンパイル（pret）にある NITRO の音源ドライバー（SND）を C# にしたもので、実機の計算にいちばん近い。
+
+- 要るもの: .NET 10 SDK と、NCSF を clone したもの（**リポジトリの外に置く**）。先に DS（互換）を書き出しておく
+  （名前・番号・長さ・ループの位置をその `index.json` から取る）。
+- `tools/rom/ncsf_render.py` が `tools/rom/ncsf_render/`（NCSF の再生部を呼ぶ小さな C# の道具）をビルドして、
+  すべての BGM・効果音を 32,728 Hz・補間なしで WAV にする。ループの位置は DS（互換）の値を、継ぎ目が合うように合わせ直して使う。
+
+```bash
+git clone https://github.com/CyberBotX/NCSF ~/src/NCSF       # 場所はどこでもよい（リポジトリの外）
+uv run tools/rom/ncsf_render.py --ncsf ~/src/NCSF             # → assets/extracted/sound/ncsf/（数十秒）
+uv run tools/rom/ncsf_render.py --ncsf ~/src/NCSF --game aa2  # 逆転裁判2（aa3 も同じ）→ assets/extracted/aa2/sound/ncsf/
+#   dotnet が PATH に無ければ --dotnet /path/to/dotnet。一部だけなら --only BGM013,SE010
+```
+
+DS（互換）との違い（2026-09 に 蘇る逆転 の BGM004・BGM010・BGM013・SE010 を、トラックごとにも比べた）:
+
+- **PSG（矩形波）の音が 9 半音（長 6 度）高い。** NCSF（pret）は PSG の基準を タイマー 8006（261.6 Hz = キー 60）にしているが、
+  自前は 440 Hz を基準にしている（`crates/aa-rom/src/sound/channel.rs` の `PSG_BASE_TIMER`・`tools/rom/sseq_channel.py` の同名）。
+  バンクの PSG の音色の基準のキーはすべて 60 なので、NCSF の方が合っている。ノイズの基準も同じ値を使う。
+- **シーケンスの音量（SDAT の INFO の値）の効き方が強すぎる。** 自前は 2 乗の表（`cnv_sust`）で変換するが、
+  NCSF はデシベルの表（`SND_CalcDecibel` に当たる）を使う。音量 127 の曲は同じで、95 の SE010 は約 2.7 dB、110 の BGM004 は約 1.4 dB 小さい
+  （`crates/aa-rom/src/sound/player.rs` の `seq_vol: cnv_sust(seq_vol)`）。
+- ほかは、PCM の音色・音程・テンポ・包絡線・パンはほぼ同じ（PCM のトラックは標本単位で相関 0.96〜1.00、音量の差 0.1 dB 程度）。
+  自前は音が 1 フレーム（5.2 ms）遅れて出る。BGM004 の一部の音で、自前は離鍵の後の余韻（約 60 ms）が切れる。
 
 ## DS 版のフォント
 

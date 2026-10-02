@@ -1,11 +1,16 @@
 //! capstone の文字列（ニーモニック・引数）の読み方（tbl_invest_sym.py の _split / _imm / re.split / re.match と同じ）
 
-const COND: [&str; 14] = ["eq", "ne", "hs", "cs", "lo", "cc", "mi", "pl", "hi", "ls", "ge", "lt", "gt", "le"];
+const COND: [&str; 14] = [
+    "eq", "ne", "hs", "cs", "lo", "cc", "mi", "pl", "hi", "ls", "ge", "lt", "gt", "le",
+];
 
 /// 'addls' → ('add', 'ls') など（Python の _split と同じ順に試す）
 pub fn split_mn(mn: &str) -> (String, String) {
-    const BASES: [&str; 30] = ["ldrb", "ldrh", "ldrsh", "ldrsb", "strb", "strh", "ldm", "stm", "movs", "ands", "subs", "adds",
-        "push", "pop", "mov", "mvn", "ldr", "str", "add", "sub", "cmp", "tst", "and", "orr", "bic", "lsl", "lsr", "bx", "bl", "b"];
+    const BASES: [&str; 30] = [
+        "ldrb", "ldrh", "ldrsh", "ldrsb", "strb", "strh", "ldm", "stm", "movs", "ands", "subs",
+        "adds", "push", "pop", "mov", "mvn", "ldr", "str", "add", "sub", "cmp", "tst", "and",
+        "orr", "bic", "lsl", "lsr", "bx", "bl", "b",
+    ];
     for base in BASES {
         if let Some(rest) = mn.strip_prefix(base) {
             if COND.contains(&rest) {
@@ -61,7 +66,9 @@ pub fn split_ops(ops: &str) -> Vec<String> {
 /// re.match(r'\[(\w+)(?:, #(-?0x[0-9a-f]+|-?\d+))?\]', s) → (レジスター, 位置)
 pub fn match_mem(s: &str) -> Option<(String, Option<i64>)> {
     let s = s.strip_prefix('[')?;
-    let n = s.find(|c: char| !(c.is_alphanumeric() || c == '_')).unwrap_or(s.len());
+    let n = s
+        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .unwrap_or(s.len());
     if n == 0 {
         return None;
     }
@@ -75,12 +82,22 @@ pub fn match_mem(s: &str) -> Option<(String, Option<i64>)> {
         None => (0, num),
     };
     let len = if let Some(h) = t.strip_prefix("0x") {
-        let k = h.find(|c: char| !matches!(c, '0'..='9' | 'a'..='f')).unwrap_or(h.len());
-        if k > 0 { 2 + k } else { 0 }
+        let k = h
+            .find(|c: char| !matches!(c, '0'..='9' | 'a'..='f'))
+            .unwrap_or(h.len());
+        if k > 0 {
+            2 + k
+        } else {
+            0
+        }
     } else {
         0
     };
-    let len = if len > 0 { len } else { t.find(|c: char| !c.is_ascii_digit()).unwrap_or(t.len()) };
+    let len = if len > 0 {
+        len
+    } else {
+        t.find(|c: char| !c.is_ascii_digit()).unwrap_or(t.len())
+    };
     if len == 0 || !t[len..].starts_with(']') {
         return None;
     }

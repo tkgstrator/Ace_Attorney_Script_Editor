@@ -10,7 +10,13 @@ use std::collections::BTreeMap;
 use crate::bytes::{cstr, err, u16_at, u32_at, u8_at, Result};
 
 /// INFO/SYMB の表の番号 → 種類
-const KINDS: [(usize, &str); 5] = [(0, "sequence"), (1, "seqarc"), (2, "bank"), (3, "wavearc"), (7, "stream")];
+const KINDS: [(usize, &str); 5] = [
+    (0, "sequence"),
+    (1, "seqarc"),
+    (2, "bank"),
+    (3, "wavearc"),
+    (7, "stream"),
+];
 
 fn ext(magic: &[u8]) -> &'static str {
     match magic {
@@ -38,7 +44,9 @@ pub fn names(s: &[u8], symb: usize, kind: usize) -> Result<Vec<Option<String>>> 
             out.push(None);
             continue;
         }
-        out.push(Some(String::from_utf8_lossy(cstr(s, symb + off)).into_owned()));
+        out.push(Some(
+            String::from_utf8_lossy(cstr(s, symb + off)).into_owned(),
+        ));
     }
     Ok(out)
 }
@@ -47,7 +55,11 @@ fn header(s: &[u8]) -> Result<(usize, usize, usize)> {
     if s.get(..4) != Some(b"SDAT") {
         return err("SDAT ではありません");
     }
-    Ok((u32_at(s, 0x10)? as usize, u32_at(s, 0x18)? as usize, u32_at(s, 0x20)? as usize))
+    Ok((
+        u32_at(s, 0x10)? as usize,
+        u32_at(s, 0x18)? as usize,
+        u32_at(s, 0x20)? as usize,
+    ))
 }
 
 /// INFO のある種類の (添字, 位置) の一覧（位置 0 は飛ばす）
@@ -86,7 +98,10 @@ pub fn split(s: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
         let size = u32_at(s, fat + 16 + 16 * fid)? as usize;
         let body = crate::bytes::py_slice(s, off, off + size).to_vec();
         let e = ext(crate::bytes::py_slice(&body, 0, 4));
-        let base = named.get(&(fid as u16)).cloned().unwrap_or_else(|| format!("other/file_{fid:04}"));
+        let base = named
+            .get(&(fid as u16))
+            .cloned()
+            .unwrap_or_else(|| format!("other/file_{fid:04}"));
         out.push((format!("{base}.{e}"), body));
     }
     Ok(out)
@@ -122,7 +137,10 @@ impl<'a> Sdat<'a> {
         let n = u32_at(s, fat_off + 8)? as usize;
         let mut fat = Vec::with_capacity(n);
         for i in 0..n {
-            fat.push((u32_at(s, fat_off + 12 + 16 * i)? as usize, u32_at(s, fat_off + 16 + 16 * i)? as usize));
+            fat.push((
+                u32_at(s, fat_off + 12 + 16 * i)? as usize,
+                u32_at(s, fat_off + 16 + 16 * i)? as usize,
+            ));
         }
         let snames = names(s, symb, 0)?;
         let mut seqs = Vec::new();
@@ -146,7 +164,12 @@ impl<'a> Sdat<'a> {
         let mut banks = BTreeMap::new();
         for (i, off) in records(s, info, 2)? {
             let p = info + off;
-            let wa = [u16_at(s, p + 4)?, u16_at(s, p + 6)?, u16_at(s, p + 8)?, u16_at(s, p + 10)?];
+            let wa = [
+                u16_at(s, p + 4)?,
+                u16_at(s, p + 6)?,
+                u16_at(s, p + 8)?,
+                u16_at(s, p + 10)?,
+            ];
             banks.insert(i, (u16_at(s, p)?, wa));
         }
         let mut wavearcs = BTreeMap::new();

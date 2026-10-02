@@ -59,7 +59,7 @@ xattr -d com.apple.quarantine aa-extract aa-verify
 
 ## aa-verify（整合性チェッカー）
 
-コンパイル済みのシナリオ（IR の JSON）を読んで、最後まで遊べるかを調べる。詳しくは同梱の `README-aa-verify.md`（[crates/aa-verify/README.md](../crates/aa-verify/README.md)）。
+コンパイル済みのシナリオ（IR の JSON）を読んで、最後まで遊べるかを調べる。詳しくは同梱の `README-aa-verify.md`（[整合性チェックの説明](../crates/aa-verify/README.md)）。
 
 ### IR の JSON を渡す（実行ファイルだけで動く）
 

@@ -28,7 +28,9 @@ fn slice(d: &[u8], p: usize, n: usize) -> Result<&[u8]> {
 
 #[inline]
 pub fn u8_at(d: &[u8], p: usize) -> Result<u8> {
-    d.get(p).copied().ok_or_else(|| Error(format!("範囲外: {p:#x}")))
+    d.get(p)
+        .copied()
+        .ok_or_else(|| Error(format!("範囲外: {p:#x}")))
 }
 
 #[inline]
@@ -69,7 +71,11 @@ pub fn py_slice(d: &[u8], a: usize, b: usize) -> &[u8] {
 
 /// バイト列を u16 の並びにする（奇数の端は捨てる）
 pub fn words16(d: &[u8]) -> Vec<u16> {
-    d.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes([c[0], c[1]])).collect()
+    d.as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect()
 }
 
 /// 0 終端の文字列（見つからなければ末尾まで）

@@ -75,7 +75,11 @@ impl Json {
             }
             V::String(s) => Json::Str(s.clone()),
             V::Array(a) => Json::Arr(a.iter().map(Json::from_serde).collect()),
-            V::Object(m) => Json::Obj(m.iter().map(|(k, v)| (k.clone(), Json::from_serde(v))).collect()),
+            V::Object(m) => Json::Obj(
+                m.iter()
+                    .map(|(k, v)| (k.clone(), Json::from_serde(v)))
+                    .collect(),
+            ),
         }
     }
 
@@ -221,7 +225,11 @@ pub fn py_repr(f: f64) -> String {
         return if f > 0.0 { "inf".into() } else { "-inf".into() };
     }
     if f == 0.0 {
-        return if f.is_sign_negative() { "-0.0".into() } else { "0.0".into() };
+        return if f.is_sign_negative() {
+            "-0.0".into()
+        } else {
+            "0.0".into()
+        };
     }
     // Rust の {:e} は最短の桁を出す: "d.ddddde-X"
     let e = format!("{:e}", f.abs());
@@ -232,21 +240,36 @@ pub fn py_repr(f: f64) -> String {
     let decpt = exp + 1; // 小数点の位置（先頭の桁の前から数える）
     let sign = if f < 0.0 { "-" } else { "" };
     if decpt <= -4 || decpt > 16 {
-        let m = if n > 1 { format!("{}.{}", &digits[..1], &digits[1..]) } else { digits.clone() };
-        let es = if exp < 0 { format!("-{:02}", -exp) } else { format!("+{exp:02}") };
+        let m = if n > 1 {
+            format!("{}.{}", &digits[..1], &digits[1..])
+        } else {
+            digits.clone()
+        };
+        let es = if exp < 0 {
+            format!("-{:02}", -exp)
+        } else {
+            format!("+{exp:02}")
+        };
         format!("{sign}{m}e{es}")
     } else if decpt <= 0 {
         format!("{sign}0.{}{}", "0".repeat((-decpt) as usize), digits)
     } else if decpt >= n {
         format!("{sign}{}{}.0", digits, "0".repeat((decpt - n) as usize))
     } else {
-        format!("{sign}{}.{}", &digits[..decpt as usize], &digits[decpt as usize..])
+        format!(
+            "{sign}{}.{}",
+            &digits[..decpt as usize],
+            &digits[decpt as usize..]
+        )
     }
 }
 
 /// JSON の文字列を読む（NaN / Infinity も読む）
 pub fn parse(t: &str) -> Option<Json> {
-    let t = t.replace("-Infinity", "null").replace("Infinity", "null").replace("NaN", "null");
+    let t = t
+        .replace("-Infinity", "null")
+        .replace("Infinity", "null")
+        .replace("NaN", "null");
     let v: serde_json::Value = serde_json::from_str(&t).ok()?;
     Some(Json::from_serde(&v))
 }
@@ -270,7 +293,14 @@ mod tests {
 
     #[test]
     fn dumps() {
-        let j = Json::obj().with("a", 1).with("b", Json::Arr(vec![])).with("c", vec![1.5, 2.0]).with("d", "え\"");
-        assert_eq!(j.dumps(), "{\n \"a\": 1,\n \"b\": [],\n \"c\": [\n  1.5,\n  2.0\n ],\n \"d\": \"え\\\"\"\n}");
+        let j = Json::obj()
+            .with("a", 1)
+            .with("b", Json::Arr(vec![]))
+            .with("c", vec![1.5, 2.0])
+            .with("d", "え\"");
+        assert_eq!(
+            j.dumps(),
+            "{\n \"a\": 1,\n \"b\": [],\n \"c\": [\n  1.5,\n  2.0\n ],\n \"d\": \"え\\\"\"\n}"
+        );
     }
 }

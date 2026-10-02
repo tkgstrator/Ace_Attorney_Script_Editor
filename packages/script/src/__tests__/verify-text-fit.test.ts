@@ -87,3 +87,28 @@ describe('枠に収まらない文', () => {
     ]);
   });
 });
+
+describe('切り替える説明', () => {
+  it('配列の説明も、どの文も点検する', () => {
+    const src = `id: t
+title: t
+characters:
+  me: { name: 私 }
+evidence:
+  a:
+    name: A
+    description:
+      - { when: f, text: "${'あ'.repeat(16 * 4)}" }
+      - { text: 短い }
+flags: { f: false }
+start: { scene: s }
+scenes:
+  s:
+    - if: f
+      then: [ { me: a } ]
+    - end: true
+`;
+    const w = fit(src);
+    expect(w.some((d) => d.path.join('.') === 'evidence.a.description.0.text')).toBe(true);
+  });
+});

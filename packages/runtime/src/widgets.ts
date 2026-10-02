@@ -2,13 +2,22 @@
 
 import type { EvidenceDef } from '@gyakusai/core';
 import { lockMark } from './gauge.ts';
-import { COLORS, type Rect, SHOUTS, type ShoutKind, TEXTBOX_ALPHA, TOP } from './layout.ts';
+import {
+  COLORS,
+  type Rect,
+  SCREEN_W,
+  SHOUTS,
+  type ShoutKind,
+  TEXTBOX_ALPHA,
+  TOP,
+  UI,
+} from './layout.ts';
 import type { Painter } from './painter.ts';
 import { ADDED_CARD, drawCard } from './record-card.ts';
 import type { Glyph } from './typewriter.ts';
 
 /** テキストウィンドウと名前欄 */
-export function textbox(p: Painter, name: string | null, box: Rect = p.layout.top.box) {
+export function textbox(p: Painter, name: string | null, box: Rect = TOP.box) {
   p.dim({ x: box.x + 2, y: box.y + 2, w: box.w - 4, h: box.h - 4 }, '#000008', TEXTBOX_ALPHA);
   p.outline(box, '#848484');
   p.outline({ x: box.x + 1, y: box.y + 1, w: box.w - 2, h: box.h - 2 }, '#3a3a3a');
@@ -26,12 +35,12 @@ export function textbox(p: Painter, name: string | null, box: Rect = p.layout.to
 }
 
 /** テキストウィンドウの 1 行目の文字画像を置く y 座標（フォントの上の余白を差し引く） */
-export function textTop(p: Painter, box: Rect = p.layout.top.box): number {
+export function textTop(p: Painter, box: Rect = TOP.box): number {
   return box.y + TOP.inkDY - p.fonts.text.font.ink.top;
 }
 
 /** テキストウィンドウの本文 */
-export function bodyText(p: Painter, rows: Glyph[][], color: string, box: Rect = p.layout.top.box) {
+export function bodyText(p: Painter, rows: Glyph[][], color: string, box: Rect = TOP.box) {
   const y = textTop(p, box);
   rows.forEach((row, i) => {
     glyphRow(p, row, color, TOP.textX, y + i * TOP.lineH);
@@ -68,7 +77,7 @@ export function centeredGlyphs(
       p,
       row,
       color,
-      Math.round((p.layout.w - t.measure(full)) / 2),
+      Math.round((SCREEN_W - t.measure(full)) / 2),
       firstLineY + i * TOP.lineH,
     );
   });
@@ -84,7 +93,7 @@ export function centeredText(
 ) {
   const t = p.fonts.text;
   lines.forEach((l, i) => {
-    const x = Math.round((p.layout.w - t.measure(fullLines[i] ?? l)) / 2);
+    const x = Math.round((SCREEN_W - t.measure(fullLines[i] ?? l)) / 2);
     t.draw(l, x, firstLineY + i * TOP.lineH, { color });
   });
 }
@@ -94,7 +103,7 @@ export function centeredText(
  * 点滅ではなく、x 243〜246（4:3 のとき。右寄せ）のあいだを左右に往復する。frame は 60fps で数えたフレーム数
  */
 export function nextArrow(p: Painter, frame: number) {
-  const A = p.layout.top.arrow;
+  const A = TOP.arrow;
   const t = (frame % A.period) / A.period;
   const x = A.x + Math.round(((1 - Math.cos(t * Math.PI * 2)) / 2) * A.swing);
   [1, 3, 5, 7, 9, 7, 5, 3, 1].forEach((w, i) => {
@@ -112,16 +121,24 @@ export function choiceButtons(
   locked: boolean[] = [],
 ) {
   options.forEach((opt, i) => {
-    const r = p.layout.ui.choice(i, options.length);
+    const r = UI.choice(i, options.length);
     // 本文の字間ではボタンに収まらないときは、詰めたフォントで描く
     const t =
       p.fonts.text.measure(opt) <= r.w - 8 ? p.fonts.text : (p.fonts.condensed ?? p.fonts.desc);
-    p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
-    p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
-    t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
-    if (locked[i]) lockMark(p, r.x + r.w - 16, r.y + 6);
-    else if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
-    if (i === selected && blinkOn) p.brackets(r);
+    p.button(
+      r,
+      () => {
+        p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
+        p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
+        t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
+        if (locked[i]) lockMark(p, r.x + r.w - 16, r.y + 6);
+        else if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
+        if (i === selected && blinkOn) p.brackets(r);
+      },
+      true,
+      opt,
+      i === selected,
+    );
   });
 }
 
@@ -144,33 +161,29 @@ export function checkMark(p: Painter, x: number, y: number) {
 
 /** 話しながら見せる証拠品の小窓（画面左上。right なら右上） */
 export function thumbnail(p: Painter, id: string, ev: EvidenceDef | undefined, right = false) {
-  const r = right ? { ...TOP.thumb, x: p.layout.w - TOP.thumb.x - TOP.thumb.w } : TOP.thumb;
+  const r = right ? { ...TOP.thumb, x: SCREEN_W - TOP.thumb.x - TOP.thumb.w } : TOP.thumb;
   p.outline(r, '#f0f0f0');
   p.dim({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }, '#888890', 0.85);
   p.evidenceIcon(ev?.icon ?? id, ev?.name ?? id, r.x + 2, r.y + 2, 2);
 }
 
 /**
- * 証拠品を入手したときの詳細の窓（DS 版と同じく、画面の幅いっぱいの茶色い枠に、法廷記録の詳細と同じ札を出す）。
- * 札は 4:3 の枠の座標なので、広い画面では中央に置く
+ * 証拠品を入手したときの詳細の窓（DS 版と同じく、画面の幅いっぱいの茶色い枠に、法廷記録の詳細と同じ札を出す）
  */
-export function addedWindow(p: Painter, id: string, ev: EvidenceDef) {
-  const r = p.layout.top.added;
+export function addedWindow(p: Painter, id: string, ev: EvidenceDef, description: string) {
+  const r = TOP.added;
   p.rect(r.x, r.y, r.w, r.h, '#efefef');
   p.rect(r.x + 1, r.y + 1, r.w - 1, r.h - 1, '#9c9c9c');
   p.rect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, '#634a31');
   p.rect(r.x + 3, r.y + 3, r.w - 5, r.h - 5, '#735229');
   p.rect(r.x + r.w - 2, r.y, 1, r.h - 1, '#efefef');
   p.rect(r.x, r.y + r.h - 2, r.w - 1, 1, '#efefef');
-  p.ctx.save();
-  p.ctx.translate(p.layout.ox, 0);
   drawCard(p, ADDED_CARD, {
     tab: 'evidence',
     label: ev.name,
-    description: ev.description,
+    description,
     drawIcon: (ic) => p.evidenceIcon(ev.icon ?? id, ev.name, ic.x, ic.y, 2),
   });
-  p.ctx.restore();
 }
 
 /** 証拠品・人物の名前と説明（法廷記録の詳細と、入手したときの窓で共通） */
@@ -197,7 +210,7 @@ export function detailText(p: Painter, nameR: Rect, descR: Rect, name: string, d
 /** ライフ（「！」の数）。右上に並べる。y は上端 */
 export function lifeMarks(p: Painter, life: number, max: number, y = TOP.lifeY) {
   const n = Math.min(max, 10);
-  for (let i = 0; i < Math.min(life, n); i++) exclamation(p, p.layout.w - (n - i) * 14, y);
+  for (let i = 0; i < Math.min(life, n); i++) exclamation(p, SCREEN_W - (n - i) * 14, y);
 }
 
 /** 斜体の「！」。先に縁取り、次に中身を塗る */
@@ -224,7 +237,7 @@ function exclamation(p: Painter, x: number, y: number) {
 export function bigText(p: Painter, text: string, y: number, slide = 1) {
   const t = p.fonts.text;
   const scale = 2;
-  const W = p.layout.w;
+  const W = SCREEN_W;
   const target = Math.round((W - t.measure(text, scale)) / 2);
   const x = Math.round(W + (target - W) * slide);
   t.draw(text, x, y, { scale, color: '#f05020', outline: '#ffffff', outlineWidth: 1 });
@@ -234,7 +247,7 @@ export function bigText(p: Painter, text: string, y: number, slide = 1) {
 export function bubble(p: Painter, kind: ShoutKind, grow: number) {
   const ctx = p.ctx;
   const s = SHOUTS[kind];
-  const cx = p.layout.w / 2,
+  const cx = SCREEN_W / 2,
     cy = 80,
     n = 22;
   ctx.beginPath();
