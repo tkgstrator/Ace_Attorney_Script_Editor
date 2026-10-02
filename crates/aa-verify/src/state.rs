@@ -39,7 +39,9 @@ impl Bits {
     }
     #[inline]
     pub fn has(&self, i: u32) -> bool {
-        self.0.get((i >> 6) as usize).is_some_and(|w| w >> (i & 63) & 1 == 1)
+        self.0
+            .get((i >> 6) as usize)
+            .is_some_and(|w| w >> (i & 63) & 1 == 1)
     }
     #[inline]
     pub fn add(&mut self, i: u32) -> bool {
@@ -54,15 +56,21 @@ impl Bits {
     }
     /// self にあって before にないもの
     pub fn added_since<'a>(&'a self, before: &'a Bits) -> impl Iterator<Item = u32> + 'a {
-        self.0.iter().zip(before.0.iter()).enumerate().flat_map(|(wi, (a, b))| {
-            let mut d = a & !b;
-            std::iter::from_fn(move || {
-                if d == 0 { return None; }
-                let t = d.trailing_zeros();
-                d &= d - 1;
-                Some((wi as u32) << 6 | t)
+        self.0
+            .iter()
+            .zip(before.0.iter())
+            .enumerate()
+            .flat_map(|(wi, (a, b))| {
+                let mut d = a & !b;
+                std::iter::from_fn(move || {
+                    if d == 0 {
+                        return None;
+                    }
+                    let t = d.trailing_zeros();
+                    d &= d - 1;
+                    Some((wi as u32) << 6 | t)
+                })
             })
-        })
     }
     pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
         let zero = Bits(vec![0; self.0.len()]);
@@ -93,9 +101,19 @@ pub struct State {
 impl State {
     pub fn initial(m: &Model) -> State {
         State {
-            scene: m.start_scene, pc: 0, mode: Mode::Run, phase: Phase::Intro, statement: 0, inspect_from: None,
-            life: m.max_life, var_ev: None, flags: m.flag_init.clone(), evidence: m.start_evidence.clone(), record_locked: false,
-            visited: Bits::new(m.visit_count()), seen: Bits::new(m.seen_ids.len()),
+            scene: m.start_scene,
+            pc: 0,
+            mode: Mode::Run,
+            phase: Phase::Intro,
+            statement: 0,
+            inspect_from: None,
+            life: m.max_life,
+            var_ev: None,
+            flags: m.flag_init.clone(),
+            evidence: m.start_evidence.clone(),
+            record_locked: false,
+            visited: Bits::new(m.visit_count()),
+            seen: Bits::new(m.seen_ids.len()),
         }
     }
     /// o の中身を写す（割り当て済みの領域を使い回す）
@@ -123,20 +141,41 @@ impl State {
 // ---- 詰める ----------------------------------------------------------------------
 
 fn mode_code(m: Mode) -> u8 {
-    match m { Mode::Run => 0, Mode::Testimony => 1, Mode::Investigate => 2 }
+    match m {
+        Mode::Run => 0,
+        Mode::Testimony => 1,
+        Mode::Investigate => 2,
+    }
 }
 fn mode_of(c: u8) -> Mode {
-    match c { 0 => Mode::Run, 1 => Mode::Testimony, _ => Mode::Investigate }
+    match c {
+        0 => Mode::Run,
+        1 => Mode::Testimony,
+        _ => Mode::Investigate,
+    }
 }
 fn phase_code(p: Phase) -> u8 {
-    match p { Phase::Intro => 0, Phase::Reading => 1, Phase::CrossIntro => 2, Phase::Cross => 3 }
+    match p {
+        Phase::Intro => 0,
+        Phase::Reading => 1,
+        Phase::CrossIntro => 2,
+        Phase::Cross => 3,
+    }
 }
 fn phase_of(c: u8) -> Phase {
-    match c { 0 => Phase::Intro, 1 => Phase::Reading, 2 => Phase::CrossIntro, _ => Phase::Cross }
+    match c {
+        0 => Phase::Intro,
+        1 => Phase::Reading,
+        2 => Phase::CrossIntro,
+        _ => Phase::Cross,
+    }
 }
 
 fn varint(out: &mut Vec<u8>, mut v: u64) {
-    while v >= 0x80 { out.push(v as u8 | 0x80); v >>= 7; }
+    while v >= 0x80 {
+        out.push(v as u8 | 0x80);
+        v >>= 7;
+    }
     out.push(v as u8);
 }
 fn read_varint(b: &[u8], at: &mut usize) -> u64 {
@@ -145,7 +184,9 @@ fn read_varint(b: &[u8], at: &mut usize) -> u64 {
         let x = b[*at];
         *at += 1;
         v |= u64::from(x & 0x7f) << s;
-        if x < 0x80 { return v; }
+        if x < 0x80 {
+            return v;
+        }
         s += 7;
     }
 }
@@ -155,17 +196,26 @@ pub fn pack(s: &State) -> Box<[u8]> {
     let mut out = Vec::with_capacity(64 + s.flags.len() / 4 + s.evidence.len() * 2);
     varint(&mut out, u64::from(s.scene));
     varint(&mut out, u64::from(s.pc));
-    out.push(mode_code(s.mode) | phase_code(s.phase) << 2 | u8::from(s.inspect_from.is_some()) << 4 | u8::from(s.var_ev.is_some()) << 5
-        | u8::from(s.record_locked) << 6);
+    out.push(
+        mode_code(s.mode)
+            | phase_code(s.phase) << 2
+            | u8::from(s.inspect_from.is_some()) << 4
+            | u8::from(s.var_ev.is_some()) << 5
+            | u8::from(s.record_locked) << 6,
+    );
     varint(&mut out, u64::from(s.statement));
     if let Some(f) = s.inspect_from {
         varint(&mut out, u64::from(f.scene));
         varint(&mut out, u64::from(f.pc));
         out.push(mode_code(f.mode) | phase_code(f.phase) << 2 | u8::from(f.var_ev.is_some()) << 4);
         varint(&mut out, u64::from(f.statement));
-        if let Some(v) = f.var_ev { varint(&mut out, u64::from(v)); }
+        if let Some(v) = f.var_ev {
+            varint(&mut out, u64::from(v));
+        }
     }
-    if let Some(v) = s.var_ev { varint(&mut out, u64::from(v)); }
+    if let Some(v) = s.var_ev {
+        varint(&mut out, u64::from(v));
+    }
     out.extend_from_slice(&s.life.to_le_bytes());
     let mut kinds = vec![0u8; s.flags.len().div_ceil(4)];
     let mut rest = vec![];
@@ -174,17 +224,29 @@ pub fn pack(s: &State) -> Box<[u8]> {
             FVal::Undef => 0,
             FVal::Bool(false) => 1,
             FVal::Bool(true) => 2,
-            FVal::Num(n) => { rest.push(0); rest.extend_from_slice(&n.to_le_bytes()); 3 }
-            FVal::Str(x) => { rest.push(1); rest.extend_from_slice(&x.to_le_bytes()); 3 }
+            FVal::Num(n) => {
+                rest.push(0);
+                rest.extend_from_slice(&n.to_le_bytes());
+                3
+            }
+            FVal::Str(x) => {
+                rest.push(1);
+                rest.extend_from_slice(&x.to_le_bytes());
+                3
+            }
         };
         kinds[i / 4] |= k << (i % 4 * 2);
     }
     out.extend_from_slice(&kinds);
     out.extend_from_slice(&rest);
     varint(&mut out, s.evidence.len() as u64);
-    for e in &s.evidence { varint(&mut out, u64::from(*e)); }
+    for e in &s.evidence {
+        varint(&mut out, u64::from(*e));
+    }
     for bits in [&s.visited, &s.seen] {
-        for w in &bits.0 { varint(&mut out, *w); }
+        for w in &bits.0 {
+            varint(&mut out, *w);
+        }
     }
     out.into_boxed_slice()
 }
@@ -203,7 +265,14 @@ pub fn unpack(b: &[u8], m: &Model) -> State {
         at += 1;
         let statement = read_varint(b, &mut at) as u32;
         let var_ev = (h >> 4 & 1 == 1).then(|| read_varint(b, &mut at) as u32);
-        Frame { scene, pc, mode: mode_of(h & 3), phase: phase_of(h >> 2 & 3), statement, var_ev }
+        Frame {
+            scene,
+            pc,
+            mode: mode_of(h & 3),
+            phase: phase_of(h >> 2 & 3),
+            statement,
+            var_ev,
+        }
     });
     let var_ev = (head >> 5 & 1 == 1).then(|| read_varint(b, &mut at) as u32);
     let life = f64::from_le_bytes(b[at..at + 8].try_into().unwrap());
@@ -235,11 +304,26 @@ pub fn unpack(b: &[u8], m: &Model) -> State {
     let ne = read_varint(b, &mut at) as usize;
     let evidence = (0..ne).map(|_| read_varint(b, &mut at) as u32).collect();
     let mut visited = Bits::new(m.visit_count());
-    for w in visited.0.iter_mut() { *w = read_varint(b, &mut at); }
+    for w in visited.0.iter_mut() {
+        *w = read_varint(b, &mut at);
+    }
     let mut seen = Bits::new(m.seen_ids.len());
-    for w in seen.0.iter_mut() { *w = read_varint(b, &mut at); }
+    for w in seen.0.iter_mut() {
+        *w = read_varint(b, &mut at);
+    }
     State {
-        scene, pc, mode: mode_of(head & 3), phase: phase_of(head >> 2 & 3), statement, inspect_from, life, var_ev, flags,
-        evidence, record_locked: head >> 6 & 1 == 1, visited, seen,
+        scene,
+        pc,
+        mode: mode_of(head & 3),
+        phase: phase_of(head >> 2 & 3),
+        statement,
+        inspect_from,
+        life,
+        var_ev,
+        flags,
+        evidence,
+        record_locked: head >> 6 & 1 == 1,
+        visited,
+        seen,
     }
 }

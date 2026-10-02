@@ -59,26 +59,50 @@ pub struct CompleteResult {
 }
 
 /// 網羅的な探索（TS 版の verifyScenario と同じ）
-pub fn verify_complete(model: &model::Model, opts: CompleteOptions) -> Result<CompleteResult, String> {
+pub fn verify_complete(
+    model: &model::Model,
+    opts: CompleteOptions,
+) -> Result<CompleteResult, String> {
     let mut m = model.clone();
     m.max_life = IMMORTAL;
-    let fopts = flow::FlowOptions { all: !opts.liveness, evidence: !opts.ts_exact && opts.liveness };
+    let fopts = flow::FlowOptions {
+        all: !opts.liveness,
+        evidence: !opts.ts_exact && opts.liveness,
+    };
     let prep = Prep::new(&m);
-    let so = SearchOptions { limit: opts.limit, progress: opts.progress, progress_every: 100_000 };
+    let so = SearchOptions {
+        limit: opts.limit,
+        progress: opts.progress,
+        progress_every: 100_000,
+    };
     let (r, findings, parts, part_of) = if opts.parts && !opts.ts_exact {
         let built = flowgraph::build(&m);
         let ps = partsearch::explore_parts(&m, &built, &prep, &so, fopts)?;
-        let stop_of = |id: u32| actions::Stop::Part { part_of: &ps.group_of, part: ps.group_of_id[id as usize] };
+        let stop_of = |id: u32| actions::Stop::Part {
+            part_of: &ps.group_of,
+            part: ps.group_of_id[id as usize],
+        };
         let findings = report::findings(&m, stop_of, &prep, &ps.search, opts.limit, opts.confirm);
         (ps.search, findings, ps.stats, ps.group_of)
     } else {
         let flow = flow::analyze(&m, fopts);
         let r = explore(&m, &flow, &prep, &so)?;
-        let findings = report::findings(&m, |_| actions::Stop::Merge(&flow), &prep, &r, opts.limit, opts.confirm);
+        let findings = report::findings(
+            &m,
+            |_| actions::Stop::Merge(&flow),
+            &prep,
+            &r,
+            opts.limit,
+            opts.confirm,
+        );
         (r, findings, vec![], partsearch::part_table(&m))
     };
     Ok(CompleteResult {
-        findings, states: r.states, truncated: r.truncated, peak_pending: r.peak_pending, peak_pending_bytes: r.peak_pending_bytes,
+        findings,
+        states: r.states,
+        truncated: r.truncated,
+        peak_pending: r.peak_pending,
+        peak_pending_bytes: r.peak_pending_bytes,
         graph_bytes: r.graph.memory(),
         per_scene: r.per_scene,
         parts,
@@ -88,15 +112,29 @@ pub fn verify_complete(model: &model::Model, opts: CompleteOptions) -> Result<Co
 
 /// 差分テスト用: 編ごとの網羅的な探索で見つけた状態から count 個を選び、始まりからその状態までのエンジンの操作の列と、
 /// 着いた状態を返す（TS のエンジンで同じ列を実行して、同じ状態になるかを比べる）
-pub fn sample_paths(model: &model::Model, count: usize, limit: usize) -> Result<Vec<(Vec<String>, state::State)>, String> {
+pub fn sample_paths(
+    model: &model::Model,
+    count: usize,
+    limit: usize,
+) -> Result<Vec<(Vec<String>, state::State)>, String> {
     let mut m = model.clone();
     m.max_life = IMMORTAL;
-    let fopts = flow::FlowOptions { all: false, evidence: true };
+    let fopts = flow::FlowOptions {
+        all: false,
+        evidence: true,
+    };
     let prep = Prep::new(&m);
-    let so = SearchOptions { limit, progress: None, progress_every: usize::MAX };
+    let so = SearchOptions {
+        limit,
+        progress: None,
+        progress_every: usize::MAX,
+    };
     let built = flowgraph::build(&m);
     let ps = partsearch::explore_parts(&m, &built, &prep, &so, fopts)?;
-    let stop_of = |id: u32| actions::Stop::Part { part_of: &ps.group_of, part: ps.group_of_id[id as usize] };
+    let stop_of = |id: u32| actions::Stop::Part {
+        part_of: &ps.group_of,
+        part: ps.group_of_id[id as usize],
+    };
     let n = ps.search.parent.len().min(ps.search.states);
     let mut out = vec![];
     for k in 0..count.min(n) {
@@ -115,7 +153,11 @@ pub fn rich_plain(text: &str) -> String {
     while let Some(i) = rest.find('[') {
         out.push_str(&rest[..i]);
         let after = &rest[i + 1..];
-        if let Some(stripped) = after.strip_prefix('[') { out.push('['); rest = stripped; continue; }
+        if let Some(stripped) = after.strip_prefix('[') {
+            out.push('[');
+            rest = stripped;
+            continue;
+        }
         match after.find(']') {
             Some(j) => rest = &after[j + 1..],
             None => return text.to_string(),
@@ -131,9 +173,22 @@ pub fn verify_json(ir: &str, complete: bool, limit: usize) -> Result<String, Str
     let m = load::load(ir)?;
     if !complete {
         let f = light::check(&m);
-        return Ok(serde_json::json!({ "mode": "light", "findings": report::findings_json(&f) }).to_string());
+        return Ok(
+            serde_json::json!({ "mode": "light", "findings": report::findings_json(&f) })
+                .to_string(),
+        );
     }
-    let r = verify_complete(&m, CompleteOptions { limit, liveness: true, ts_exact: false, parts: true, confirm: None, progress: None })?;
+    let r = verify_complete(
+        &m,
+        CompleteOptions {
+            limit,
+            liveness: true,
+            ts_exact: false,
+            parts: true,
+            confirm: None,
+            progress: None,
+        },
+    )?;
     Ok(serde_json::json!({
         "mode": "complete", "states": r.states, "truncated": r.truncated, "findings": report::findings_json(&r.findings),
         "parts": r.parts.iter().map(|p| serde_json::json!({ "id": p.id, "states": p.states, "entries": p.entries, "versions": p.versions, "sec": p.sec })).collect::<Vec<_>>(),

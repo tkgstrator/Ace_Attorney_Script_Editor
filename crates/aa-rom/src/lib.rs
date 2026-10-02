@@ -7,8 +7,8 @@
 
 pub mod archives;
 pub mod bytes;
-pub mod charset;
 pub mod chars;
+pub mod charset;
 pub mod databin;
 pub mod desks;
 pub mod font;

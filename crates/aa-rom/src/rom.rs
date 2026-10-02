@@ -18,7 +18,11 @@ impl<'a> Rom<'a> {
 
     /// NitroFS のファイルの中身
     pub fn file(&self, path: &str) -> Result<&'a [u8]> {
-        let f = self.files.iter().find(|f| f.path == path).ok_or_else(|| Error(format!("ファイルが無い: {path}")))?;
+        let f = self
+            .files
+            .iter()
+            .find(|f| f.path == path)
+            .ok_or_else(|| Error(format!("ファイルが無い: {path}")))?;
         Ok(crate::bytes::py_slice(self.bytes, f.start, f.end))
     }
 
@@ -33,7 +37,10 @@ impl<'a> Rom<'a> {
     /// files: NitroFS のファイルをそのまま files/ に
     pub fn export_files(&self, out: &mut dyn Sink) -> Result<()> {
         for f in &self.files {
-            out.put(&format!("files/{}", f.path), crate::bytes::py_slice(self.bytes, f.start, f.end).to_vec());
+            out.put(
+                &format!("files/{}", f.path),
+                crate::bytes::py_slice(self.bytes, f.start, f.end).to_vec(),
+            );
         }
         out.log(&format!("  {} 個", self.files.len()));
         Ok(())
@@ -41,23 +48,51 @@ impl<'a> Rom<'a> {
 
     /// archives: data.bin の先頭の画像アーカイブを data/archiveN/ に
     pub fn export_archives(&self, out: &mut dyn Sink, raw: bool) -> Result<()> {
-        archives::export(self.data_bin()?, &mut Prefixed { inner: out, prefix: "data".into() }, raw)?;
+        archives::export(
+            self.data_bin()?,
+            &mut Prefixed {
+                inner: out,
+                prefix: "data".into(),
+            },
+            raw,
+        )?;
         Ok(())
     }
 
     /// tail: data.bin の後半を data/tail/ に
     pub fn export_tail(&self, out: &mut dyn Sink, raw: bool) -> Result<tail::TailSummary> {
-        tail::export(self.data_bin()?, self.arm9()?, &mut Prefixed { inner: out, prefix: "data/tail".into() }, raw)
+        tail::export(
+            self.data_bin()?,
+            self.arm9()?,
+            &mut Prefixed {
+                inner: out,
+                prefix: "data/tail".into(),
+            },
+            raw,
+        )
     }
 
     /// sound: sound_data.sdat を分割して sound/raw/ に
     pub fn export_sound_raw(&self, out: &mut dyn Sink) -> Result<()> {
-        crate::sound::export_raw(self.file("sound_data.sdat")?, &mut Prefixed { inner: out, prefix: "sound".into() })?;
+        crate::sound::export_raw(
+            self.file("sound_data.sdat")?,
+            &mut Prefixed {
+                inner: out,
+                prefix: "sound".into(),
+            },
+        )?;
         Ok(())
     }
 
     /// desks: 法廷の机を data/desks/ に
     pub fn export_desks(&self, out: &mut dyn Sink) -> Result<()> {
-        desks::export(self.data_bin()?, self.arm9()?, &mut Prefixed { inner: out, prefix: "data/desks".into() })
+        desks::export(
+            self.data_bin()?,
+            self.arm9()?,
+            &mut Prefixed {
+                inner: out,
+                prefix: "data/desks".into(),
+            },
+        )
     }
 }

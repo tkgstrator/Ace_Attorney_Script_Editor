@@ -42,7 +42,11 @@ pub fn decode_adpcm(body: &[u8]) -> Result<Vec<i16>> {
             if d & 4 != 0 {
                 diff += step;
             }
-            pred = if d & 8 != 0 { (pred - diff).max(-0x7FFF) } else { (pred + diff).min(0x7FFF) };
+            pred = if d & 8 != 0 {
+                (pred - diff).max(-0x7FFF)
+            } else {
+                (pred + diff).min(0x7FFF)
+            };
             idx = (idx + ADPCM_INDEX[(d & 7) as usize]).clamp(0, 88);
             out.push(pred as i16);
         }
@@ -51,12 +55,30 @@ pub fn decode_adpcm(body: &[u8]) -> Result<Vec<i16>> {
 }
 
 pub fn parse_swav(body: &[u8]) -> Result<Wave> {
-    let (fmt, looped, _rate, timer, loop_ofs, loop_len) =
-        (u8_at(body, 0)?, u8_at(body, 1)?, u16_at(body, 2)?, u16_at(body, 4)?, u16_at(body, 6)? as usize, u32_at(body, 8)? as usize);
+    let (fmt, looped, _rate, timer, loop_ofs, loop_len) = (
+        u8_at(body, 0)?,
+        u8_at(body, 1)?,
+        u16_at(body, 2)?,
+        u16_at(body, 4)?,
+        u16_at(body, 6)? as usize,
+        u32_at(body, 8)? as usize,
+    );
     let raw = crate::bytes::py_slice(body, 12, 12 + (loop_ofs + loop_len) * 4);
     let (mut data, ls, delay): (Vec<i16>, usize, i64) = match fmt {
-        0 => (raw.iter().map(|&b| (b as i8 as i16) << 8).collect(), loop_ofs * 4, 3),
-        1 => (raw.as_chunks::<2>().0.iter().map(|c| i16::from_le_bytes([c[0], c[1]])).collect(), loop_ofs * 2, 3),
+        0 => (
+            raw.iter().map(|&b| (b as i8 as i16) << 8).collect(),
+            loop_ofs * 4,
+            3,
+        ),
+        1 => (
+            raw.as_chunks::<2>()
+                .0
+                .iter()
+                .map(|c| i16::from_le_bytes([c[0], c[1]]))
+                .collect(),
+            loop_ofs * 2,
+            3,
+        ),
         2 => (decode_adpcm(raw)?, loop_ofs.saturating_sub(1) * 8, 11),
         _ => return err(format!("不明な波形の形式 {fmt}")),
     };
@@ -64,7 +86,13 @@ pub fn parse_swav(body: &[u8]) -> Result<Wave> {
         data = vec![0];
     }
     let ls = ls.min(data.len() - 1) as i64;
-    Ok(Wave { data, timer: timer as i64, looped: looped != 0, loop_start: ls, start_delay: delay })
+    Ok(Wave {
+        data,
+        timer: timer as i64,
+        looped: looped != 0,
+        loop_start: ls,
+        start_delay: delay,
+    })
 }
 
 pub fn parse_swar(body: &[u8]) -> Result<Vec<Option<Wave>>> {
@@ -72,7 +100,9 @@ pub fn parse_swar(body: &[u8]) -> Result<Vec<Option<Wave>>> {
         return err("SWAR ではありません");
     }
     let n = u32_at(body, 0x38)? as usize;
-    let offs: Vec<usize> = (0..n).map(|i| u32_at(body, 0x3C + 4 * i).map(|v| v as usize)).collect::<Result<_>>()?;
+    let offs: Vec<usize> = (0..n)
+        .map(|i| u32_at(body, 0x3C + 4 * i).map(|v| v as usize))
+        .collect::<Result<_>>()?;
     Ok(offs
         .iter()
         .enumerate()
@@ -80,7 +110,11 @@ pub fn parse_swar(body: &[u8]) -> Result<Vec<Option<Wave>>> {
             if off == 0 {
                 return None;
             }
-            let end = offs[i + 1..].iter().copied().find(|&o| o > off).unwrap_or(body.len());
+            let end = offs[i + 1..]
+                .iter()
+                .copied()
+                .find(|&o| o > off)
+                .unwrap_or(body.len());
             parse_swav(crate::bytes::py_slice(body, off, end)).ok()
         })
         .collect())

@@ -32,5 +32,9 @@ fn main() {
         eprintln!("失敗しました: {e}");
         std::process::exit(1);
     }
-    println!("完了（{:.1} 秒）: {}", t0.elapsed().as_secs_f64(), a.out.display());
+    println!(
+        "完了（{:.1} 秒）: {}",
+        t0.elapsed().as_secs_f64(),
+        a.out.display()
+    );
 }

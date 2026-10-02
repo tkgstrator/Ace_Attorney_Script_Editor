@@ -14,7 +14,11 @@ const RATE: i64 = OUTPUT_RATE_INT;
 
 /// 左右が交互に並んだもの（Python の (n, 2) の配列を平らにしたもの）の i 番目
 fn inter(l: &[f64], r: &[f64], i: usize) -> f64 {
-    if i.is_multiple_of(2) { l[i / 2] } else { r[i / 2] }
+    if i.is_multiple_of(2) {
+        l[i / 2]
+    } else {
+        r[i / 2]
+    }
 }
 
 fn rms_db(l: &[f64], r: &[f64]) -> f64 {
@@ -23,7 +27,11 @@ fn rms_db(l: &[f64], r: &[f64]) -> f64 {
     }
     let n = l.len() * 2;
     let v = (np_sum_by(n, &|i| inter(l, r, i) * inter(l, r, i)) / n as f64).sqrt();
-    if v > 0.0 { 20.0 * v.log10() } else { f64::NEG_INFINITY }
+    if v > 0.0 {
+        20.0 * v.log10()
+    } else {
+        f64::NEG_INFINITY
+    }
 }
 
 /// スペクトルの重心（Hz）
@@ -47,7 +55,11 @@ fn centroid(l: &[f64], r: &[f64]) -> f64 {
     drop(buf);
     let val = 1.0 / (m as f64 * (1.0 / RATE as f64));
     let s = np_sum(&spec);
-    if s > 0.0 { np_sum_by(half, &|i| spec[i] * (i as f64 * val)) / s } else { 0.0 }
+    if s > 0.0 {
+        np_sum_by(half, &|i| spec[i] * (i as f64 * val)) / s
+    } else {
+        0.0
+    }
 }
 
 /// 16 ビット ステレオの WAV（Python の wave と同じ 44 バイトの見出し）
@@ -103,39 +115,86 @@ pub fn write_one(category: &str, info: &SeqInfo, r: Rendered) -> One {
     } else {
         // 後ろの完全な無音は切る。シーケンスとしての長さは sequenceDuration に残す
         seq_dur = Some(frames as f64 / RATE as f64);
-        (0..frames).rev().find(|&i| l[i].abs().max(rr[i].abs()) >= 0.5 / 32768.0).map_or(0, |i| i + 1)
+        (0..frames)
+            .rev()
+            .find(|&i| l[i].abs().max(rr[i].abs()) >= 0.5 / 32768.0)
+            .map_or(0, |i| i + 1)
     };
     l.truncate(cut);
     rr.truncate(cut);
     let peak = l.iter().chain(&rr).fold(0.0f64, |m, x| m.max(x.abs()));
-    let clipped = l.iter().chain(&rr).filter(|x| x.abs() > 32767.0 / 32768.0).count();
+    let clipped = l
+        .iter()
+        .chain(&rr)
+        .filter(|x| x.abs() > 32767.0 / 32768.0)
+        .count();
     let to16 = |x: f64| (x * 32768.0).round_ties_even().clamp(-32768.0, 32767.0) as i16;
-    let pcm: Vec<i16> = l.iter().zip(&rr).flat_map(|(a, b)| [to16(*a), to16(*b)]).collect();
+    let pcm: Vec<i16> = l
+        .iter()
+        .zip(&rr)
+        .flat_map(|(a, b)| [to16(*a), to16(*b)])
+        .collect();
     let n = cut;
-    let check = Json::obj().with("peak", peak).with("clipped", clipped).with("rmsDb", rms_db(&l, &rr)).with("centroidHz", centroid(&l, &rr));
+    let check = Json::obj()
+        .with("peak", peak)
+        .with("clipped", clipped)
+        .with("rmsDb", rms_db(&l, &rr))
+        .with("centroidHz", centroid(&l, &rr));
     let mut e = Json::obj()
-        .with("name", info.name.clone()).with("category", category).with("sdatIndex", info.index).with("fileId", info.file_id)
-        .with("bank", info.bank).with("volume", info.volume).with("channelPriority", info.channel_prio)
-        .with("playerPriority", info.player_prio).with("player", info.player)
-        .with("wav", format!("{category}/{}.wav", info.name)).with("ogg", Json::Null)
-        .with("sampleRate", RATE).with("samples", n).with("duration", n as f64 / RATE as f64)
-        .with("loop", Json::Null).with("peak", peak).with("check", check)
-        .with("finished", r.finished).with("capped", r.capped).with("bankName", r.bank_name.clone())
-        .with("waveArchives", r.wave_archives.clone()).with("tracks", r.tracks)
-        .with("missingWaves", r.missing_waves.clone()).with("usesRandom", r.uses_random);
+        .with("name", info.name.clone())
+        .with("category", category)
+        .with("sdatIndex", info.index)
+        .with("fileId", info.file_id)
+        .with("bank", info.bank)
+        .with("volume", info.volume)
+        .with("channelPriority", info.channel_prio)
+        .with("playerPriority", info.player_prio)
+        .with("player", info.player)
+        .with("wav", format!("{category}/{}.wav", info.name))
+        .with("ogg", Json::Null)
+        .with("sampleRate", RATE)
+        .with("samples", n)
+        .with("duration", n as f64 / RATE as f64)
+        .with("loop", Json::Null)
+        .with("peak", peak)
+        .with("check", check)
+        .with("finished", r.finished)
+        .with("capped", r.capped)
+        .with("bankName", r.bank_name.clone())
+        .with("waveArchives", r.wave_archives.clone())
+        .with("tracks", r.tracks)
+        .with("missingWaves", r.missing_waves.clone())
+        .with("usesRandom", r.uses_random);
     if let Some(d) = seq_dur {
         e.set("sequenceDuration", d);
     }
     if let Some(lp) = &r.loop_ {
-        let (s, en) = (lp.start_sample as f64 / RATE as f64, lp.end_sample as f64 / RATE as f64);
-        e.set("loop", Json::obj()
-            .with("startSample", lp.start_sample).with("endSample", lp.end_sample).with("start", s).with("end", en)
-            .with("startTick", lp.start_tick).with("endTick", lp.end_tick).with("lengthTicks", lp.length_ticks)
-            .with("endShift", lp.end_shift).with("seamError", lp.seam_error).with("seamRms", seam.unwrap_or(f64::NAN)));
+        let (s, en) = (
+            lp.start_sample as f64 / RATE as f64,
+            lp.end_sample as f64 / RATE as f64,
+        );
+        e.set(
+            "loop",
+            Json::obj()
+                .with("startSample", lp.start_sample)
+                .with("endSample", lp.end_sample)
+                .with("start", s)
+                .with("end", en)
+                .with("startTick", lp.start_tick)
+                .with("endTick", lp.end_tick)
+                .with("lengthTicks", lp.length_ticks)
+                .with("endShift", lp.end_shift)
+                .with("seamError", lp.seam_error)
+                .with("seamRms", seam.unwrap_or(f64::NAN)),
+        );
         e.set("loopStart", s);
         e.set("loopEnd", en);
     }
-    One { wav: wav(&pcm), json: e.dumps(), entry: e }
+    One {
+        wav: wav(&pcm),
+        json: e.dumps(),
+        entry: e,
+    }
 }
 
 /// JSON に書けない inf / nan を null にする
@@ -157,7 +216,13 @@ pub fn script_uses(texts: &[String]) -> std::collections::BTreeMap<i64, Vec<(Str
         while let Some(p) = t[i..].find('[') {
             let s = i + p + 1;
             i = s;
-            let kind = if b[s..].starts_with(b"bgm ") { "bgm" } else if b[s..].starts_with(b"se ") { "se" } else { continue };
+            let kind = if b[s..].starts_with(b"bgm ") {
+                "bgm"
+            } else if b[s..].starts_with(b"se ") {
+                "se"
+            } else {
+                continue;
+            };
             let ds = s + kind.len() + 1;
             let de = ds + b[ds..].iter().take_while(|c| c.is_ascii_digit()).count();
             if de == ds {
@@ -176,12 +241,17 @@ pub fn script_uses(texts: &[String]) -> std::collections::BTreeMap<i64, Vec<(Str
 }
 
 /// index.json と index.html の中身。entries は sdatIndex の順に並べ直す
-pub fn write_index(mut entries: Vec<Json>, uses: &std::collections::BTreeMap<i64, Vec<(String, i64)>>) -> (String, String) {
+pub fn write_index(
+    mut entries: Vec<Json>,
+    uses: &std::collections::BTreeMap<i64, Vec<(String, i64)>>,
+) -> (String, String) {
     entries.sort_by_key(|e| e.get("sdatIndex").and_then(Json::as_i64).unwrap_or(0));
     for e in &mut entries {
         let id = e.get("sdatIndex").and_then(Json::as_i64).unwrap_or(0);
         e.set("scriptId", id);
-        let u = uses.get(&id).map_or(Json::obj(), |v| Json::Obj(v.iter().map(|(k, n)| (k.clone(), Json::from(*n))).collect()));
+        let u = uses.get(&id).map_or(Json::obj(), |v| {
+            Json::Obj(v.iter().map(|(k, n)| (k.clone(), Json::from(*n))).collect())
+        });
         e.set("scriptUses", u);
     }
     let doc = Json::obj()
