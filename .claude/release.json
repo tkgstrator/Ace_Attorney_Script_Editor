@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "version": {
+    "source": "Cargo.toml",
+    "derivedFiles": ["Cargo.lock"],
+    "bumpCommand": null
+  },
+  "branches": {
+    "source": "develop",
+    "target": "master"
+  },
+  "pullRequest": {
+    "titleTemplate": "release: merge develop into master",
+    "mergeMethod": "merge"
+  },
+  "tag": {
+    "template": "tools-v{version}",
+    "annotated": true
+  },
+  "checks": {
+    "required": []
+  },
+  "workflows": {
+    "releaseFiles": [".github/workflows/rust-release.yml"],
+    "triggerFingerprint": "sha256:af8a8ce869cc4fe940af853641e6c1f5eb6c30095d39c3ddf8e7e884872ca19c"
+  },
+  "notes": {
+    "mode": "workflow-generated",
+    "file": null
+  },
+  "artifacts": {
+    "buildCommands": [],
+    "paths": []
+  }
+}
