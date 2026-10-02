@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aa-ctr"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes",
  "ctr",
@@ -17,7 +17,7 @@ dependencies = [
 
 [[package]]
 name = "aa-extract"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aa-rom",
  "rayon",
@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "aa-rom"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "gif",
@@ -37,14 +37,14 @@ dependencies = [
 
 [[package]]
 name = "aa-verify"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "aa-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aa-rom",
  "js-sys",
