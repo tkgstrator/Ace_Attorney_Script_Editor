@@ -19,7 +19,10 @@ fn opt_text(p: Option<&Path>) -> Result<Option<String>, aa_rom::Error> {
 pub fn options(a: &Args) -> Result<Options, aa_rom::Error> {
     let mut also = Vec::new();
     for dir in &a.font_also {
-        let name = dir.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        let name = dir
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
         let fx = repo_root().join(format!("tools/rom/font_fixes.{name}.tsv"));
         also.push(OtherFontText {
             glyphs: read_text(&dir.join("glyphs.txt"))?,
@@ -41,7 +44,12 @@ pub fn options(a: &Args) -> Result<Options, aa_rom::Error> {
 
 pub fn list_files(dir: &Path, ext: &str) -> Vec<String> {
     let mut v: Vec<String> = std::fs::read_dir(dir)
-        .map(|it| it.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.ends_with(ext)).collect())
+        .map(|it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| n.ends_with(ext))
+                .collect()
+        })
         .unwrap_or_default();
     v.sort();
     v
@@ -52,11 +60,22 @@ pub fn preload(a: &Args, st: &mut State) {
     let has = |s: &str| a.steps.iter().any(|x| x == s);
     let bg = a.out.join("data/tail/bg");
     if !has("tail") && bg.exists() {
-        st.tail = Some(TailSummary { bg_pngs: list_files(&bg, ".png"), tex_pngs: list_files(&a.out.join("data/tail/tex"), ".png") });
+        st.tail = Some(TailSummary {
+            bg_pngs: list_files(&bg, ".png"),
+            tex_pngs: list_files(&a.out.join("data/tail/tex"), ".png"),
+        });
     }
     let sc = a.out.join("script");
     if !has("script") && sc.exists() {
         let names = list_files(&sc, ".txt");
-        st.script_txt = Some(names.iter().map(|n| String::from_utf8_lossy(&std::fs::read(sc.join(n)).unwrap_or_default()).into_owned()).collect());
+        st.script_txt = Some(
+            names
+                .iter()
+                .map(|n| {
+                    String::from_utf8_lossy(&std::fs::read(sc.join(n)).unwrap_or_default())
+                        .into_owned()
+                })
+                .collect(),
+        );
     }
 }

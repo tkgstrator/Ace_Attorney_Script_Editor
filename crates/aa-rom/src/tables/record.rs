@@ -42,8 +42,11 @@ fn blip_se(b: u8) -> Option<u8> {
 }
 
 fn pack_items(d: &[u8], base: usize) -> Result<Vec<Vec<u8>>> {
-    let (ents, _) = read_pack(d, base).ok_or_else(|| crate::Error(format!("パックが読めません: {base:#x}")))?;
-    ents.iter().map(|&(p, _)| decompress(d, p).map(|r| r.0)).collect()
+    let (ents, _) =
+        read_pack(d, base).ok_or_else(|| crate::Error(format!("パックが読めません: {base:#x}")))?;
+    ents.iter()
+        .map(|&(p, _)| decompress(d, p).map(|r| r.0))
+        .collect()
 }
 
 fn nametag_image(d: &[u8], lang: usize, n: usize) -> Result<Indexed> {
@@ -55,7 +58,10 @@ fn nametag_image(d: &[u8], lang: usize, n: usize) -> Result<Indexed> {
 
 fn icon_image(d: &[u8], s: usize) -> Result<(Indexed, Vec<Rgb>)> {
     let pal = gfx::palette(py_slice(d, s, s + 32));
-    Ok((gfx::tiled(&gfx::unpack4(py_slice(d, s + 32, s + ICON_STRIDE)), 64, 64)?, pal))
+    Ok((
+        gfx::tiled(&gfx::unpack4(py_slice(d, s + 32, s + ICON_STRIDE)), 64, 64)?,
+        pal,
+    ))
 }
 
 /// 説明文（64×32 の OBJ ブロック 4 個を 128×64 に並べ替える。tailfmt と同じ）
@@ -104,20 +110,36 @@ pub fn export(d: &[u8], a: &[u8], out: &mut dyn Sink) -> Result<()> {
     let mut names = Vec::new();
     for n in 0..NAMETAG_COUNT {
         for (li, lang) in LANGS.iter().enumerate() {
-            out.put(&format!("record/nametag/{lang}/{n:02}.png"), gfx::png_indexed(&nametag_image(d, li, n)?, &tag_pal, false));
+            out.put(
+                &format!("record/nametag/{lang}/{n:02}.png"),
+                gfx::png_indexed(&nametag_image(d, li, n)?, &tag_pal, false),
+            );
         }
         let blip = a[BLIP_TABLE - B + n];
         let text = |li: usize| match tag_text.get(LANGS[li]) {
             Some(Json::Arr(v)) => v[n].clone(),
             _ => Json::Null,
         };
-        names.push(Json::obj()
-            .with("id", n)
-            .with("text", lang_obj(text))
-            .with("image", lang_obj(|li| Json::from(format!("record/nametag/{}/{n:02}.png", LANGS[li]))))
-            .with("data_bin", lang_obj(|li| Json::from(format!("{:#x}", NAMETAG[li] + (n / 5) * 0x800 + (n % 5) * 0xc0))))
-            .with("blip", blip)
-            .with("blip_se", blip_se(blip)));
+        names.push(
+            Json::obj()
+                .with("id", n)
+                .with("text", lang_obj(text))
+                .with(
+                    "image",
+                    lang_obj(|li| Json::from(format!("record/nametag/{}/{n:02}.png", LANGS[li]))),
+                )
+                .with(
+                    "data_bin",
+                    lang_obj(|li| {
+                        Json::from(format!(
+                            "{:#x}",
+                            NAMETAG[li] + (n / 5) * 0x800 + (n % 5) * 0xc0
+                        ))
+                    }),
+                )
+                .with("blip", blip)
+                .with("blip_se", blip_se(blip)),
+        );
     }
     let doc = Json::obj()
         .with("_about", "命令 14 name の名前の番号（引数 >> 8）。下位 8 ビットが 0 でなければ名札を右端（x=208）に出す（台本では未使用）。名札は 48×16。日本語は BG の行 16〜17（y=128）、英語は行 14〜15（y=112）、x=0。その下の行に枠の下端。blip = 文字送りの音の種類（0x020aabc0）、blip_se = その効果音の番号。text は画像から読み取ったもの")
@@ -135,22 +157,34 @@ pub fn export(d: &[u8], a: &[u8], out: &mut dyn Sink) -> Result<()> {
     for (li, lang) in LANGS.iter().enumerate() {
         for (i, b) in pack_items(d, NAME_PACK[li])?.iter().enumerate() {
             let img = gfx::obj_blocks(&gfx::unpack4(b), 128, 16, 32, 16)?;
-            out.put(&format!("record/name/{lang}/{i:03}.png"), gfx::png_indexed(&img, &name_pal, false));
+            out.put(
+                &format!("record/name/{lang}/{i:03}.png"),
+                gfx::png_indexed(&img, &name_pal, false),
+            );
         }
         for (i, b) in pack_items(d, DESC_PACK[li])?.iter().enumerate() {
-            out.put(&format!("record/desc/{lang}/{i:03}.png"), gfx::png_indexed(&desc_image(b)?, &desc_pal, false));
+            out.put(
+                &format!("record/desc/{lang}/{i:03}.png"),
+                gfx::png_indexed(&desc_image(b)?, &desc_pal, false),
+            );
         }
     }
     let n_icons = (ICON[1] - ICON[0]) / ICON_STRIDE;
     for (li, lang) in LANGS.iter().enumerate() {
         for i in 0..n_icons {
             let (idx, pal) = icon_image(d, ICON[li] + i * ICON_STRIDE)?;
-            out.put(&format!("record/icon/{lang}/{i:03}.png"), gfx::png_indexed(&idx, &pal, true));
+            out.put(
+                &format!("record/icon/{lang}/{i:03}.png"),
+                gfx::png_indexed(&idx, &pal, true),
+            );
         }
     }
     for i in 0..(ICON_DS_END - ICON_DS) / ICON_STRIDE {
         let (idx, pal) = icon_image(d, ICON_DS + i * ICON_STRIDE)?;
-        out.put(&format!("record/icon_ds/{i:03}.png"), gfx::png_indexed(&idx, &pal, true));
+        out.put(
+            &format!("record/icon_ds/{i:03}.png"),
+            gfx::png_indexed(&idx, &pal, true),
+        );
     }
 
     let starts = start_lists(a);
@@ -170,12 +204,39 @@ pub fn export(d: &[u8], a: &[u8], out: &mut dyn Sink) -> Result<()> {
             .with("desc_index_alt", f[4])
             .with("check", f[5])
             .with("model3d", f[6])
-            .with("image", Json::obj()
-                .with("icon", lang_obj(|li| Json::from(format!("record/icon/{}/{icon:03}.png", LANGS[li]))))
-                .with("name", lang_obj(|li| Json::from(format!("record/name/{}/{:03}.png", LANGS[li], if li == 0 { nja } else { nen }))))
-                .with("desc", lang_obj(|li| Json::from(format!("record/desc/{}/{desc:03}.png", LANGS[li])))));
+            .with(
+                "image",
+                Json::obj()
+                    .with(
+                        "icon",
+                        lang_obj(|li| {
+                            Json::from(format!("record/icon/{}/{icon:03}.png", LANGS[li]))
+                        }),
+                    )
+                    .with(
+                        "name",
+                        lang_obj(|li| {
+                            Json::from(format!(
+                                "record/name/{}/{:03}.png",
+                                LANGS[li],
+                                if li == 0 { nja } else { nen }
+                            ))
+                        }),
+                    )
+                    .with(
+                        "desc",
+                        lang_obj(|li| {
+                            Json::from(format!("record/desc/{}/{desc:03}.png", LANGS[li]))
+                        }),
+                    ),
+            );
         if let Some(Json::Arr(t)) = texts.get(&i.to_string()) {
-            e.set("text_ja", Json::obj().with("name", t[0].clone()).with("desc", t[1].clone()));
+            e.set(
+                "text_ja",
+                Json::obj()
+                    .with("name", t[0].clone())
+                    .with("desc", t[1].clone()),
+            );
         }
         if i < 256 && pr_used.contains(&(i as u8)) {
             e.set("start_as", "profile");
@@ -184,8 +245,14 @@ pub fn export(d: &[u8], a: &[u8], out: &mut dyn Sink) -> Result<()> {
         }
         items.push(e);
     }
-    let start_json: Vec<Json> = starts.iter()
-        .map(|(p, prof, ev)| Json::obj().with("part", *p).with("profiles", prof.clone()).with("evidence", ev.clone()))
+    let start_json: Vec<Json> = starts
+        .iter()
+        .map(|(p, prof, ev)| {
+            Json::obj()
+                .with("part", *p)
+                .with("profiles", prof.clone())
+                .with("evidence", ev.clone())
+        })
         .collect();
     let doc = Json::obj()
         .with("_about", "法廷記録の番号（命令 23/24/25/19 の下位 14 ビット、または 8 ビット）→ 絵と文字。証拠品と人物ファイルは同じ表を使い、ビット 15 は入れる一覧（0 = 証拠品 0x020ce240, 1 = 人物 0x020ce260、各 32 個）だけを決める。check = 0 でなければ「詳しく調べる」がある、model3d = 第 5 話の 3D の番号（推測）。text_ja は第 1 話で使うものだけ画像から読み取った。desc_index_alt は英語のときの下画面の処理（0x02083fe8、0x02b62684 + 番号 * 0x2034）が使う別の番号で、説明文のパックの番号とは合わない（未解明）")

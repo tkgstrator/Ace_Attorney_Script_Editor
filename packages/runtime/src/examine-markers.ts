@@ -2,6 +2,7 @@
 // どれも 7×7 ドットほどの小さな印で、調べるときのカーソル（十字）の真ん中の空きに収まる大きさにする。
 // まだ調べていない所は目立つ色のひし形がゆっくり脈打ち、調べた所は落ち着いた色のチェックの印（形でも見分けられる）
 import type { ExamineSpot } from '@gyakusai/core';
+import { SCREEN_H, SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
 const EDGE = '#000000';
@@ -23,13 +24,12 @@ export function drawExamineMarkers(
   reduceMotion = false,
   origin: readonly [number, number] = [0, 0],
 ): void {
-  const { w: W, h: H } = p.layout;
   const small = !reduceMotion && frame % PULSE_FRAMES < SMALL_FRAMES;
   for (const s of spots) {
     if (!s.point) continue;
     const x = s.point[0] - origin[0],
       y = s.point[1] - origin[1];
-    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H) continue;
     if (s.seen) check(p, x, y);
     else diamond(p, x, y, small ? 2 : 3);
   }

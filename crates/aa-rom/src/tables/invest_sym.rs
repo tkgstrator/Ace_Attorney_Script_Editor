@@ -159,14 +159,29 @@ fn constrain(p: &mut Path, cc: &str, truth: bool) {
         p.cmp = Some((Some(V::Int(if en { 1 } else { 0 })), Some(V::Int(1))));
         return;
     }
-    p.cond.push(Cond::Other(format!("{} {cc} {}", py_str(&a), py_str(&b)), truth));
+    p.cond.push(Cond::Other(
+        format!("{} {cc} {}", py_str(&a), py_str(&b)),
+        truth,
+    ));
 }
 
 fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> Result<Res> {
     match base {
         "push" | "stm" | "str" | "strb" | "strh" | "cmn" | "tst" | "nop" => return Ok(Res::Next),
-        "bx" => return Ok(if ops.trim() == "lr" { Res::Ret } else { Res::Fork }),
-        "pop" | "ldm" => return Ok(if ops.contains("pc") { Res::Ret } else { Res::Next }),
+        "bx" => {
+            return Ok(if ops.trim() == "lr" {
+                Res::Ret
+            } else {
+                Res::Fork
+            })
+        }
+        "pop" | "ldm" => {
+            return Ok(if ops.contains("pc") {
+                Res::Ret
+            } else {
+                Res::Next
+            })
+        }
         "b" => return Ok(Res::Jump(imm_of(ops).unwrap_or(0))),
         "bl" => {
             let tgt = imm_of(ops).unwrap_or(0);
@@ -174,10 +189,13 @@ fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> 
             if INLINE.contains(&tgt) {
                 return Ok(Res::Call(tgt));
             }
-            let ints: Vec<Option<i64>> = args.iter().map(|a| match a {
-                Some(V::Int(i)) => Some(*i),
-                _ => None,
-            }).collect();
+            let ints: Vec<Option<i64>> = args
+                .iter()
+                .map(|a| match a {
+                    Some(V::Int(i)) => Some(*i),
+                    _ => None,
+                })
+                .collect();
             if tgt == FLAG_TEST && ints[0].is_some() && ints[1].is_some() {
                 let fl = (ints[0].unwrap(), ints[1].unwrap());
                 let v = match p.flags.get(&fl) {
@@ -192,9 +210,13 @@ fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> 
                     Some(Some(n)) => n.to_string(),
                     _ => format!("call_{tgt:08x}"),
                 };
-                p.acts.push(Act { name, args: ints.clone() });
+                p.acts.push(Act {
+                    name,
+                    args: ints.clone(),
+                });
                 if tgt == 0x0201a170 && ints[..3].iter().all(Option::is_some) {
-                    p.flags.insert((ints[0].unwrap(), ints[1].unwrap()), ints[2].unwrap());
+                    p.flags
+                        .insert((ints[0].unwrap(), ints[1].unwrap()), ints[2].unwrap());
                 }
                 if tgt == 0x02023960 {
                     if let Some(x) = ints[0] {
@@ -214,7 +236,11 @@ fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> 
     let first = parts[0].clone();
     match base {
         "mov" | "movs" | "mvn" => {
-            let mut v = if parts.len() == 2 { val(p, &parts[1]) } else { None };
+            let mut v = if parts.len() == 2 {
+                val(p, &parts[1])
+            } else {
+                None
+            };
             if base == "mvn" {
                 if let Some(V::Int(i)) = v {
                     v = Some(V::Int(!i & 0xffff_ffff));
@@ -229,17 +255,30 @@ fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> 
             }
         }
         "ldr" if ops.contains("[pc") => {
-            let imm = if ops.contains('#') { parse_int0(ops.rsplit('#').next().unwrap().trim_end_matches(']')).unwrap_or(0) } else { 0 };
+            let imm = if ops.contains('#') {
+                parse_int0(ops.rsplit('#').next().unwrap().trim_end_matches(']')).unwrap_or(0)
+            } else {
+                0
+            };
             let addr = ((pc as i64 + 8) & !3) + imm;
             let w = a9.u32(addr as u32)?;
-            p.set(&first, Some(if w == GAME { V::Game } else { V::Int(w as i64) }));
+            p.set(
+                &first,
+                Some(if w == GAME { V::Game } else { V::Int(w as i64) }),
+            );
         }
         b if b.starts_with("ldr") => {
             let mut v = None;
             if let Some((r, off)) = parts.get(1).and_then(|s| match_mem(s)) {
                 if p.get(&r) == Some(V::Game) {
                     let off = off.unwrap_or(0);
-                    v = Some(if off == 0x68 { V::Int(place) } else if off == 0x69 { V::Int(p.part) } else { V::GameOff(off) });
+                    v = Some(if off == 0x68 {
+                        V::Int(place)
+                    } else if off == 0x69 {
+                        V::Int(p.part)
+                    } else {
+                        V::GameOff(off)
+                    });
                 }
             }
             p.set(&first, v);
@@ -267,8 +306,20 @@ fn step(a9: &Arm9, p: &mut Path, pc: u32, base: &str, ops: &str, place: i64) -> 
                     "and" => a & b,
                     "orr" => a | b,
                     "bic" => a & !b,
-                    "lsl" => if b < 63 { a.wrapping_shl(b as u32) } else { 0 },
-                    _ => if b < 63 { a >> b } else { 0 },
+                    "lsl" => {
+                        if b < 63 {
+                            a.wrapping_shl(b as u32)
+                        } else {
+                            0
+                        }
+                    }
+                    _ => {
+                        if b < 63 {
+                            a >> b
+                        } else {
+                            0
+                        }
+                    }
                 };
                 v = Some(V::Int(r & 0xffff_ffff));
             }
@@ -291,19 +342,33 @@ pub fn run(a9: &Arm9, func: u32, place: i64, part: i64) -> Result<Vec<Way>> {
     let mut done: Vec<Path> = Vec::new();
     let mut regs = HashMap::new();
     regs.insert("r0".to_string(), V::Game);
-    let start = Path { regs, cond: vec![], acts: vec![], flags: HashMap::new(), part, stack: vec![], cmp: None };
+    let start = Path {
+        regs,
+        cond: vec![],
+        acts: vec![],
+        flags: HashMap::new(),
+        part,
+        stack: vec![],
+        cmp: None,
+    };
     let mut work: Vec<(u32, Path)> = vec![(func, start)];
     while let Some((mut pc, mut p)) = work.pop() {
         let mut steps = 0;
         loop {
             steps += 1;
             if steps > MAX_STEPS {
-                p.acts.push(Act { name: "too_long".into(), args: vec![Some(pc as i64)] });
+                p.acts.push(Act {
+                    name: "too_long".into(),
+                    args: vec![Some(pc as i64)],
+                });
                 done.push(p);
                 break;
             }
             let Some((mn, ops)) = disasm(a9.u32(pc)?, pc) else {
-                p.acts.push(Act { name: "bad".into(), args: vec![Some(pc as i64)] });
+                p.acts.push(Act {
+                    name: "bad".into(),
+                    args: vec![Some(pc as i64)],
+                });
                 done.push(p);
                 break;
             };
@@ -348,7 +413,10 @@ pub fn run(a9: &Arm9, func: u32, place: i64, part: i64) -> Result<Vec<Way>> {
                     continue;
                 }
                 Res::Fork => {
-                    p.acts.push(Act { name: "unknown_switch".into(), args: vec![Some(pc as i64)] });
+                    p.acts.push(Act {
+                        name: "unknown_switch".into(),
+                        args: vec![Some(pc as i64)],
+                    });
                     done.push(p);
                     break;
                 }
@@ -358,4 +426,3 @@ pub fn run(a9: &Arm9, func: u32, place: i64, part: i64) -> Result<Vec<Way>> {
     }
     Ok(done.into_iter().map(|p| (p.cond, p.acts)).collect())
 }
-

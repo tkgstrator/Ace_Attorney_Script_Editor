@@ -16,15 +16,26 @@ fn one(sdat: &Sdat, info: &SeqInfo, a: &Args, cache: &mut Cache) -> Out {
     let base = format!("sound/rendered/{cat}/{}", info.name);
     write(&a.out, &format!("{base}.wav"), &o.wav);
     write(&a.out, &format!("{base}.json"), o.json.as_bytes());
-    let dur = o.entry.get("duration").map(|d| d.dumps()).unwrap_or_default();
+    let dur = o
+        .entry
+        .get("duration")
+        .map(|d| d.dumps())
+        .unwrap_or_default();
     Ok((o.entry, format!("  {cat}/{}: {dur} 秒", info.name)))
 }
 
 #[cfg(feature = "parallel")]
 fn all(sdat: &Sdat, seqs: &[SeqInfo], a: &Args) -> Vec<Out> {
     use rayon::prelude::*;
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(a.jobs).build().expect("スレッド");
-    pool.install(|| seqs.par_iter().map_init(Cache::default, |c, s| one(sdat, s, a, c)).collect())
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(a.jobs)
+        .build()
+        .expect("スレッド");
+    pool.install(|| {
+        seqs.par_iter()
+            .map_init(Cache::default, |c, s| one(sdat, s, a, c))
+            .collect()
+    })
 }
 
 #[cfg(not(feature = "parallel"))]
@@ -53,7 +64,10 @@ pub fn run(rom: &Rom, a: &Args, _o: &Options, st: &State) -> Result<(), aa_rom::
                 if let Some(Json::Arr(old)) = v.get("items") {
                     for e in old {
                         let name = e.get("name").and_then(Json::as_str).unwrap_or("");
-                        if !entries.iter().any(|x| x.get("name").and_then(Json::as_str) == Some(name)) {
+                        if !entries
+                            .iter()
+                            .any(|x| x.get("name").and_then(Json::as_str) == Some(name))
+                        {
                             entries.push(e.clone());
                         }
                     }

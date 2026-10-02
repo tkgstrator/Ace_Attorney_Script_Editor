@@ -1,13 +1,17 @@
 // Player（player.ts）のキーボード・マウス入力を、エンジンの操作に変換する。
-import { hit, TIMING } from './layout.ts';
+import { hit, TIMING, UI } from './layout.ts';
+import { panelButtonAt, panelButtons } from './panel.ts';
 import { canOpenRecord, onCross, type PlayerHost } from './player-host.ts';
 import { topButtonRect } from './top-buttons.ts';
 
 /** 決定（Enter・スペース・クリック）。文字送りの途中なら全部出し、ページが残っていれば次のページへ */
 export function confirm(h: PlayerHost) {
+  if (h.backlog.open) return;
+  h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
   const b = h.beat;
   if (h.typing) {
     h.tw?.finish();
+    h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
     return;
   }
   // ページ送り・選択肢の決定の音（元のゲームの SE 0x2f / 0x2b。ID は ui_page / ui_decide）
@@ -63,6 +67,12 @@ function pressStatement(h: PlayerHost) {
 
 /** キー入力。操作に使ったら true */
 export function key(h: PlayerHost, key: string): boolean {
+  if (h.backlog.open) return h.backlog.key(key);
+  if (key === 'b' || key === 'B') {
+    h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
+    h.backlog.show();
+    return true;
+  }
   if (h.record.open) return onRecord(h, () => h.record.key(h.engine, key));
   const b = h.beat;
   if (b.kind === 'investigate')
@@ -81,8 +91,8 @@ export function key(h: PlayerHost, key: string): boolean {
       return true;
     }
   }
-  // サイコ・ロックの挑戦中のつきつけは、Esc か B で「やめる」
-  if (b.kind === 'demand' && b.giveUp && !h.typing && ['Escape', 'b', 'B'].includes(key)) {
+  // サイコ・ロックの挑戦中のつきつけは、Esc で「やめる」（B はバックログ）
+  if (b.kind === 'demand' && b.giveUp && !h.typing && key === 'Escape') {
     h.engine.giveUp();
     return true;
   }
@@ -97,15 +107,32 @@ export function key(h: PlayerHost, key: string): boolean {
 
 /** クリック（画面の座標） */
 export function click(h: PlayerHost, x: number, y: number) {
-  const L = h.p.layout;
+  const panel = h.p.layout.panel;
+  if (panel && x >= panel.x) {
+    const btn = panelButtonAt(
+      panel,
+      panelButtons(h, () => confirm(h)),
+      x,
+      y,
+    );
+    // 法廷記録のボタンは、キー・クリックと同じく resume を覚える
+    if (btn && h.record.open) onRecord(h, btn.run);
+    else btn?.run();
+    return;
+  }
+  if (h.backlog.open) {
+    h.backlog.click(x, y);
+    return;
+  }
   if (h.record.open) {
-    // 法廷記録は 4:3 の枠（広い画面では中央）に描くので、枠の中の座標に直す
-    onRecord(h, () => h.record.click(h.engine, x - L.ox, y));
+    onRecord(h, () => h.record.click(h.engine, x, y));
     return;
   }
   const b = h.beat;
-  const recordAt = topButtonRect(h.p, 'record');
-  if (b.kind === 'investigate' && !(canOpenRecord(h) && hit(recordAt, x, y))) {
+  // 4:3 は DS 版の下画面のボタンを画面に重ねているので、その当たりを先に調べる（16:9 は右の欄）
+  const overlay = !panel;
+  const onRecordButton = overlay && canOpenRecord(h) && hit(topButtonRect(h.p, 'record'), x, y);
+  if (b.kind === 'investigate' && !onRecordButton) {
     h.inv.click(h.engine, b, x, y, () => h.record.show(h.engine, 'evidence'), h.views.bg);
     return;
   }
@@ -113,15 +140,15 @@ export function click(h: PlayerHost, x: number, y: number) {
     h.pick.click(h.engine, b, x, y, h.views.bg);
     return;
   }
-  if (canOpenRecord(h) && hit(recordAt, x, y)) {
+  if (onRecordButton) {
     h.record.show(h.engine, 'evidence');
     return;
   }
-  if (b.kind === 'demand' && b.giveUp && hit(L.ui.pressTab, x, y)) {
+  if (overlay && b.kind === 'demand' && b.giveUp && hit(UI.pressTab, x, y)) {
     h.engine.giveUp();
     return;
   }
-  if (onCross(h)) {
+  if (overlay && onCross(h)) {
     if (hit(topButtonRect(h.p, 'press'), x, y)) {
       pressStatement(h);
       return;
@@ -136,7 +163,7 @@ export function click(h: PlayerHost, x: number, y: number) {
       confirm(h);
       return;
     }
-    const i = b.options.findIndex((_, j) => hit(L.ui.choice(j, b.options.length), x, y));
+    const i = b.options.findIndex((_, j) => hit(UI.choice(j, b.options.length), x, y));
     if (i >= 0 && h.age >= TIMING.choiceGuardMs) {
       h.audio?.se('ui_decide');
       h.engine.choose(i);

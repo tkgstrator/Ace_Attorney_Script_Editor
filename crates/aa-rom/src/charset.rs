@@ -5,7 +5,14 @@ pub const LAYOUT: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqr
 /// 漢字の始まり（「人」）
 pub const KANJI_START: usize = 269;
 /// 同じ字形を別の文字にも使う（テキスト側の表記ゆれの吸収）
-pub const ALIASES: &[(char, char)] = &[('…', '‥'), ('―', 'ー'), ('—', 'ー'), ('〜', '～'), ('!', '！'), ('?', '？')];
+pub const ALIASES: &[(char, char)] = &[
+    ('…', '‥'),
+    ('―', 'ー'),
+    ('—', 'ー'),
+    ('〜', '～'),
+    ('!', '！'),
+    ('?', '？'),
+];
 /// 台詞のデータでの文字コードの足し分
 pub const CODE_BASE: u16 = 128;
 

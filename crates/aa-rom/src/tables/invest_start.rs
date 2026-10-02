@@ -20,7 +20,9 @@ fn listing(a9: &Arm9, func: u32) -> Result<Vec<Option<(String, String)>>> {
         let ins = disasm(a9.u32(pc)?, pc);
         let ret = match &ins {
             Some((mn, ops)) => {
-                (mn == "bx" && ops == "lr") || (mn.starts_with("pop") && ops.contains("pc")) || (mn.starts_with("ldm") && ops.contains("pc") && ops.contains("sp"))
+                (mn == "bx" && ops == "lr")
+                    || (mn.starts_with("pop") && ops.contains("pc"))
+                    || (mn.starts_with("ldm") && ops.contains("pc") && ops.contains("sp"))
             }
             None => false,
         };
@@ -43,7 +45,10 @@ fn start_place(a9: &Arm9, func: u32) -> Result<Option<i64>> {
         // re.search(r'mov\s+(r\d+), #(0x[0-9a-f]+|\d+)$', line)
         if mn == "mov" {
             if let Some((r, v)) = ops.split_once(", #") {
-                let ok = v.strip_prefix("0x").map_or(!v.is_empty() && v.chars().all(|c| c.is_ascii_digit()), |h| !h.is_empty() && h.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')));
+                let ok = v.strip_prefix("0x").map_or(
+                    !v.is_empty() && v.chars().all(|c| c.is_ascii_digit()),
+                    |h| !h.is_empty() && h.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')),
+                );
                 if is_rn(r) && ok {
                     let v = parse_int0(v).unwrap_or(0);
                     match last_mov.iter_mut().find(|(k, _)| *k == r) {
@@ -79,6 +84,11 @@ pub fn export(a9: &Arm9) -> Result<String> {
             res.set(part.to_string(), n);
         }
     }
-    let doc = Json::obj().with("_about", "探偵パートの最初の場所（game+0x68）。tools/rom/tbl_invest_start.py").with("start", res);
+    let doc = Json::obj()
+        .with(
+            "_about",
+            "探偵パートの最初の場所（game+0x68）。tools/rom/tbl_invest_start.py",
+        )
+        .with("start", res);
     Ok(doc.dumps() + "\n")
 }

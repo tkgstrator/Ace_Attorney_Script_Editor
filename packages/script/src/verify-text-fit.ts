@@ -24,7 +24,7 @@ export const FIT = {
   /** 法廷記録の詳細・証拠品を加えたときの窓の名前 */
   recordName: 10,
   /** 証拠品・人物ファイルの説明: 1 行の字数と行数（4 行目からは出ない） */
-  descChars: 12,
+  descChars: 11,
   descLines: 3,
   /** 探偵パートの左上の場所の名前 */
   placeLabel: 17,
@@ -89,6 +89,13 @@ export function checkTextFit(raw: unknown): Diagnostic[] {
   const button = (text: unknown, path: Path, what: string) =>
     oneLine(text, path, FIT.buttonMaxChars, what, 'ボタンからはみ出します');
   const description = (text: unknown, path: Path, what: string) => {
+    // 切り替えの説明（配列）は、どの文も点検する
+    if (Array.isArray(text)) {
+      text.forEach((c, i) => {
+        if (isObj(c)) description(c.text, [...path, i, 'text'], what);
+      });
+      return;
+    }
     if (typeof text !== 'string') return;
     const n = wrapLines(shown(text), FIT.descChars).length;
     if (n > FIT.descLines)

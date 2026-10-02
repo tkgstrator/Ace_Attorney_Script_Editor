@@ -1,14 +1,18 @@
-// Player（player.ts）の、上の画面（DS 版のメイン画面）の描画。
+// Player（player.ts）の、上の画面（DS 版のメイン画面）の描画。16:9 では右の欄（panel.ts）も描く。
 
+import { evidenceDescription } from '@gyakusai/core';
 import { lifeGauge, psycheLocks, usesGauge } from './gauge.ts';
-import { SCREEN_H, SCREEN_W, TEXT_COLORS, TOP } from './layout.ts';
+import { SCREEN_H, SCREEN_W, TEXT_COLORS, TOP, UI } from './layout.ts';
+import { drawPanel, panelButtons } from './panel.ts';
 import { canOpenRecord, onCross, type PlayerHost } from './player-host.ts';
 import { drawScene } from './scene.ts';
 import { drawTopButton, lifeTop } from './top-buttons.ts';
 import * as W from './widgets.ts';
 
-/** 1 フレームを描く: 上の画面を揺れの分ずらして描き、フラッシュと法廷記録を重ねる */
+/** 1 フレームを描く: 上の画面を揺れの分ずらして描き、フラッシュと法廷記録を重ねる。右の欄は揺らさない */
 export function renderFrame(h: PlayerHost) {
+  h.p.buttons.beginFrame();
+  h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
   const { p, fx, record } = h;
   const { ctx, layout: L } = p;
   ctx.clearRect(0, 0, L.w, L.h);
@@ -17,13 +21,22 @@ export function renderFrame(h: PlayerHost) {
   renderScreen(h);
   ctx.restore();
   fx.drawFlash(p);
-  if (!record.open) return;
-  // 法廷記録は DS 版の下画面の座標のまま、4:3 の枠に描く。広い画面では中央に置き、左右は不透明の黒で埋める
-  if (L.ox > 0) p.rect(0, 0, L.w, L.h, '#000000');
-  ctx.save();
-  ctx.translate(L.ox, 0);
-  record.render(p, h.engine, h.labels, h.frame);
-  ctx.restore();
+  // 法廷記録は DS 版の下画面の座標のまま、画面に重ねる
+  if (record.open) {
+    p.buttons.beginFrame();
+    record.render(p, h.engine, h.labels, h.frame);
+  }
+  if (h.backlog.open) {
+    p.buttons.beginFrame();
+    h.backlog.render(p, h.labels);
+  }
+  if (L.panel)
+    drawPanel(
+      p,
+      L.panel,
+      panelButtons(h, () => {}),
+      h.frame,
+    );
 }
 
 /** 上の画面を描く（揺れ・フラッシュ・法廷記録は renderFrame が重ねる） */
@@ -37,9 +50,10 @@ function renderScreen(h: PlayerHost) {
   const typed = () => h.tw?.visible ?? [];
   const full = () => h.tw?.full ?? [];
 
-  const L = p.layout;
+  // 4:3 は DS 版の下画面のボタンを画面に重ねる。16:9 は右の欄に出す
+  const overlay = !p.layout.panel;
   if (b.kind === 'card') {
-    p.rect(0, 0, L.w, L.h, '#000000');
+    p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
     W.textbox(p, null);
     W.centeredGlyphs(p, typed(), full(), TEXT_COLORS.green, W.textTop(p));
     arrow();
@@ -69,7 +83,13 @@ function renderScreen(h: PlayerHost) {
   if (stage.evidence && b.kind !== 'banner' && b.kind !== 'shout')
     W.thumbnail(p, stage.evidence, h.engine.scenario.evidence[stage.evidence], stage.evidenceRight);
   const added = h.added ? h.engine.scenario.evidence[h.added] : undefined;
-  if (h.added && added) W.addedWindow(p, h.added, added);
+  if (h.added && added)
+    W.addedWindow(
+      p,
+      h.added,
+      added,
+      evidenceDescription(h.engine.scenario, h.engine.state, h.added),
+    );
   if (b.kind === 'statement' && !b.cross)
     p.fonts.text.draw(h.labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
   if (stage.locks && !stage.locks.hidden && b.kind !== 'banner' && b.kind !== 'shout')
@@ -79,13 +99,15 @@ function renderScreen(h: PlayerHost) {
   if ((gauge || h.lifeShow > 0) && usesGauge(max))
     lifeGauge(p, h.engine.state.life, max, stage.lifeRisk, h.frame, lifeTop(p));
   else if (gauge || h.lifeShow > 0) W.lifeMarks(p, h.engine.state.life, max, lifeTop(p));
-  // サイコ・ロックの挑戦中のつきつけは「やめる」を出す
-  if (b.kind === 'demand' && b.giveUp)
-    p.tab(L.ui.pressTab, 'tl', h.labels.giveUp, { small: true, k: 6 });
-  if (canOpenRecord(h)) drawTopButton(p, 'record', h.labels);
-  if (b.kind === 'statement' && b.cross) {
-    drawTopButton(p, 'press', h.labels, b.canPress);
-    drawTopButton(p, 'present', h.labels);
+  if (overlay) {
+    // サイコ・ロックの挑戦中のつきつけは「やめる」を出す
+    if (b.kind === 'demand' && b.giveUp)
+      p.tab(UI.pressTab, 'tl', h.labels.giveUp, { small: true, k: 6 });
+    if (canOpenRecord(h)) drawTopButton(p, 'record', h.labels);
+    if (b.kind === 'statement' && b.cross) {
+      drawTopButton(p, 'press', h.labels, b.canPress);
+      drawTopButton(p, 'present', h.labels);
+    }
   }
 
   switch (b.kind) {
@@ -118,8 +140,8 @@ function renderScreen(h: PlayerHost) {
     }
     case 'shout': {
       const img = p.assets.shout?.(b.shout);
-      // 吹き出しの絵は 4:3 の画面の大きさ。広い画面では中央に置く
-      if (img) p.ctx.drawImage(img, L.ox, 0, SCREEN_W, SCREEN_H);
+      // 吹き出しの絵は画面の大きさ
+      if (img) p.ctx.drawImage(img, 0, 0, SCREEN_W, SCREEN_H);
       else W.bubble(p, b.shout, h.reduceMotion ? 1 : Math.min(1, h.timer / 120));
       break;
     }

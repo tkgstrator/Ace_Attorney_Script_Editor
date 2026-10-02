@@ -7,7 +7,9 @@ use aa_rom::tables::armdis::disasm;
 
 #[test]
 fn matches_capstone() {
-    let Ok(path) = std::env::var("AA_CS_TSV") else { return };
+    let Ok(path) = std::env::var("AA_CS_TSV") else {
+        return;
+    };
     let text = std::fs::read_to_string(path).unwrap();
     let (mut ok, mut bad, mut skip) = (0, 0, 0);
     let mut shown = 0;
@@ -36,7 +38,9 @@ fn matches_capstone() {
 /// Python の記号実行が通った命令（AA_TRACE_TSV: 番地, 語, Arm9.disasm の 1 行）がすべて扱えて一致すること
 #[test]
 fn covers_traced() {
-    let Ok(path) = std::env::var("AA_TRACE_TSV") else { return };
+    let Ok(path) = std::env::var("AA_TRACE_TSV") else {
+        return;
+    };
     let text = std::fs::read_to_string(path).unwrap();
     let mut n = 0;
     for line in text.lines() {
@@ -45,8 +49,12 @@ fn covers_traced() {
         let w = u32::from_str_radix(c[1], 16).unwrap();
         let body = c[2].split_once(": ").unwrap().1;
         let body = body.split("   ;").next().unwrap();
-        let (mn, ops) = body.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((body, ""));
-        let got = disasm(w, addr).unwrap_or_else(|| panic!("{addr:08x} {w:08x} を扱えない: {body}"));
+        let (mn, ops) = body
+            .split_once(' ')
+            .map(|(a, b)| (a, b.trim()))
+            .unwrap_or((body, ""));
+        let got =
+            disasm(w, addr).unwrap_or_else(|| panic!("{addr:08x} {w:08x} を扱えない: {body}"));
         assert_eq!((got.0.as_str(), got.1.as_str()), (mn, ops), "{addr:08x}");
         n += 1;
     }

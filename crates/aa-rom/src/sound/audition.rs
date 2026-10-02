@@ -23,7 +23,11 @@ fn esc(s: &str) -> String {
 fn py_divmod(x: f64, y: f64) -> (f64, f64) {
     let m = x % y;
     let mut div = (x - m) / y;
-    let (m, div2) = if m != 0.0 && ((y < 0.0) != (m < 0.0)) { (m + y, div - 1.0) } else { (m, div) };
+    let (m, div2) = if m != 0.0 && ((y < 0.0) != (m < 0.0)) {
+        (m + y, div - 1.0)
+    } else {
+        (m, div)
+    };
     div = div2;
     let mut fd = div.floor();
     if div - fd > 0.5 {
@@ -97,15 +101,36 @@ fn notes(e: &Json) -> Vec<String> {
     if truthy(e.get("missingWaves")) {
         n.push("波形が無い音あり".into());
     }
-    let clipped = e.get("check").and_then(|c| c.get("clipped")).and_then(Json::as_i64).unwrap_or(0);
+    let clipped = e
+        .get("check")
+        .and_then(|c| c.get("clipped"))
+        .and_then(Json::as_i64)
+        .unwrap_or(0);
     if clipped != 0 {
         n.push(format!("クリップ {clipped} サンプル"));
     }
     if let Some(Json::Obj(u)) = e.get("scriptUses") {
         if !u.is_empty() {
-            let mut v: Vec<(String, String)> = u.iter().map(|(k, x)| (k.clone(), match x { Json::Int(i) => i.to_string(), _ => String::new() })).collect();
+            let mut v: Vec<(String, String)> = u
+                .iter()
+                .map(|(k, x)| {
+                    (
+                        k.clone(),
+                        match x {
+                            Json::Int(i) => i.to_string(),
+                            _ => String::new(),
+                        },
+                    )
+                })
+                .collect();
             v.sort();
-            n.push(format!("台本: {}", v.iter().map(|(k, x)| format!("{k} {x} 回")).collect::<Vec<_>>().join(", ")));
+            n.push(format!(
+                "台本: {}",
+                v.iter()
+                    .map(|(k, x)| format!("{k} {x} 回"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
     }
     n
@@ -116,7 +141,11 @@ pub fn page(items: &[Json]) -> String {
     for e in items {
         let lp = e.get("loop").filter(|l| !matches!(l, Json::Null));
         let wav = s(e, "wav");
-        let src = e.get("ogg").and_then(Json::as_str).filter(|x| !x.is_empty()).unwrap_or(wav);
+        let src = e
+            .get("ogg")
+            .and_then(Json::as_str)
+            .filter(|x| !x.is_empty())
+            .unwrap_or(wav);
         let seam = lp.and_then(|l| f(l, "seamRms"));
         let seam_s = seam.filter(|x| x.is_finite()).map_or(String::new(), fmt_e1);
         let btn = lp.map_or(String::new(), |l| {
@@ -140,5 +169,6 @@ pub fn page(items: &[Json]) -> String {
         ));
     }
     let tpl = statics::get("audition_page").as_str().unwrap_or("");
-    tpl.replace("%ROWS%", &rows.join("\n")).replace("%COUNT%", &items.len().to_string())
+    tpl.replace("%ROWS%", &rows.join("\n"))
+        .replace("%COUNT%", &items.len().to_string())
 }

@@ -15,7 +15,9 @@ pub fn archive_offsets(d: &[u8], count: usize) -> Result<Vec<usize>> {
     let mut out = Vec::new();
     let mut p = 0usize;
     for _ in 0..count {
-        let Some((_, end)) = read_pack(d, p) else { return err(format!("アーカイブが読めません: {p:#x}")) };
+        let Some((_, end)) = read_pack(d, p) else {
+            return err(format!("アーカイブが読めません: {p:#x}"));
+        };
         out.push(p);
         p = (p + end + 3) & !3;
     }
@@ -31,9 +33,15 @@ pub fn decode_entry(b: &[u8]) -> Option<(Indexed, Vec<Rgb>)> {
         _ => return None,
     };
     if bpp == 1 {
-        return Some((gfx::decode(b, w, h, 1, Layout::Linear).ok()?, vec![[0, 0, 0], [255, 255, 255]]));
+        return Some((
+            gfx::decode(b, w, h, 1, Layout::Linear).ok()?,
+            vec![[0, 0, 0], [255, 255, 255]],
+        ));
     }
-    Some((gfx::decode(&b[pal_size..], w, h, bpp, Layout::Tiled).ok()?, gfx::palette(&b[..pal_size])))
+    Some((
+        gfx::decode(&b[pal_size..], w, h, bpp, Layout::Tiled).ok()?,
+        gfx::palette(&b[..pal_size]),
+    ))
 }
 
 /// アーカイブをすべて書き出す（書き出し先は data/）。(項目の数, 画像の数, 空) を返す
@@ -53,10 +61,16 @@ pub fn export(d: &[u8], out: &mut dyn Sink, raw: bool) -> Result<Vec<(usize, usi
                 empty += 1;
                 continue;
             }
-            out.put(&format!("archive{n}/{i:04}.png"), gfx::png_indexed(&idx, &pal, false));
+            out.put(
+                &format!("archive{n}/{i:04}.png"),
+                gfx::png_indexed(&idx, &pal, false),
+            );
             pngs += 1;
         }
-        out.log(&format!("  archive{n}: {} 個 → 画像 {pngs} 枚（空 {empty}）", ents.len()));
+        out.log(&format!(
+            "  archive{n}: {} 個 → 画像 {pngs} 枚（空 {empty}）",
+            ents.len()
+        ));
         summary.push((ents.len(), pngs, empty));
     }
     Ok(summary)

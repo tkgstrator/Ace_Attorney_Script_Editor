@@ -3,11 +3,10 @@
 // ポインターの位置は、実際に表示している大きさから換算する
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useScreenWidth } from '@/preview/aspect.ts';
 import { getAssets } from '@/preview/assets.ts';
 
 export type Area = [number, number, number, number];
-/** 4:3 の画面（背景の見える窓）の大きさ。絵が無いときの背景の大きさにも使う */
+/** 画面（背景の見える窓）の大きさ。絵が無いときの背景の大きさにも使う */
 const SCREEN_W = 256;
 const SCREEN_H = 192;
 /** いちばん大きく表示するときの倍率（横長の背景は、欄の幅に収まるよう縮める） */
@@ -47,19 +46,15 @@ export function normalize([x, y, w, h]: Area, { w: W, h: H }: Size): Area {
   ];
 }
 
-/**
- * 画面より大きい背景で、スクロールの端で見える窓（左端・右端など）の境目の線の位置。
- * screenW はプレビューの画面の幅（4:3 なら 256、16:9 なら 342。16:9 では見える窓が広い）
- */
-export function screenEdges({ w, h }: Size, screenW = SCREEN_W): { x: number[]; y: number[] } {
+/** 画面より大きい背景で、スクロールの端で見える窓（左端・右端など）の境目の線の位置 */
+export function screenEdges({ w, h }: Size): { x: number[]; y: number[] } {
   const cut = (size: number, screen: number) =>
     size > screen ? [...new Set([screen, size - screen])].filter((v) => v > 0 && v < size) : [];
-  return { x: cut(w, screenW), y: cut(h, SCREEN_H) };
+  return { x: cut(w, SCREEN_W), y: cut(h, SCREEN_H) };
 }
 
 export function AreaCanvas({ background, items, selected, onSelect, onChange, onCreate }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const screenW = useScreenWidth();
   const [drag, setDrag] = useState<Drag | null>(null);
   const [hasImage, setHasImage] = useState(true);
   const [image, setImage] = useState<CanvasImageSource | null>(null);
@@ -155,7 +150,7 @@ export function AreaCanvas({ background, items, selected, onSelect, onChange, on
     setDrag(null);
   };
 
-  const edges = screenEdges(size, screenW);
+  const edges = screenEdges(size);
   const shown = items.map((it, i) =>
     drag && drag.mode !== 'draw' && drag.index === i
       ? { ...it, area: normalize(drag.area, size) }

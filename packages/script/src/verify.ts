@@ -167,6 +167,23 @@ function rank(b: Beat): number {
 export const lockEndMessage = (id: string): string =>
   `サイコ・ロック「${id}」を外さないまま、クリア（end）にたどり着けます（ロックが先へ進むのを止めていません）`;
 
+/**
+ * ライフが尽きたときに入るシーン（gameover に指定したシーン・lifeOutScenes）と、そこから goto / investigate だけで
+ * 行けるシーン。ライフを減らさずに調べるので、ここへは入れない。到達しない警告の対象から外す
+ */
+function lifeOutClosure(sc: CompiledScenario): Set<string> {
+  const seen = new Set<string>();
+  const todo = [...(sc.gameoverScene ? [sc.gameoverScene] : []), ...(sc.lifeOutScenes ?? [])];
+  for (let id = todo.pop(); id !== undefined; id = todo.pop()) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const ins of sc.scenes[id]?.program ?? [])
+      if (ins.op === 'goto') todo.push(ins.scene);
+      else if (ins.op === 'investigate') todo.push(ins.place);
+  }
+  return seen;
+}
+
 export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions = {}): VerifyResult {
   const sc: CompiledScenario = prepare({ ...scenario, maxLife: IMMORTAL });
   const limit = opts.limit ?? DEFAULT_LIMIT;
@@ -189,6 +206,7 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
   const graph = new Graph();
   const goals = new Set<number>();
   const visitedScenes = new Set<string>();
+  const movedTo = new Set<string>();
   const seenIds = new Set<string>();
   const findings: Finding[] = [];
   const crashes = new Set<string>();
@@ -238,6 +256,8 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
     }
     const acts = actions(sc, e, visitedScenes);
     const where = control(state);
+    // 「移動する」を選べた行き先（来たときのブロックで抜けるだけの場所は探偵メニューに着かず visited にならない）
+    for (const act of acts) if (act.d.startsWith('m')) movedTo.add(act.d.slice(1));
     acts.forEach((act, a) => {
       // 同じ場面で同じ操作をして、読んだ変数の値も同じなら、覚えておいた結果を使う（verify-memo.ts）
       let d = memo?.get(where + act.d, state);
@@ -323,15 +343,17 @@ export function verifyScenario(scenario: CompiledScenario, opts: VerifyOptions =
     }
 
     // 一度も到達しないもの（打ち切ったときは、調べきれていないので出さない）
+    const lifeOut = lifeOutClosure(sc);
     for (const [id, scene] of Object.entries(sc.scenes)) {
-      if (id.startsWith('__') || id === sc.gameoverScene || sc.lifeOutScenes?.includes(id))
-        continue; // ライフが尽きたときのシーンは、ライフを減らさずに調べるので除く
+      if (id.startsWith('__') || lifeOut.has(id)) continue; // ライフが尽きたときのシーン（とその先）は、ライフを減らさずに調べるので除く
       if (!visitedScenes.has(id)) {
-        findings.push({
-          severity: 'warning',
-          message: `${scene.kind === 'place' ? '場所' : 'シーン'}「${id}」には、どう遊んでもたどり着きません`,
-          scene: id,
-        });
+        // 移動できても、来たときのブロックで抜けるだけの場所は探偵メニューに着かない。たどり着けてはいる
+        if (!(scene.kind === 'place' && movedTo.has(id)))
+          findings.push({
+            severity: 'warning',
+            message: `${scene.kind === 'place' ? '場所' : 'シーン'}「${id}」には、どう遊んでもたどり着きません`,
+            scene: id,
+          });
         continue;
       }
       if (scene.kind !== 'place') continue;

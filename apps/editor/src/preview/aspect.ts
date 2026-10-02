@@ -1,5 +1,5 @@
-// プレビューの画面の幅（4:3 / 16:9）。このブラウザに覚え、プレビューと「調べる」範囲の編集で同じ値を使う
-import { type Aspect, screenWidth } from '@gyakusai/runtime';
+// プレビューの画面の幅（4:3 / 16:9）。このブラウザに覚えておく
+import type { Aspect } from '@gyakusai/runtime';
 import { useSyncExternalStore } from 'react';
 
 const KEY = 'gyakusai:editor:aspect';
@@ -34,6 +34,3 @@ const subscribe = (fn: () => void) => {
 export function useAspect(): Aspect {
   return useSyncExternalStore(subscribe, () => current);
 }
-
-/** 今の設定での画面の幅（ドット） */
-export const useScreenWidth = (): number => screenWidth(useAspect());

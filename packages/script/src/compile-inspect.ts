@@ -1,5 +1,6 @@
 import type { DialogueScene, EvidenceDef, Instr, Scene } from '@gyakusai/core';
 import { Builder, patch } from './builder.ts';
+import { compileDescription } from './compile-description.ts';
 import type { PlaceContext } from './compile-place.ts';
 import type { RawScenario } from './schema.ts';
 
@@ -21,7 +22,11 @@ export function compileInspect(
 ): Record<string, EvidenceDef> {
   const out: Record<string, EvidenceDef> = {};
   for (const [id, raw] of Object.entries(evidence)) {
-    const { examine, ...def } = raw;
+    const { examine, description, ...rest } = raw;
+    const def: EvidenceDef = {
+      ...rest,
+      description: compileDescription(description, ['evidence', id, 'description'], ctx.cond),
+    };
     out[id] = def;
     if (!examine) continue;
     const b = new Builder();

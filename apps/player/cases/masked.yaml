@@ -1,0 +1,1231 @@
+# yaml-language-server: $schema=../../../schema/scenario.schema.json
+#
+# サンプル事件「仮面の奇術師」（アンソロジー）
+# 蘇る逆転 第1話と第2話のあいだ、成歩堂の二度目の法廷という設定。法廷パートだけ・1 日で決着する第 1 話の形。
+# 裁判長の質問・ゆさぶりで現れる証言・選択肢・人物ファイルのつきつけを、千尋の手ほどきつきで順に使う。
+# 人物は公式（成歩堂・千尋・亜内・裁判長）と、この事件のゲスト（星野 灯・影山 仁・月岡 光一）。
+# ゲストの名前はオリジナルで、立ち絵（pose）と人物ファイルの絵（icon）は公式の人物のものを借りている。
+# 証拠品の絵（icon）も、公式の似た証拠品のものを借りている（e<記録の番号>）。
+#   星野 灯 = 撮影所のスタッフ、影山 仁 = 星影 宇宙ノ介、月岡 光一 = 人物ファイルの絵だけ第4話の弁護士。
+
+id: masked
+title: 仮面の奇術師
+player: phoenix
+life: 5
+
+defaults:
+  penalty: 1
+  # 見当違いのつきつけ: 主人公の言い訳 → 裁判長の叱責 → ペナルティ → 心の声（公式の型）
+  wrongPresent:
+    - show: phoenix
+      talk: 19
+      idle: 18
+    - phoenix: "え、ええと‥‥[wait 10]これが、[wait 6]\nその‥‥関係あるかと‥‥"
+    - judge: "弁護人。[wait 12]\nそれが、どう関係するのですかな？"
+    - show: judge
+      talk: 95
+      idle: 92
+    - judge: "[speed 4]‥‥ペナルティを与えます。"
+    - penalty: true
+    - add: { mistakes: 1 }
+    - phoenix: "（[speed 4]‥‥心証が悪くなった‥‥。[wait 12]\n　証言をもう一度よく聞こう）"
+
+characters:
+  phoenix:
+    name: ナルホド
+    stand: defense
+    pose: { talk: 9, idle: 8 }
+  mia:
+    name: チヒロ
+    stand: bg7                      # 法廷では成歩堂の隣の席（公式の法廷の千尋と同じ背景）
+    blip: female
+    pose: { talk: 85, idle: 84 }    # 法廷の横向きの絵
+    placePose: { talk: 80, idle: 79 } # 控え室の正面の絵
+    profile:
+      name: 綾里 千尋
+      age: 27
+      description: "綾里法律事務所の所長。\nぼくの上司で、\nヤリ手の弁護士。"
+      icon: r0
+  payne:
+    name: アウチ
+    stand: prosecution
+    pose: { talk: 191, idle: 190 }
+    profile:
+      name: 亜内 武文
+      age: 52
+      description: "この事件の担当検事。\n押しが弱く、なんとなく\nパッとしない男。"
+      icon: r5
+  gumshoe:
+    name: イトノコ
+    stand: witness
+    pose: { talk: 143, idle: 142 }
+    profile:
+      name: 糸鋸 圭介
+      age: 30
+      description: |-
+        所轄署の刑事。
+        殺人の初動捜査を担当。
+        通称イトノコ刑事。
+      icon: r15
+  judge: { name: サイバンカン, stand: judge, pose: { talk: 97, idle: 96 } }
+  kakari: { name: カカリカン }
+  akari:
+    name: アカリ
+    stand: witness
+    blip: female
+    pose: { talk: 252, idle: 251 }   # 立ち絵は撮影所のスタッフ（蘇る逆転 第3話）
+    profile: { name: 星野 灯, age: 19, description: "この事件の被告人。\n奇術師ゲッコウの\nただひとりの弟子。", icon: r45 }
+  kageyama:
+    name: カゲヤマ
+    stand: witness
+    pose: { talk: 237, idle: 236 }   # 立ち絵は星影 宇宙ノ介（蘇る逆転 第2・4話）
+    profile:
+      name: 影山 仁
+      age: 56
+      description:
+        - when: partner_known
+          text: "劇場「銀月座」の\n支配人。昔は\nゲッコウの相方だった。"
+        - text: "劇場「銀月座」の\n支配人。事件の夜、\n遺体を見つけた。"
+      icon: r22
+  gekkou:
+    name: ゲッコウ
+    profile: { name: 月岡 光一, age: 55, description: "事件の被害者。\n仮面の奇術師\n「ゲッコウ」。", icon: r75 }
+  voice_m: { name: ？？？ }
+  voice_f: { name: ？？？, blip: female }
+
+evidence:
+  badge:
+    name: 弁護士バッジ
+    icon: e23   # 公式の証拠品の絵を借りる
+    description: "ぼくが弁護士である\nことの証。いつも\n胸につけている。"
+  autopsy:
+    name: 解剖記録
+    icon: e6   # 公式の証拠品の絵を借りる
+    description: "午後8時40分から\n9時40分に死亡。\n死因は後頭部の打撲。"
+  crime_photo:
+    name: 現場写真
+    icon: e138   # 公式の証拠品の絵を借りる
+    description: "警察が着いてすぐ撮った\n楽屋の写真。遺体の\nそばにトロフィー。"
+    examine:
+      - spot: 遺体
+        then:
+          - set: { seen_body: true }
+          - phoenix: "（タキシードも、髪も‥‥[wait 10]\n　まったくぬれていない）"
+          - phoenix: "（床にも、水のあとは\n　ひとつもないな）"
+          - phoenix: "（指先も、[wait 8]\n　きれいなままだ）"
+      - spot: 机の上
+        then:
+          - phoenix: "（マントと仮面が置いてある。[wait 10]\n　こっちは、ぐっしょりぬれている）"
+          - phoenix: "（したたった水が、[wait 8]机の上に\n　青いしみを作っている‥‥）"
+  trophy:
+    name: 銀のトロフィー
+    icon: e129   # 公式の証拠品の絵を借りる
+    description: "凶器。楽屋にあった、\n銀月座の記念の品。"
+  program:
+    name: 公演プログラム
+    icon: e60   # 公式の証拠品の絵を借りる
+    description: "第二部は9時〜9時半。\nゲッコウひとりの舞台。\n最後は水中脱出。"
+    examine:
+      - spot: ゲッコウの歩み
+        then:
+          - phoenix: "（「仮面の奇術師ゲッコウの歩み」\n　‥‥ここに、何か書いてある）"
+          - phoenix: "（「20年前、[wait 8]月岡 光一と\n　影山 仁のコンビで旗上げ」‥‥！）"
+          - phoenix: "（影山さんは、[wait 8]昔は\n　先生の相方だったのか！）"
+          - if: not partner_known
+            then:
+              - set: { partner_known: true }
+              - say: null
+                text: "[speed 5]人物ファイルの《影山 仁》の\nデータを書き加えた。"
+                color: blue
+      - spot: 第二部の演目
+        then:
+          - phoenix: "（最後の演目が水中脱出。[wait 10]\n　9時半に幕が下りる）"
+  dye:
+    name: 舞台用の染料
+    icon: e57   # 公式の証拠品の絵を借りる
+    description:
+      - when: dye_detail
+        text: "水を青く染める染料。\n原液が手につくと、\n数日は落ちない。"
+      - text: "タンクの水を青く\n染めた、ショー用の\n特殊な染料。"
+  stain:
+    name: 舞台裏のしみ
+    icon: e144   # 公式の証拠品の絵を借りる
+    description: "舞台裏の床の青いしみ。\n鑑定では、染料の\n原液と同じもの。"
+
+flags:
+  asked_tank: false   # 証言2の水中脱出をゆさぶって「ずぶぬれのまま楽屋へ」を聞き出したか
+  seen_body: false    # 現場写真の遺体を詳しく調べて、乾いていると知ったか
+  dye_detail: false   # 証言3で、染料の原液が肌について落ちないことを聞き出したか
+  partner_known: false # 公演プログラムで、影山が昔ゲッコウの相方だったと知ったか
+  asked_water: false  # 証言3で「タンクの水の用意も被告人の仕事」を聞き出したか
+  mistakes: 0         # 選択肢やつきつけの間違いの回数
+
+start:
+  scene: prologue
+  evidence: [badge, autopsy, crime_photo]
+
+gameover: verdict_guilty
+
+scenes:
+  # ---- プロローグ（暗い画面の声だけ。だれの声かは、まだ分からない） ----
+  prologue:
+    - fade: out
+      frames: 1
+    - location: bg24   # 楽屋（蘇る逆転 第3話の撮影所の楽屋）
+    - bgm: BGM023
+    - card: "8月22日 午後8時42分\n劇場 銀月座 楽屋"
+    - fade: in
+      frames: 30
+    - voice_m: "[speed 4]‥‥今夜の助手は、[wait 16]\nおまえには任せられん。"
+    - voice_f: "そんな‥‥！[wait 12]\n先生、どうしてですか！"
+    - voice_m: "いいから、帰れ。[wait 20]\n今夜は、この楽屋に近づくな。"
+    - voice_f: "[speed 4]先生なんて‥‥[wait 16]\n先生なんて、大っきらい！"
+    - narrate: "――バタン。"
+    - fade: out
+      frames: 30
+    - wait: 30
+    - narrate: "[speed 6]‥‥‥‥‥‥"
+    - narrate: "――ゴトッ。[shake 20 1]"
+    - wait: 60
+    - bgm: null
+      frames: 60
+    - wait: 40
+    - goto: lobby
+
+  # ---- 控え室（主人公の立ち絵は出ない） ----
+  lobby:
+    - location: bg2   # 被告人控え室（蘇る逆転 第1話と同じ背景）
+    - show: null
+    - card: "8月25日 午前9時47分\n地方裁判所 被告人第1控え室"
+    - fade: in
+    - bgm: BGM008
+    - mia: "なるほどくん。[wait 10]\n顔色が悪いわよ。"
+    - phoenix: "千尋さん‥‥。[wait 10]二度目の法廷でも、\n緊張するものは緊張しますよ。"
+    - mia: "ふふ。[wait 10]緊張していても、\n証拠はちゃんと見られるでしょう？"
+    - show: akari
+    - akari: "[speed 4]あの‥‥[wait 10]\n弁護士さん。"
+    - show: akari
+      talk: 254
+      idle: 253
+    - akari: "わたし、本当に先生を\n殺してなんかいません。"
+    - phoenix: "わかってます、アカリさん。[wait 10]\nだから、ぼくがここにいるんです。"
+    - phoenix: "念のため、事件の夜のことを\nもう一度だけ聞かせてください。"
+    - akari: "はい‥‥。[wait 10]あの夜は、\n新しい公演の初日でした。"
+    - akari: "昔の先生の『瞬間移動』を、\nひとり用に作り直した大技です。"
+    - akari: "先生は舞台では仮面を外さないし、\n一言もしゃべらないんです。"
+    - akari: "『沈黙の奇術師』。[wait 10]\nそれが、ゲッコウですから。"
+    - akari: "わたしはいつも、第二部で\n先生の助手をしてるんです。"
+    - akari: "小道具の用意も、[wait 8]\nわたしの仕事で‥‥。"
+    - akari: "でも、あの夜は‥‥[wait 12]休憩のあと、\n楽屋口のベンチにいました。"
+    - phoenix: "ベンチに？[wait 10]\n助手の仕事は？"
+    - akari: "[speed 4]‥‥なんとなく、[wait 10]です。"
+    - phoenix: "（‥‥何か、[wait 8]\n　言いにくそうだな）"
+    - akari: "幕が下りたあと、先生に\nあいさつしようと思って楽屋に。"
+    - akari: "[speed 4]そしたら、[wait 10]先生が‥‥\n床に倒れていて‥‥。"
+    - phoenix: "（アカリさんは、ひざの上で\n　両手をきつく握りしめている）"
+    - mia: "‥‥きれいな手ね。"
+    - akari: "奇術師は、手が命だって。[wait 10]\n先生が、いつも言ってたから。"
+    - mia: "そう。[wait 10]‥‥そこへ通りかかったのが、\n劇場の支配人だったのね。"
+    - akari: "はい。[wait 10]影山さんです。\n先生とは、古いつきあいの人で‥‥"
+    - akari: "わたしのことも、小さいころから\n知ってるのに‥‥。"
+    - phoenix: "（その支配人が、[wait 10]今日の\n　検察側の証人か‥‥）"
+    - mia: "なるほどくん。[wait 10]\n法廷記録は確かめたかしら？"
+    - phoenix: "え、ええ。[wait 10]解剖記録と、\n現場の写真と‥‥。"
+    - mia: "法廷記録は、いつでも開いて\n中身を確かめられるわ。"
+    - mia: "それに、証拠品の中には\n詳しく調べられる物もある。"
+    - mia: "詳細を開いて「調べる」よ。[wait 10]\n写真なんかは、特にね。"
+    - mia: "証言と食いちがう証拠品を\n見つけたら、それが突破口よ。"
+    - kakari: "弁護人！[wait 10]\n開廷時間です！"
+    - phoenix: "（‥‥よし。[wait 12]\n　行こう）"
+    - bgm: null
+      frames: 30
+    - fade: out
+      frames: 30
+    - goto: opening
+
+  # ---- 開廷 ----
+  opening:
+    - location: null
+    - show: null
+    - card: "8月25日 午前10時\n地方裁判所 第2法廷"
+    - fade: in
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - wait: 40
+    - bgm: BGM013
+    - judge: "これより、星野 灯の\n法廷を開廷します。"
+    - payne: "検察側、[wait 8]\n準備完了しておりますぞ。"
+    - phoenix: "弁護側、[wait 8]\n準備完了しています。"
+    - phoenix: "（亜内検事‥‥。[wait 12]この前の法廷で\n　勝ったのは、ぼくのほうだ）"
+    - payne: "ふふふ‥‥。[wait 10]この前のような\nマグレは、二度とありませんぞ。"
+    - judge: "成歩堂くん、でしたな。[wait 12]\nたしか、今日が二度目の法廷。"
+    - judge: "念のため、いくつか\n質問させてもらいましょう。"
+    - judge: "この事件の被告人の名前を\n答えてください。"
+    - goto: q_name
+
+  q_name:
+    - choice:
+        - text: 星野 灯
+          then:
+            - phoenix: "被告人は、[wait 8]\n星野 灯さんです。"
+            - judge: "よろしい。[wait 10]\n落ち着いているようですな。"
+        - text: 影山 仁
+          then:
+            - phoenix: "影山 仁さん‥‥[wait 10]\nで、したっけ？"
+            - judge: "‥‥それは、[wait 10]\n今日の証人の名前ですな。"
+            - mia: "（なるほどくん！[wait 10]\n　被告人の名前よ！）"
+            - add: { mistakes: 1 }
+            - judge: "もう一度聞きます。[wait 10]\n被告人の名前は？"
+            - goto: q_name
+        - text: 月岡 光一
+          then:
+            - phoenix: "月岡 光一さん‥‥[wait 10]\nです！"
+            - judge: "[speed 4]‥‥弁護人。[wait 12]\nそれは、被害者の名前です。"
+            - mia: "（なるほどくん！[wait 10]\n　被告人の名前よ！）"
+            - add: { mistakes: 1 }
+            - judge: "もう一度聞きます。[wait 10]\n被告人の名前は？"
+            - goto: q_name
+    - judge: "では、もうひとつ。[wait 10]\n被害者の死因は何ですかな？"
+    - mia: "（証拠品を見せるときは、\n　法廷記録から選ぶのよ）"
+    - demand: 被害者の死因がわかる証拠品は？
+      by: judge
+      present:
+        autopsy:
+          - show: phoenix
+            talk: 14
+            idle: 13
+          - phoenix: "解剖記録によれば、[wait 10]死因は\n後頭部を殴られたことによる打撲。"
+          - judge: "けっこう。[wait 10]\nちゃんと目を通していますな。"
+      wrong:
+        - judge: "‥‥弁護人。[wait 10]それで死因が\nわかるのですかな？"
+        - mia: "（死因が書いてあるのは、\n　解剖の記録でしょう？）"
+        - add: { mistakes: 1 }
+    - goto: prosecution_open
+
+  prosecution_open:
+    - judge: "では、亜内検事。[wait 12]\n冒頭弁論をおねがいします。"
+    - payne: "被害者は、[wait 8]奇術師ゲッコウ。\n本名、月岡 光一ですな。"
+    - payne: "8月22日の夜、劇場 銀月座の\n楽屋で殺されたのです。"
+    - payne: "被害者はその夜、[wait 8]午後9時半\nまで舞台に立っておりました。"
+    - payne: "これが、その夜の公演の\nプログラムですな。"
+    - give: program
+    - say: null
+      text: "[speed 5]証拠品《公演プログラム》を\n法廷記録にファイルした。"
+      color: blue
+    - payne: "満員の客席の、数百人の観客が\n舞台の被害者を見ておるのです。"
+    - payne: "そして9時35分。[wait 10]楽屋で遺体の\nそばにいたのが、被告人ですぞ！"
+    - show: phoenix
+      talk: 4
+      idle: 3
+    - phoenix: "（数百人の目撃者‥‥か。[wait 12]\n　これは手強いな）"
+    - judge: "ふむう‥‥。[wait 10]\n話はわかりやすいですな。"
+    - payne: "では、[wait 8]捜査を担当した刑事に\n話してもらいましょう。"
+    - goto: detective
+
+  # ---- 刑事の説明（尋問はない。事件のあらましと死亡推定時刻を知る） ----
+  detective:
+    - show: gumshoe
+    - wait: 20
+    - payne: "証人。[wait 8]\n名前と職業を。"
+    - gumshoe: "糸鋸 圭介ッス！[wait 10]\n所轄署の刑事ッス！"
+    - gumshoe: "この事件の捜査を\n担当しているッス。"
+    - phoenix: "（‥‥なんだか、[wait 8]\n　元気な刑事さんだな）"
+    - payne: "では刑事。[wait 10]\n事件のあらましを。"
+    - gumshoe: "8月22日の夜、[wait 8]劇場 銀月座の\n楽屋で、男が殺されたッス。"
+    - gumshoe: "被害者は、[wait 8]月岡 光一。"
+    - gumshoe: "奇術師ゲッコウの名前で\n舞台に立っていた男ッス。"
+    - gumshoe: "死因は、[wait 8]後頭部を\n殴られたことによる打撲ッス。"
+    - gumshoe: "凶器は、楽屋にあった\nこの銀のトロフィーッス。"
+    - give: trophy
+    - say: null
+      text: "[speed 5]証拠品《銀のトロフィー》を\n法廷記録にファイルした。"
+      color: blue
+    - gumshoe: "死亡推定時刻は、[wait 8]午後8時40分\nから9時40分のあいだッス。"
+    - gumshoe: "遺体を見つけたのは、[wait 8]\n9時35分ごろ、被告人ッス。"
+    - gumshoe: "通報したのは劇場の支配人で、\nワレワレが着いたのは9時50分。"
+    - gumshoe: "現場の写真は、[wait 8]着いてすぐ、\n何も動かさずに撮ったッス！"
+    - judge: "ふむう‥‥。[wait 10]\nよく分かりました。"
+    - mia: "（死亡推定時刻と、[wait 8]発見の時刻。\n　覚えておきなさい、なるほどくん）"
+    - payne: "ふふふ‥‥。[wait 10]では次に、[wait 8]\n被告人の話を聞きたいと思いますな。"
+    - judge: "被告人を、証言台に？"
+    - judge: "弁護側には不利になるかも\nしれませんが‥‥[wait 10]よろしいですかな？"
+    - show: phoenix
+      talk: 16
+      idle: 15
+    - phoenix: "（ど、どうしよう‥‥）"
+    - mia: "なるほどくん。[wait 10]依頼人は\n殺していないと言ったのでしょう？"
+    - mia: "だったら、[wait 8]\n胸を張って受けてあげなさい。"
+    - phoenix: "‥‥かまいません。"
+    - goto: accused
+
+  # ---- 被告人を問いただす（被告人のウソを暴き、動機と目撃者につなぐ） ----
+  accused:
+    - show: akari
+      talk: 254
+      idle: 253
+    - wait: 20
+    - payne: "被告人。[wait 8]\n名前と職業を。"
+    - akari: "ほ、星野 灯です。[wait 10]奇術師\nゲッコウの、弟子をしています。"
+    - akari: "ふだんは、[wait 8]舞台の助手と、\n小道具の用意をしていて‥‥"
+    - payne: "けっこう。[wait 10]では、事件の夜の\nことを話していただけますかな？"
+    - akari: "は、はい。[wait 10]あの夜は、[wait 8]\n新しい公演の初日でした。"
+    - akari: "休憩のあいだは、[wait 8]楽屋口の\nベンチに、ひとりでいました。"
+    - akari: "先生とは、[wait 8]休憩のあいだは\n会っていません。"
+    - akari: "幕が下りたあと、[wait 8]あいさつに\n楽屋へ行ったら、先生が‥‥"
+    - phoenix: "（アカリさん、[wait 8]\n　声がふるえている‥‥）"
+    - payne: "ふふふ‥‥。[wait 10]\nそれは、おかしいですな。"
+    - payne: "休憩のはじめ、楽屋から\n言い争う声を聞いた者がいる。"
+    - payne: "被害者の「帰れ」という声と、\n若い女の「大っきらい」という声。"
+    - show: akari
+      talk: 254
+      idle: 253
+    - akari: "[se SE019][shake 20 1]そ、[wait 6]それは‥‥！"
+    - show: judge
+      talk: 95
+      idle: 92
+    - judge: "被告人。[wait 10]\n本当のことを話しなさい。"
+    - akari: "[speed 4]‥‥先生に、[wait 10]今夜の助手は\n任せられないって言われて‥‥"
+    - akari: "わたし‥‥[wait 12]先生なんて\n大っきらいって、言っちゃって‥‥"
+    - payne: "聞きましたかな、裁判長！[wait 10]\n助手を外された、うらみ。"
+    - payne: "[shake 20 1]これが、[wait 8]\n[color red]動機[color white]ですぞ！"
+    - judge: "ふむう‥‥。[wait 10]被告人。\nなぜ、それを隠したのです？"
+    - akari: "言ったら、[wait 8]疑われると\n思って‥‥。[wait 12]それに‥‥"
+    - akari: "先生にひどいことを言った自分が、\nはずかしくて‥‥。"
+    - show: phoenix
+      talk: 16
+      idle: 15
+    - phoenix: "（依頼人が、[wait 8]\n　ウソをついていた‥‥）"
+    - show: mia
+      talk: 87
+      idle: 86
+    - mia: "なるほどくん。[wait 10]\n顔を上げなさい。"
+    - mia: "隠したことと、殺したことは\n別の話よ。"
+    - mia: "最後まで依頼人を信じられるのは、\n弁護士だけなんだから。"
+    - phoenix: "（‥‥そうだ。[wait 10]アカリさんは\n　殺してなんかいない）"
+    - payne: "では、[wait 8]その口論を聞き、遺体を\n見つけた証人を呼びましょう。"
+    - payne: "証人を入廷させてください。[wait 10]\n劇場の支配人ですぞ。"
+    - goto: witness_enter
+
+  witness_enter:
+    - show: kageyama
+    - wait: 20
+    - payne: "証人。[wait 8]\n名前と職業を。"
+    - kageyama: "影山 仁と申します。[wait 10]\n劇場 銀月座の支配人です。"
+    - phoenix: "（白い手袋‥‥。[wait 10]\n　劇場の支配人らしい服装だな）"
+    - kageyama: "月岡くんとは、[wait 8]古いつきあい\nでしてね‥‥。[wait 12]残念です。"
+    - judge: "では、証人。[wait 10]遺体を見つけた\nときのことを証言してください。"
+    - bgm: BGM010
+    - goto: t1
+
+  # ---- 証言1: やさしい矛盾（証言の言いすぎ） ----
+  t1:
+    testimony: 遺体を見つけたとき
+    witness: kageyama
+    statements:
+      - id: t1_curtain
+        text: "9時半、[wait 8]私は客席の後ろで、\n幕が下りるのを見届けました。"
+        press:
+          - phoenix: "客席の後ろで、ですか？"
+          - kageyama: "支配人は、客席のいちばん\n後ろで舞台を見るものです。"
+      - id: t1_run
+        text: "支配人室へ戻る途中、[wait 8]被告人が\n楽屋から泣きながら出てきた。"
+        press:
+          - phoenix: "泣きながら？"
+          - kageyama: "ええ。[wait 10]顔をくしゃくしゃにして、\n廊下へ飛び出してきたのです。"
+          - phoenix: "（先生を見つけて、[wait 8]\n　飛び出したんだ‥‥）"
+      - id: t1_grip
+        text: "その手には、[wait 8]血のついた\nトロフィーが握られていた！"
+        press:
+          - phoenix: "トロフィーを？[wait 10]\nたしかですか？"
+          - kageyama: "この目で見ました。[wait 10]\nおそろしい光景でしたよ。"
+        present:
+          crime_photo:
+            - goto: t1_break
+      - id: t1_peek
+        text: "不思議に思って楽屋をのぞくと、\n月岡くんが倒れていたのです。"
+        press:
+          - phoenix: "のぞいただけ、ですか？"
+          - kageyama: "中には入っていません。[wait 10]\n現場を荒らしてはいけませんから。"
+      - id: t1_keep
+        text: "すぐに警察を呼び、[wait 8]\nだれも楽屋に入れなかった。"
+        press:
+          - phoenix: "だれも、ですか？"
+          - kageyama: "警察が来る9時50分まで、\n私が扉の前に立っていました。"
+        present:
+          crime_photo:
+            - goto: t1_break
+    after:
+      - payne: "現場は、[wait 8]警察が来るまで証人が\n見張っていた。[wait 10]念のため。"
+      - payne: "だれも、[wait 8]楽屋の物には\n触れておりませんぞ。"
+      - judge: "では、弁護人。[wait 10]\n尋問を。"
+      - mia: "なるほどくん。[wait 10]\n尋問のやり方は覚えてるかしら？"
+      - mia: "気になる証言は「ゆさぶる」。\nくわしく聞き出せるわ。"
+      - mia: "証拠品とムジュンする証言には、\n「つきつける」のよ。"
+    loop:
+      - mia: "証人が見たという物と、[wait 10]\n現場に残っていた物。くらべてみて。"
+
+  t1_break:
+    - bgmPause: true
+    - bgm: BGM004
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "証人。[wait 10]あなたは、被告人が\nトロフィーを握って出てきたと。"
+    - phoenix: "そして警察が来るまで、\nだれも楽屋に入れなかった、と。"
+    - showEvidence: crime_photo
+    - phoenix: "この写真を見てください。[wait 10]\n警察が着いてすぐの楽屋です。"
+    - phoenix: "トロフィーは、[wait 8]楽屋の中、\n[color red]遺体のそば[color white]に落ちています！"
+    - phoenix: "被告人が持って出たのなら、\nだれが楽屋に戻したんですか！"
+    - showEvidence: null
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "な‥‥[wait 8][se SE019][shake 30 1]なんと‥‥！"
+    - kageyama: "い、いや、[wait 8]その‥‥。\n何か、光る物を持っていたような‥‥"
+    - kageyama: "‥‥見まちがい、[wait 8]\nだったかもしれません‥‥な。"
+    - judge: "証人！[wait 10]\nいいかげんな証言は困りますぞ！"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "な、なあに。[wait 10]証人は動転して\nいた。[wait 8]それだけのことですぞ。"
+    - payne: "し、しかし！[wait 10]被害者が9時半まで\n舞台にいたことは変わりませんぞ！"
+    - payne: "その後で楽屋へ行ったのは、\n被告人だけ。[wait 10]ふふふ‥‥。"
+    - mia: "その調子よ、なるほどくん。[wait 10]\nでも、ここからが本番ね。"
+    - mia: "亜内検事の本題は、[wait 8]\n「9時半まで舞台にいた」ことよ。"
+    - judge: "ふむう‥‥。[wait 12]では証人、\nその夜の舞台について証言を。"
+    - bgm: BGM010
+    - goto: t2
+
+  # ---- 証言2: ゆさぶりで隠れた証言を出し、アリバイを崩す ----
+  t2:
+    testimony: ゲッコウ最後の舞台
+    witness: kageyama
+    statements:
+      - id: t2_seat
+        text: "第二部も、[wait 8]私は観客席から\n月岡くんの舞台を見ておりました。"
+        press:
+          - phoenix: "観客席で、[wait 8]ですか？\n関係者の席ではなく？"
+          - kageyama: "私は、[wait 8]あくまで支配人。"
+          - kageyama: "ショーに魅了される、[wait 8]観客の\nひとりでありたいのですよ。"
+          - phoenix: "（‥‥なんだか、[wait 8]\n　いい話みたいに言うな）"
+      - id: t2_mask
+        text: "第二部も、[wait 8]月岡くんは仮面を\nつけて舞台に立ちました。"
+        press:
+          - phoenix: "仮面、ですか？"
+          - kageyama: "奇術師ゲッコウは、舞台では\nいつも仮面をつけている。"
+          - kageyama: "そして、[wait 8]一言もしゃべらない。\n『沈黙の奇術師』ですよ。"
+          - phoenix: "（顔も見えない、[wait 8]\n　声も聞こえない‥‥か）"
+        present:
+          crime_photo:
+            - if: asked_tank and seen_body
+              then:
+                - goto: t2_break
+            - phoenix: "（‥‥この写真の先生は、[wait 10]\n　舞台のあとで倒れていた）"
+            - phoenix: "（舞台の最後に何があったのか、\n　もっとくわしく聞かないと）"
+      - id: t2_tank
+        text: "最後の大技は、[wait 8]青く光る\nタンクからの水中脱出でした。"
+        press:
+          - phoenix: "水中脱出？"
+          - kageyama: "まず、[wait 8]何も持っていない\n素手を、客席に見せるのです。"
+          - kageyama: "それから、くさりにつながれて\n青い水の中へ沈む。"
+          - phoenix: "青い水、[wait 8]ですか？"
+          - kageyama: "ショーの見栄えのため、[wait 8]\n染料で色を付けているのですよ。"
+          - if: not has(dye)
+            then:
+              - payne: "その染料なら、[wait 8]\nワレワレ検察も押収してありますぞ。"
+              - payne: "ショー用の、[wait 8]ちょっと特殊な\n染料らしいですな。"
+              - payne: "鑑定を急がせておりますが、[wait 8]\n念のため、提出しておきましょう。"
+              - give: dye
+              - say: null
+                text: "[speed 5]証拠品《舞台用の染料》を\n法廷記録にファイルした。"
+                color: blue
+          - kageyama: "水の中で、[wait 8]素手のまま\n小さな錠を外してみせる。"
+          - kageyama: "幕が落ちて、また上がると‥‥[wait 12]\nタンクは、からっぽ。"
+          - kageyama: "次の瞬間、[wait 8]月岡くんは客席の\n後ろの扉から現れたのです。"
+          - kageyama: "頭から、ずぶぬれのままでね。\nあいさつをして、9時半に幕。"
+          - kageyama: "‥‥あの仕かけは、私も試運転に\n立ち会いましてね。[wait 10]見事なものです。"
+          - if: not asked_tank
+            then:
+              - phoenix: "ずぶぬれのまま‥‥[wait 10]\nそのあと、先生はどこへ？"
+              - kageyama: "もちろん、楽屋ですよ。"
+              - kageyama: "いつもは、[wait 8]助手が舞台のそでで\nタオルを持って待っているのですが‥‥"
+              - kageyama: "あの夜、[wait 8]被告人はいなかった。\nだから、ずぶぬれのままでね。"
+              - phoenix: "今の発言を、[wait 8]\n証言に加えてください！"
+              - judge: "‥‥よろしい。[wait 10]証人、\n今の話を証言に加えてください。"
+              - set: { asked_tank: true }
+      - id: t2_wet
+        when: asked_tank
+        text: "月岡くんは、[wait 8]ずぶぬれのまま\n楽屋へ戻っていきました。"
+        press:
+          - phoenix: "まちがいありませんか？"
+          - kageyama: "あのタンクから出てきたのです。\nぬれていないはずがない。"
+          - phoenix: "（ぬれていないはずがない‥‥か）"
+        present:
+          crime_photo:
+            - if: seen_body
+              then:
+                - goto: t2_break
+            - phoenix: "この写真を見てください！[wait 10]\n先生は、楽屋で‥‥"
+            - phoenix: "（‥‥いや、待てよ。[wait 10]この写真、\n　もっと詳しく見られそうだ）"
+      - id: t2_curtain
+        text: "9時半に幕が下りると、[wait 8]\n月岡くんは楽屋へ戻った。"
+        press:
+          - phoenix: "楽屋へ戻るところを、\n見たんですか？"
+          - kageyama: "舞台のそでから楽屋へは、\n廊下が一本あるきりですから。"
+        present:
+          crime_photo:
+            - if: asked_tank and seen_body
+              then:
+                - goto: t2_break
+            - phoenix: "この写真を見てください！[wait 10]\n先生は、楽屋で‥‥"
+            - phoenix: "（いや、待てよ。[wait 10]先生が楽屋に\n　戻ったこと自体は、写真と合う）"
+            - phoenix: "（楽屋へ戻るときの先生の様子を、\n　もっとくわしく聞かないと）"
+      - id: t2_alone
+        text: "そのあと楽屋へ行ったのは、[wait 8]\n被告人ただひとりです。"
+        press:
+          - phoenix: "どうして、そう言えるんですか？"
+          - kageyama: "楽屋へ行けば、支配人室の前を\n通る。[wait 10]必ず見えます。"
+          - phoenix: "（‥‥それじゃあ、支配人自身は\n　だれにも見られていないのか）"
+    after:
+      - judge: "弁護人。[wait 10]\n尋問を。"
+      - phoenix: "（数百人が見た舞台‥‥。[wait 10]\n　どこかに、穴はないか？）"
+      - mia: "目撃者が何人いても、[wait 8]\nムジュンはムジュンよ。"
+    loop:
+      - if: not asked_tank
+        then:
+          - mia: "最後の大技の話、[wait 8]\nくわしく聞いてみたらどうかしら。"
+        else:
+          - mia: "なるほどくん。[wait 10]現場写真は\n詳しく調べてみたかしら？"
+
+  t2_break:
+    - bgmPause: true
+    - bgm: BGM004
+    - phoenix: "証人。[wait 10]先生は、ずぶぬれの\nまま楽屋へ戻ったんですね？"
+    - kageyama: "ええ。[wait 10]\nそう言いましたが。"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "では、[wait 8]この写真を見てください！"
+    - showEvidence: crime_photo
+    - phoenix: "遺体のタキシードも、[wait 8]髪も、\n[color red]まったく乾いています[color white]！"
+    - showEvidence: null
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "[se SE019][shake 30 1]ぐっ‥‥！"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "な、なあに。[wait 10]楽屋に戻って、\nすぐに着がえたのでしょうな。"
+    - payne: "机の上のマントは、ぬれている。\n被害者が水に入った証拠ですぞ。"
+    - phoenix: "では、[wait 8]ぬれた服はどこへ？[wait 10]\nぬれていたのは、マントと仮面だけ。"
+    - phoenix: "それに、ずぶぬれの人間が歩けば\n床に水のあとが残るはず。"
+    - phoenix: "写真の床は、[wait 8]\n一滴もぬれていないんです！"
+    - payne: "ふ、ふいたのでしょうな。\n被告人が、警察の来る前に！"
+    - phoenix: "証人は、警察が来るまで\nだれも楽屋に入れなかった。"
+    - phoenix: "床をふく時間も、服を隠す時間も\nなかったんです！"
+    - phoenix: "ずぶぬれの服と髪が、[wait 8]\nたった5分で乾くはずもない！"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "[se SE019][shake 20 1]なな‥‥！"
+    - judge: "弁護人。[wait 10]それはつまり、\nどういうことなのです？"
+    - goto: t2_choice
+
+  t2_choice:
+    - choice:
+        - text: 先生は水に入っていない
+          then:
+            - goto: twist
+        - text: 先生は着がえを隠した
+          then:
+            - phoenix: "先生は、ぬれた服をどこかに\n隠したんです！"
+            - judge: "‥‥では、床が乾いているのは\nどう説明するのです？"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - phoenix: "（うう‥‥。[wait 10]\n　そういうことじゃないか）"
+            - judge: "もう一度聞きます。[wait 10]\nどういうことなのです？"
+            - goto: t2_choice
+        - text: 写真がまちがっている
+          then:
+            - phoenix: "この写真が、[wait 8]\nまちがっているんです！"
+            - payne: "ふふふ‥‥。[wait 10]警察の写真を\n疑うのですかな、成歩堂くん？"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - phoenix: "（しまった‥‥。[wait 10]\n　写真は、正しいんだ）"
+            - judge: "もう一度聞きます。[wait 10]\nどういうことなのです？"
+            - goto: t2_choice
+
+  # ---- ひっくり返し 1: 数百人が見た「ゲッコウ」は別人 ----
+  twist:
+    - phoenix: "水の中に沈んだのは、[wait 10]\n先生ではありません。"
+    - phoenix: "あの夜、[wait 8]仮面をかぶって\n舞台に立っていたのは‥‥"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "[flash][shake 30 1]仮面をかぶった、\n[color red]別の人間[color white]なんです！"
+    - bgm: null
+    - show: judge
+      talk: 99
+      idle: 98
+    - judge: "な、[wait 8]なんですって――ッ！？"
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - wait: 12
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - judge: "静粛に！[wait 10]\n静粛に！"
+    - judge: "しかし弁護人！[wait 10]数百人の\n観客が見ていたのですぞ！"
+    - phoenix: "観客が見たのは、[wait 8]\n仮面とマントだけです。"
+    - phoenix: "ゲッコウは舞台で顔を見せない。\n一言もしゃべらない。"
+    - phoenix: "仮面の下が別の人間でも、\nだれにもわからないんです！"
+    - phoenix: "もしかしたら先生は、[wait 10]\n第二部が始まるより前に‥‥"
+    - phoenix: "[shake 20 1]休憩のあいだに、\n殺されていたのかもしれない！"
+    - wait: 30
+    - kageyama: "[speed 4]‥‥ほう。[wait 16]\n休憩のあいだに、ですか。"
+    - kageyama: "裁判長。[wait 10]その休憩のあいだ、\n楽屋で月岡くんと言い争って‥‥"
+    - kageyama: "泣きながら飛び出していったのは、\n[wait 10]だれでしたかな？"
+    - show: phoenix
+      talk: 16
+      idle: 15
+    - phoenix: "（あ‥‥！）"
+    - payne: "[speed 5]‥‥ふふふ。[wait 16]\nふふふふふ‥‥！"
+    - bgm: BGM013
+    - payne: "そ、そうですぞ！[wait 10]\n被告人ですぞ！"
+    - payne: "しかも被告人は、ゲッコウの\nただひとりの弟子。"
+    - kageyama: "師匠の奇術の仕かけを、\nすべて知っている子です。"
+    - payne: "休憩中に師匠を殺し、[wait 8]\n仮面をかぶって舞台に立つ‥‥"
+    - payne: "[shake 30 1]それができるのは、[wait 8]\n被告人しかおりませんぞ！"
+    - show: phoenix
+      talk: 16
+      idle: 15
+    - phoenix: "（しまった‥‥！[wait 10]ぼくは、\n　アカリさんを追いつめたのか!?）"
+    - show: mia
+      talk: 87
+      idle: 86
+    - mia: "なるほどくん、[wait 8]しっかり！\nまだ終わってないわ。"
+    - payne: "マントに仮面の奇術師なら、\n中身がだれでも分かりませんな。"
+    - payne: "仮面の下は、[wait 8]被告人だったと\n考えるほかありませんぞ！"
+    - judge: "‥‥たしかに、[wait 10]\n筋は通っていますな。"
+    - judge: "では、[wait 8]被告人・星野 灯に\n判決を――"
+    - show: mia
+      talk: 87
+      idle: 86
+    - mia: "なるほどくん！[wait 10]今の話は、\nまだだれも確かめていないでしょう？"
+    - mia: "証人に証言させて、[wait 8]\n尋問するのよ！"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "[shake 20 1]待ってください、裁判長！"
+    - phoenix: "検察の今の話は、[wait 8]\nまだ証言ではありません！"
+    - phoenix: "証人・影山さんに、[wait 8]\nもう一度、証言させてください！"
+    - payne: "ふふふ‥‥。[wait 10]よろしい。\nただし、崩せなかったときは‥‥"
+    - payne: "判決を受け入れて\nいただきますぞ、成歩堂くん。"
+    - judge: "‥‥わかりました。[wait 10]証人、\nその夜の被告人について証言を。"
+    - mia: "こういうときはね、[wait 10]\n発想を逆転させるの。"
+    - mia: "向こうの筋書きが本当なら、\n何が起きているはずかしら？"
+    - phoenix: "（起きているはずのこと‥‥？[wait 10]\n　アカリさんが舞台に立ったなら‥‥）"
+    - bgm: BGM011
+    - goto: t3
+
+  # ---- 証言3: 検事の新しい筋を崩す（証人は見たことだけを言う） ----
+  t3:
+    testimony: 仮面の下の顔
+    witness: kageyama
+    statements:
+      - id: t3_argue
+        text: "休憩のはじめ、[wait 8]楽屋から\n言い争う声が聞こえました。"
+        press:
+          - phoenix: "どんな話を？"
+          - kageyama: "月岡くんの「帰れ」という\n声と‥‥"
+          - kageyama: "被告人の泣き声です。[wait 10]\nよほどのことがあったのでしょう。"
+      - id: t3_alibi
+        text: "それから幕が下りるまで、[wait 8]\n被告人の姿はどこにもなかった。"
+        press:
+          - phoenix: "どこにも？"
+          - kageyama: "楽屋口のベンチにいたと言うが、\nそれを見た者はおりません。"
+          - phoenix: "（アリバイがない、[wait 8]か‥‥）"
+      - id: t3_skill
+        when: not partner_known
+        text: "被告人はただひとりの弟子。[wait 8]\n仕かけを知るのは、あの子だけ。"
+        press:
+          - phoenix: "ほかに、仕かけを知っている人は\nいないんですか？"
+          - kageyama: "[speed 4]‥‥おりませんな。"
+          - kageyama: "月岡くんは、仕かけをだれにも\n明かさない男でしたから。"
+          - phoenix: "（本当に、[wait 8]そうだろうか‥‥？）"
+        present:
+          program:
+            - phoenix: "（このプログラム‥‥[wait 10]まだ、\n　よく読んでいない所があるな）"
+          kageyama:
+            - phoenix: "（影山さんのことを、[wait 8]\n　もっと知らないと‥‥）"
+      - id: t3_skill2
+        when: partner_known
+        text: "‥‥今の仕かけを知るのは、[wait 8]\n月岡くんと弟子だけですよ。"
+        press:
+          - phoenix: "試運転にも、[wait 8]立ち会っていた\nのにですか？"
+          - kageyama: "見ていただけですよ。[wait 10]\n仕かけの中身までは、とても。"
+          - phoenix: "（‥‥本当だろうか）"
+        present:
+          program:
+            - show: phoenix
+              talk: 12
+              idle: 11
+            - phoenix: "あなたも昔は、[wait 8]\n先生の相方だったはずです！"
+            - show: kageyama
+              talk: 239
+              idle: 238
+            - kageyama: "[speed 4]‥‥ははは。[wait 10]\n20年も前の話ですよ。"
+            - kageyama: "たしかに、劇場の仕かけの\n手入れは、今も私の仕事ですがね。"
+            - kageyama: "新しい大技の試運転にも\n立ち会いました。[wait 10]それだけです。"
+            - kageyama: "それに、[wait 8]今の私のこの体で、\n仮面の奇術師がつとまりますかな？"
+            - phoenix: "それに、[wait 8]あなたが観客席に\nいたと証言した人は、だれもいない！"
+            - kageyama: "そりゃあ皆さん、[wait 8]\nショーに夢中でしたから。"
+            - kageyama: "周りも忘れて熱中していただける。\n[wait 10]支配人冥利に尽きますな。"
+            - payne: "弁護人！[wait 10]証人を疑うなら、\n証拠を出していただきますぞ。"
+            - phoenix: "（‥‥たしかに、[wait 8]\n　これだけじゃ弱いか）"
+          kageyama:
+            - show: phoenix
+              talk: 12
+              idle: 11
+            - phoenix: "あなたも昔は、[wait 8]\n先生の相方だったはずです！"
+            - show: kageyama
+              talk: 239
+              idle: 238
+            - kageyama: "[speed 4]‥‥ははは。[wait 10]\n20年も前の話ですよ。"
+            - kageyama: "たしかに、劇場の仕かけの\n手入れは、今も私の仕事ですがね。"
+            - kageyama: "新しい大技の試運転にも\n立ち会いました。[wait 10]それだけです。"
+            - kageyama: "それに、[wait 8]今の私のこの体で、\n仮面の奇術師がつとまりますかな？"
+            - phoenix: "それに、[wait 8]あなたが観客席に\nいたと証言した人は、だれもいない！"
+            - kageyama: "そりゃあ皆さん、[wait 8]\nショーに夢中でしたから。"
+            - kageyama: "周りも忘れて熱中していただける。\n[wait 10]支配人冥利に尽きますな。"
+            - payne: "弁護人！[wait 10]証人を疑うなら、\n証拠を出していただきますぞ。"
+            - phoenix: "（‥‥たしかに、[wait 8]\n　これだけじゃ弱いか）"
+      - id: t3_easy
+        text: "水中脱出は、[wait 8]だれにでもできる\n芸ではない。助手なら別ですが。"
+        press:
+          - phoenix: "助手なら、[wait 8]ですか？"
+          - kageyama: "被告人は毎晩、[wait 8]あのタンクの\nそばで助手をしていましたからな。"
+          - kageyama: "タンクの水の用意も、[wait 8]\nあの子の仕事でした。"
+          - phoenix: "（水の用意‥‥？）"
+          - if: not asked_water
+            then:
+              - judge: "証人。[wait 10]\n今の話を、証言に加えてください。"
+              - set: { asked_water: true }
+        present:
+          dye:
+            - goto: call_akari
+      - id: t3_water
+        when: asked_water
+        text: "タンクの水の用意も、[wait 8]\n被告人の仕事でした。"
+        press:
+          - phoenix: "あの夜も、[wait 8]\n被告人が用意したんですか？"
+          - kageyama: "さあ。[wait 10]\nそこまでは存じませんな。"
+        present:
+          dye:
+            - goto: call_akari
+      - id: t3_enter
+        text: "幕が下りると、[wait 8]奇術師は\nまっすぐ楽屋へ入っていった。"
+        press:
+          - phoenix: "楽屋へ、[wait 8]ですか。"
+          - kageyama: "ええ。[wait 10]マントから、\n水をしたたらせながらね。"
+          - phoenix: "（まるで、[wait 8]すぐそばで\n　見ていたみたいに言うんだな）"
+      - id: t3_claim
+        text: "その数分後、[wait 8]楽屋から\n飛び出してきたのが被告人です！"
+        press:
+          - phoenix: "奇術師と被告人が、[wait 8]\n同じ人間だと言うんですか？"
+          - kageyama: "ほかに、だれがいます？[wait 10]\n楽屋に入ったのは奇術師だけ。"
+        present:
+          dye:
+            - goto: call_akari
+    after:
+      - judge: "弁護人。[wait 10]\n尋問を。"
+      - phoenix: "（仮面の奇術師が、あの夜\n　水中脱出をしたのなら‥‥）"
+      - mia: "なるほどくん。[wait 10]\nプログラムは、すみずみまで読んだ？"
+    loop:
+      - mia: "あの夜の青い水は、[wait 8]\nだれが用意したのかしら？"
+
+  # ---- 被告人に、あの夜の水のことを証言させる ----
+  call_akari:
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "裁判長！[wait 10]あの夜のタンクの\n水について、被告人に証言を！"
+    - show: payne
+      talk: 191
+      idle: 190
+    - payne: "水、[wait 8]ですと？[wait 10]ふふふ‥‥。\nそんなことが、大事なのですかな？"
+    - payne: "まあまあ、[wait 8]苦しまぎれ\nというやつでしょう。"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "大事なことです！[wait 10]あの夜、\nだれが水を用意したのか‥‥"
+    - show: judge
+      talk: 97
+      idle: 96
+    - judge: "‥‥よろしい。[wait 10]\n被告人、証言台へ。"
+    - show: akari
+      talk: 254
+      idle: 253
+    - wait: 20
+    - judge: "被告人。[wait 8]あの夜の\nタンクの水について、話しなさい。"
+    - akari: "ショーの小道具の用意は、[wait 8]\nいつも助手のわたしの仕事です。"
+    - akari: "あの青い水も、[wait 8]第二部の前に\nわたしが作るはずでした。"
+    - akari: "[speed 4]でも、[wait 8]先生とケンカして‥‥\n作らないまま、飛び出して‥‥。"
+    - phoenix: "（アカリさんは、[wait 8]\n　水を作っていない‥‥？）"
+    - phoenix: "あの染料は、[wait 8]\nどういう物なんですか？"
+    - akari: "特別なインクなんです。[wait 10]\n薄めれば、何ともないんですけど‥‥"
+    - akari: "原液が手につくと、[wait 8]体に害は\nないけど、数日は落ちなくて。"
+    - judge: "今の話、[wait 8]\n証拠品に書き加えておきましょう。"
+    - set: { dye_detail: true }
+    - say: null
+      text: "[speed 5]証拠品《舞台用の染料》の\nデータを書き加えた。"
+      color: blue
+    - show: payne
+      talk: 191
+      idle: 190
+    - payne: "ふふふ‥‥。[wait 10]ちょうど、検察の\n鑑定の結果が届いておりますぞ。"
+    - payne: "舞台裏の床に、[wait 8]\n青いしみがありましてな。"
+    - payne: "この染料の原液と、[wait 8]\n同じものでしたぞ。"
+    - give: stain
+    - say: null
+      text: "[speed 5]証拠品《舞台裏のしみ》を\n法廷記録にファイルした。"
+      color: blue
+    - judge: "弁護人。[wait 10]それは、\n何を意味するのです？"
+    - goto: stain_choice
+
+  stain_choice:
+    - choice:
+        - text: だれかが原液をこぼした
+          then:
+            - goto: stain_hands
+        - text: しみは前からあった
+          then:
+            - phoenix: "そのしみは、[wait 8]\nずっと前からあったんです！"
+            - judge: "‥‥それで、[wait 8]\n何が説明できるのです？"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - judge: "もう一度聞きます。[wait 10]\n何を意味するのです？"
+            - goto: stain_choice
+        - text: 被告人がウソをついている
+          then:
+            - phoenix: "被告人が、[wait 8]\nウソをついているんです！"
+            - mia: "（なるほどくん！[wait 10]弁護士が\n　依頼人を疑ってどうするの！）"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - judge: "もう一度聞きます。[wait 10]\n何を意味するのです？"
+            - goto: stain_choice
+
+  stain_hands:
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "あの夜、[wait 8]だれかが原液で\n水を作り、それをこぼしたんです！"
+    - phoenix: "床にこぼれるほど原液を扱えば、\n手にもついたはずです。"
+    - phoenix: "原液は、手につくと数日落ちない。\n[wait 10]事件から、まだ3日。"
+    - phoenix: "水を作った人物の手は、[wait 8]今も\n[color red]青く染まっている[color white]はずです！"
+    - show: payne
+      talk: 191
+      idle: 190
+    - payne: "ふふふ‥‥。[wait 10]ならば、\n被害者本人でしょうな。"
+    - payne: "助手がいないなら、[wait 8]自分で\n作ればよい。それだけの話ですぞ。"
+    - judge: "ふむう‥‥。[wait 10]弁護人。[wait 8]\n反論はありますかな？"
+    - demand: "被害者が水を作っていない\nことを示す証拠品は？"
+      by: judge
+      present:
+        crime_photo:
+          - show: phoenix
+            talk: 14
+            idle: 13
+          - showEvidence: crime_photo
+          - phoenix: "この写真の遺体の指先を\n見てください。"
+          - phoenix: "しみひとつなく、[wait 8]\n[color red]きれいなまま[color white]です！"
+          - showEvidence: null
+      wrong:
+        - judge: "‥‥それで、[wait 8]被害者の手の\nことが分かるのですかな？"
+        - show: judge
+          talk: 95
+          idle: 92
+        - judge: "[speed 4]‥‥ペナルティを与えます。"
+        - penalty: true
+        - add: { mistakes: 1 }
+        - mia: "（被害者の手が写っている物は、\n　ないかしら？）"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "[se SE019][shake 20 1]なな‥‥！"
+    - phoenix: "裁判長。[wait 10]被告人の手も、\n確かめてください。"
+    - show: judge
+      talk: 99
+      idle: 98
+    - judge: "‥‥よろしい。[wait 10]\n係官、被告人の手を。"
+    - wait: 30
+    - show: akari
+    - phoenix: "（アカリさんの白い手には、[wait 10]\n　しみひとつない‥‥）"
+    - judge: "被告人の手も、[wait 8]\nきれいなものですな。"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "な、なあに。[wait 10]その時だけ、\n手袋をしたのでしょうな！"
+    - show: phoenix
+      talk: 4
+      idle: 3
+    - phoenix: "‥‥その可能性は、[wait 8]あります。"
+    - phoenix: "でも、[wait 8]別の人間が原液に\n触れた可能性も、あるのでは？"
+    - show: mia
+      talk: 87
+      idle: 86
+    - mia: "なるほどくん。[wait 10]あの夜、[wait 8]\nタンクのそばにいられた人は？"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "[shake 20 1]裁判長！[wait 10]証人・影山 仁を、\nもう一度証言台へ！"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "な、[wait 6]なんですと？"
+    - judge: "‥‥いいでしょう。[wait 10]\n係官、証人を。"
+    - show: kageyama
+    - wait: 20
+    - kageyama: "おやおや。[wait 10]\nまだ、何か？"
+    - show: judge
+      talk: 99
+      idle: 98
+    - judge: "では、弁護人。[wait 10]\n人物ファイルから示してください。"
+    - goto: final_q
+
+  final_q:
+    - demand: "あの夜、原液に触れた人物は、\nだれですか？"
+      by: judge
+      profiles: true
+      present:
+        kageyama:
+          - goto: final_reveal
+      wrong:
+        - judge: "[speed 4]‥‥弁護人。[wait 12]\nその人物を疑う理由がありますかな？"
+        - show: judge
+          talk: 95
+          idle: 92
+        - judge: "[speed 4]‥‥ペナルティを与えます。"
+        - penalty: true
+        - add: { mistakes: 1 }
+        - mia: "（舞台の仕かけを知っていて、\n　手元を隠している人は？）"
+
+  # ---- 決着 ----
+  final_reveal:
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "影山 仁さん。[wait 12]\n[shake 20 1][bgm BGM003]あなたです！"
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "わ‥‥[wait 10]私？"
+    - phoenix: "あなたは今日、[wait 8]法廷に入ってから\n一度も手袋を外していない。"
+    - phoenix: "その手袋を、[wait 10]\n外して見せてもらえますか？"
+    - kageyama: "バ、[wait 6]バカバカしい！[wait 10]\nこれは、手が荒れているだけで‥‥"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "[speed 4]‥‥しょ、[wait 8]証人。"
+    - payne: "ここは、[wait 10]その、[wait 8]\n外していただけますかな。"
+    - kageyama: "亜内検事まで‥‥！"
+    - judge: "証人。[wait 10]手袋を外しなさい。\nこれは命令です。"
+    - bgm: null
+      frames: 60
+    - wait: 40
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - phoenix: "（影山さんは、[wait 10]ふるえる指で\n　ゆっくりと手袋を外した）"
+    - wait: 30
+    - phoenix: "（[flash][shake 40 2]その両手は、[wait 10]手首まで\n　[color red]青く[color blue]染まっていた‥‥！）"
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "[speed 2]こ、[wait 6]これは‥‥！[wait 10]\n月岡くんに頼まれて‥‥！"
+    - kageyama: "休憩中に、[wait 8]水を作るのを\n手伝っただけで‥‥！"
+    - show: payne
+      talk: 193
+      idle: 192
+    - payne: "な、[wait 6]なるほど。[wait 10]\nそれなら筋は通りますな‥‥？"
+    - show: phoenix
+      talk: 4
+      idle: 3
+    - phoenix: "（先生に頼まれた‥‥？[wait 10]影山さんは、\n　さっき何と証言していた？）"
+    - goto: final_choice
+
+  final_choice:
+    - choice:
+        - text: 仕かけを知るのは弟子だけ
+          then:
+            - goto: final_break
+        - text: 水の用意は助手の仕事
+          then:
+            - phoenix: "水の用意は、[wait 8]\n助手の仕事だったはずです！"
+            - kageyama: "ええ。[wait 10]その助手が\nいなかったから、手伝ったのですよ。"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - phoenix: "（ちがう。[wait 10]もっと、証人自身の\n　言葉を思い出すんだ）"
+            - goto: final_choice
+        - text: 観客席で見ていた
+          then:
+            - phoenix: "あなたは、[wait 8]\n観客席で見ていたはずです！"
+            - kageyama: "休憩中は、[wait 8]\n舞台の裏にもおりましたよ。"
+            - show: judge
+              talk: 95
+              idle: 92
+            - judge: "[speed 4]‥‥ペナルティを与えます。"
+            - penalty: true
+            - add: { mistakes: 1 }
+            - phoenix: "（ちがう。[wait 10]先生が、証人に\n　頼むはずがない理由は‥‥）"
+            - goto: final_choice
+
+  final_break:
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "あなたは証言しました。[wait 10]\n仕かけを知るのは、弟子だけだと。"
+    - phoenix: "仕かけを弟子にしか明かさない\n先生が、あなたに水を頼みますか！"
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "[se SE019][shake 30 1]ぐ‥‥っ！"
+    - show: phoenix
+      talk: 12
+      idle: 11
+    - phoenix: "水の用意は、[wait 8]助手の仕事。\n支配人が手を出すことはない。"
+    - phoenix: "助手も先生もいないあの夜に、\n水を作る必要があったのは‥‥"
+    - phoenix: "ゲッコウのふりをして、[wait 8]\n舞台に立つ人間だけです！"
+    - phoenix: "あなたは、[wait 8]観客席で\n見ていたと言った。"
+    - phoenix: "でも、[wait 8]あの夜、客席の後ろの\n扉から現れたのは‥‥"
+    - phoenix: "[shake 20 1]仮面をかぶった、[wait 8]\nあなた自身だったんです！"
+    - show: kageyama
+      talk: 239
+      idle: 238
+    - kageyama: "[speed 2]うう‥‥[wait 10]\nうおおおおおおおおッ！"
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - judge: "静粛に！[wait 10]\n静粛に！"
+    - wait: 40
+    - kageyama: "[speed 4]‥‥ハハ。[wait 16]\nいい舞台だったでしょう？"
+    - kageyama: "20年ぶりの舞台でした。[wait 10]\n体が、ちゃんと覚えていた。"
+    - phoenix: "20年ぶり‥‥？"
+    - kageyama: "弁護士さん。[wait 10]仮面の奇術師\nゲッコウというのはね‥‥"
+    - kageyama: "[flash]もともと、[wait 10]ふたりで\nひとりの奇術師だったのですよ。"
+    - phoenix: "な‥‥[wait 8]なんだって！？"
+    - kageyama: "仮面の下は、[wait 8]あるときは月岡。\nあるときは、[wait 8]私。"
+    - kageyama: "舞台の上と、[wait 8]客席の後ろに\n同じ奇術師が現れる‥‥"
+    - kageyama: "ゲッコウの『瞬間移動』の\n正体は、[wait 8]それだけのことです。"
+    - kageyama: "やがて私は裏方にまわり、[wait 10]\n月岡だけが拍手をあびた。"
+    - kageyama: "劇場の金に手をつけたのは、\n[wait 10]‥‥その埋め合わせですよ。"
+    - kageyama: "あの夜の休憩中、[wait 8]\nそれを月岡に問いつめられた。"
+    - kageyama: "「公演が終わったら、[wait 8]\n警察にすべて話す」と。"
+    - kageyama: "[speed 5]‥‥だから、[wait 12]私が\nトロフィーで殴ったのです。"
+    - kageyama: "気がつけば、[wait 8]第二部の\nベルが鳴っていました。"
+    - kageyama: "満員の客を、[wait 8]帰すわけには\nいかない。[wait 10]だから私は‥‥"
+    - kageyama: "20年ぶりに、[wait 10]\nあの仮面をかぶったのです。"
+    - kageyama: "マントを着てしまえば、[wait 8]\n体つきなど分かりはしない。"
+    - kageyama: "舞台裏で水を作るとき、[wait 8]\nあわてて原液をこぼしましてね。"
+    - kageyama: "幕が下りてすぐ、[wait 8]\n支配人室で着がえました。"
+    - kageyama: "ぬれたマントと仮面は、袋に入れて\n楽屋の机に置いてきた。"
+    - phoenix: "そして、[wait 8]アカリさんに\n罪を着せようとした。"
+    - kageyama: "休憩中、[wait 8]あの子が泣きながら\n楽屋を出ていくのを見ましてね。"
+    - kageyama: "[speed 4]‥‥都合が、[wait 10]\nよすぎたのです。"
+    - phoenix: "‥‥先生は、[wait 8]どうして\nアカリさんを帰そうとしたんですか。"
+    - kageyama: "[speed 4]‥‥月岡は、[wait 10]\n言っていましたよ。"
+    - kageyama: "私を問いつめる前に、[wait 10]\n「あの子だけは巻きこむな」と。"
+    - kageyama: "公演のあと、[wait 8]劇場は\n大さわぎになる。"
+    - kageyama: "その前に、あの子を楽屋から\n遠ざけておきたかったのでしょう。"
+    - judge: "[speed 4]‥‥係官。[wait 12]\n証人を連れていきなさい。"
+    - goto: ending
+
+  ending:
+    - show: null
+    - bgm: BGM013
+    - judge: "ふむう‥‥。[wait 12]数百人の目が、\nだまされていたとは。"
+    - judge: "証人・影山 仁を、[wait 8]この事件の\n重要参考人として取り調べます。"
+    - judge: "[speed 5]‥‥それでは。"
+    - judge: "被告人、[wait 10]星野 灯に\n判決を言い渡します。"
+    - textbox: false
+    - bgm: null
+      frames: 30
+    - wait: 60
+    - banner: 無罪
+    - wait: 120
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - wait: 40
+    - textbox: true
+    - judge: "では、[wait 16]本日はこれにて閉廷！"
+    - wait: 60
+    - fade: out
+      frames: 48
+    - location: bg2   # 被告人控え室（蘇る逆転 第1話と同じ背景）
+    - show: akari
+    - card: "同日 午後1時12分\n地方裁判所 被告人第1控え室"
+    - fade: in
+    - bgm: BGM020
+    - akari: "成歩堂さん、[wait 8]千尋さん。[wait 10]\n本当に、ありがとうございました。"
+    - mia: "おめでとう、[wait 8]なるほどくん。\nあわてた顔も、なかなかだったわよ。"
+    - phoenix: "[speed 4]‥‥必死だっただけですよ。"
+    - akari: "わたし、[wait 8]先生にひどいことを\n言ったまま‥‥。"
+    - phoenix: "アカリさん。[wait 10]先生は、\n影山さんに言っていたそうです。"
+    - phoenix: "「あの子だけは、[wait 8]\n巻きこむな」と。"
+    - akari: "[speed 6]せん‥‥[wait 16]せい‥‥。"
+    - akari: "[speed 4]そういえば、[wait 10]あのとき‥‥\n影山さんの髪、少しぬれてました。"
+    - phoenix: "先生は、[wait 8]最後まで\nきみを守っていたんです。"
+    - akari: "[speed 4]‥‥はい。"
+    - akari: "わたし、[wait 8]いつか先生の水中脱出を\n自分の手でやってみせます。"
+    - akari: "今度は、[wait 10]\n仮面なしで。"
+    - show: mia
+    - mia: "‥‥弟子っていうのはね、[wait 10]\nなるほどくん。"
+    - mia: "教わったことを、自分の手で\n使えたときに、本当の弟子になるの。"
+    - phoenix: "ぼくも、[wait 8]ですか？"
+    - mia: "ふふ。[wait 10]さあ、どうかしら。\nさ、事務所に帰りましょう。"
+    - if: mistakes == 0
+      then:
+        - phoenix: "（一度もまちがえずに、[wait 8]真実に\n　たどり着けた。[wait 10]‥‥よし）"
+      else:
+        - phoenix: "（危ないところもあったけど、\n　なんとか真実にたどり着けた）"
+    - phoenix: "（仮面の奇術師、[wait 10]ゲッコウ。\n　その最後の舞台は‥‥）"
+    - phoenix: "（ふたりでひとりの奇術師の、\n　もうひとりの舞台だったんだ）"
+    - end: true
+
+  verdict_guilty:
+    - bgm: null
+    - se: SE010
+    - shake: 10
+      strength: 1
+    - judge: そこまで！
+    - judge: "本法廷は、[wait 10]これ以上の\n審議の必要性を認めません。"
+    - judge: "被告人、[wait 10]星野 灯に\n判決を言い渡します。"
+    - banner: 有罪
+    - judge: では、本日はこれにて閉廷！
+    - fade: out
+      frames: 64
+    - gameover: true
