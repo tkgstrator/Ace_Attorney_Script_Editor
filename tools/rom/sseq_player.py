@@ -15,7 +15,7 @@
     E0 LFO の遅れ  E1 テンポ  E3 スイープ  FC ループ終わり  FD 戻る  FE トラックの一覧  FF 終わり
 """
 from nds_sbnk_swar import Instrument, Wave
-from nds_sound_tables import cnv_attack, cnv_fall, cnv_sust
+from nds_sound_tables import cnv_attack, cnv_fall, cnv_scale, cnv_sust
 from sseq_channel import NOISE, NONE, PCM, PSG, PSG_BASE_TIMER, START, Channel
 from sseq_track import ARGS, Track  # noqa: F401  （ARGS は調べる道具のために公開）
 
@@ -34,13 +34,13 @@ class Player:
         self.base = int.from_bytes(sseq[0x18:0x1C], 'little')
         self.bank = bank
         self.waves = waves
-        self.seq_vol = cnv_sust(seq_vol)
+        self.seq_vol = cnv_scale(seq_vol)
         self.master_vol = 0
         self.prio = prio
         self.mask = channel_mask or 0xFFFF
         self.tempo = 120
         self.tempo_rate = 256
-        self.tempo_count = 0
+        self.tempo_count = 240
         self.vars = [-1] * 32
         self.seed = 0x12345678
         self.used_random = False                    # 乱数を使った（実機と同じ音にはならない）
@@ -169,8 +169,9 @@ class Player:
             if ch.state != NONE and ch.track is not None:
                 ch.update_from_track(ch.track, self)
             ch.update()
-        self.tempo_count += (self.tempo * self.tempo_rate) >> 8
         while self.tempo_count >= 240:
             self.tempo_count -= 240
             self.run_tick()
+        # NCSFCommon/Player.cs の Main と同じく、ティック処理後にテンポを足す。
+        self.tempo_count += (self.tempo * self.tempo_rate) >> 8
         self.frame_no += 1

@@ -13,7 +13,6 @@ from nds_sbnk_swar import Wave
 from nds_sound_tables import (
     AMPL_K,
     AMPL_THRESHOLD,
-    CHANNEL_CLOCK,
     cnv_sine,
     cnv_sust,
     register_amplitude,
@@ -24,7 +23,7 @@ from nds_sound_tables import (
 NONE, START, ATTACK, DECAY, SUSTAIN, RELEASE = range(6)
 
 PCM, PSG, NOISE = 1, 2, 3
-PSG_BASE_TIMER = CHANNEL_CLOCK // (440 * 8)   # PSG は 440 Hz × 8 段を基準にする
+PSG_BASE_TIMER = 8006   # NCSFCommon/Channel.cs の StartPSG・StartNoise（キー60）。
 
 
 def _noise_sequence() -> np.ndarray:
@@ -113,6 +112,9 @@ class Channel:
 
     def update_from_track(self, trk, player):
         """トラックの音量・パン・音程・LFO をチャンネルに写す（UpdateVol/Pan/Tune/Mod）"""
+        # NCSFCommon/Track.cs の UpdateChannel はリリース中の値を保つ。
+        if self.state == RELEASE:
+            return
         v = player.master_vol + player.seq_vol + cnv_sust(trk.vol) + cnv_sust(trk.expr)
         self.ext_ampl = max(v, -0x8000)
         self.ext_pan = trk.pan
@@ -150,7 +152,8 @@ class Channel:
             return
         if self.state == START:
             self.hw_on = True
-            self.pos = -(self.wave.start_delay if self.kind == PCM and self.wave else 0)
+            # NCSFCommon/Channel.cs の StartPSG・StartNoise は1段待って開始する。
+            self.pos = -(self.wave.start_delay if self.kind == PCM and self.wave else 1)
             self.acc = 0
             self.ampl = AMPL_THRESHOLD
             self.state = ATTACK

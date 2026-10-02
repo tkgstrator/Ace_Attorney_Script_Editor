@@ -7,7 +7,9 @@
 use std::sync::{Arc, OnceLock};
 
 use super::bank::Wave;
-use super::tables::{cnv_sine, cnv_sust, register_amplitude, timer_adjust, volume_gain, AMPL_K, AMPL_THRESHOLD, CHANNEL_CLOCK};
+use super::tables::{
+    cnv_sine, cnv_sust, register_amplitude, timer_adjust, volume_gain, AMPL_K, AMPL_THRESHOLD,
+};
 
 pub const NONE: u8 = 0;
 pub const START: u8 = 1;
@@ -19,8 +21,8 @@ pub const RELEASE: u8 = 5;
 pub const PCM: i64 = 1;
 pub const PSG: i64 = 2;
 pub const NOISE: i64 = 3;
-/// PSG は 440 Hz × 8 段を基準にする
-pub const PSG_BASE_TIMER: i64 = CHANNEL_CLOCK / (440 * 8);
+/// NCSFCommon/Channel.cs の StartPSG・StartNoise と同じキー60のタイマー。
+pub const PSG_BASE_TIMER: i64 = 8006;
 
 /// ノイズのチャンネルの 15 ビット LFSR の出力（周期 32767）
 fn noise_seq() -> &'static [i16] {
@@ -43,7 +45,11 @@ fn noise_seq() -> &'static [i16] {
 
 /// 矩形波: デューティ d（0〜6）は 8 段のうち d+1 段が高い。7 は常に低い
 fn square(d: usize, i: usize) -> i16 {
-    if i >= 7 - d.min(7) && d < 7 { 0x7FFF } else { -0x7FFF }
+    if i >= 7 - d.min(7) && d < 7 {
+        0x7FFF
+    } else {
+        -0x7FFF
+    }
 }
 
 /// トラックからチャンネルに写す値
@@ -110,12 +116,25 @@ pub struct Channel {
 
 impl Channel {
     pub fn new() -> Self {
-        Channel { key: 60, org_key: 60, ampl: AMPL_THRESHOLD, note_length: -1, kind: PCM, hw_pan: 64, hw_timer: 0x10, ..Default::default() }
+        Channel {
+            key: 60,
+            org_key: 60,
+            ampl: AMPL_THRESHOLD,
+            note_length: -1,
+            kind: PCM,
+            hw_pan: 64,
+            hw_timer: 0x10,
+            ..Default::default()
+        }
     }
 
     /// チャンネルを奪うときの比べ方に使う音量
     pub fn amplitude(&self) -> f64 {
-        if self.state != NONE { register_amplitude(self.hw_vol, self.hw_div) } else { 0.0 }
+        if self.state != NONE {
+            register_amplitude(self.hw_vol, self.hw_div)
+        } else {
+            0.0
+        }
     }
 
     pub fn kill(&mut self) {
@@ -135,6 +154,10 @@ impl Channel {
 
     /// トラックの音量・パン・音程・LFO をチャンネルに写す
     pub fn update_from_track(&mut self, t: &TrackView, master_vol: i64, seq_vol: i64) {
+        // NCSFCommon/Track.cs の UpdateChannel はリリース中の値を保つ。
+        if self.state == RELEASE {
+            return;
+        }
         let v = master_vol + seq_vol + cnv_sust(t.vol) + cnv_sust(t.expr);
         self.ext_ampl = v.max(-0x8000);
         self.ext_pan = t.pan;
@@ -176,7 +199,12 @@ impl Channel {
         }
         if self.state == START {
             self.hw_on = true;
-            self.pos = -(if self.kind == PCM { self.wave.as_ref().map_or(0, |w| w.start_delay) } else { 0 });
+            // NCSFCommon/Channel.cs の StartPSG・StartNoise は1段待って開始する。
+            self.pos = -(if self.kind == PCM {
+                self.wave.as_ref().map_or(0, |w| w.start_delay)
+            } else {
+                1
+            });
             self.acc = 0;
             self.ampl = AMPL_THRESHOLD;
             self.state = ATTACK;
@@ -208,7 +236,11 @@ impl Channel {
         }
         if modulate {
             m = cnv_sine(self.mod_counter >> 8) * self.mod_range * self.mod_depth;
-            m = if self.mod_type == 1 { (m * 60) >> 14 } else { m >> 8 };
+            m = if self.mod_type == 1 {
+                (m * 60) >> 14
+            } else {
+                m >> 8
+            };
             self.mod_counter = (self.mod_counter + (self.mod_speed << 6)) & 0x7FFF;
         }
         // 音程（タイマー）
@@ -266,7 +298,10 @@ impl Channel {
             return;
         }
         let g = register_amplitude(self.hw_vol, self.hw_div);
-        let (gl, gr) = ((128 - self.hw_pan) as f64 / 128.0, self.hw_pan as f64 / 128.0);
+        let (gl, gr) = (
+            (128 - self.hw_pan) as f64 / 128.0,
+            self.hw_pan as f64 / 128.0,
+        );
         let idx = |j: usize| pos0 + (acc0 + 512 * j as i64) / count;
         let mut put = |j: usize, s: i16| {
             let x = s as f64 * g;
@@ -284,7 +319,14 @@ impl Channel {
                         i = w.loop_start + (i - w.loop_start).rem_euclid(ll);
                     }
                     let valid = if w.looped { i >= 0 } else { i >= 0 && i < ln };
-                    put(j, if valid { w.data[i.clamp(0, ln - 1) as usize] } else { 0 });
+                    put(
+                        j,
+                        if valid {
+                            w.data[i.clamp(0, ln - 1) as usize]
+                        } else {
+                            0
+                        },
+                    );
                 }
                 if !w.looped && self.pos >= ln {
                     self.ended = true;
@@ -295,14 +337,28 @@ impl Channel {
                 let d = (self.duty & 7) as usize;
                 for j in 0..n {
                     let i = idx(j);
-                    put(j, if i >= 0 { square(d, (i & 7) as usize) } else { 0 });
+                    put(
+                        j,
+                        if i >= 0 {
+                            square(d, (i & 7) as usize)
+                        } else {
+                            0
+                        },
+                    );
                 }
             }
             _ => {
                 let ns = noise_seq();
                 for j in 0..n {
                     let i = idx(j);
-                    put(j, if i >= 0 { ns[(i.max(0) % 32767) as usize] } else { 0 });
+                    put(
+                        j,
+                        if i >= 0 {
+                            ns[(i.max(0) % 32767) as usize]
+                        } else {
+                            0
+                        },
+                    );
                 }
             }
         }
