@@ -1,6 +1,7 @@
 import type { Beat, Engine, InlineCommand } from '@gyakusai/core';
 import type { AudioOut } from './audio.ts';
 import { BackgroundView } from './background.ts';
+import { Backlog } from './backlog.ts';
 import { Blip, blipKindOf } from './blip.ts';
 import { ScreenEffects } from './effects.ts';
 import { createFonts } from './fonts.ts';
@@ -11,8 +12,8 @@ import { OverlayView } from './overlays.ts';
 import { Painter } from './painter.ts';
 import { PanView } from './pan.ts';
 import { PickUI } from './pick.ts';
+import { bindPlayerInput } from './player-events.ts';
 import type { LastLine, PlayerHost } from './player-host.ts';
-import { click, key } from './player-input.ts';
 import { renderFrame } from './player-render.ts';
 import { CourtRecord } from './record.ts';
 import { LineResume } from './resume.ts';
@@ -35,6 +36,7 @@ export class Player {
   readonly #linesPerPage: number;
   readonly #reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   readonly #record = new CourtRecord();
+  readonly #backlog = new Backlog();
   readonly #resume = new LineResume();
   readonly #inv: InvestigationUI;
   readonly #pick: PickUI;
@@ -83,6 +85,7 @@ export class Player {
       onRestart: this.#onRestart,
       reduceMotion: this.#reduceMotion,
       record: this.#record,
+      backlog: this.#backlog,
       resume: this.#resume,
       inv: this.#inv,
       pick: this.#pick,
@@ -139,6 +142,8 @@ export class Player {
     this.#canvas.width = L.w * DOT;
     this.#canvas.height = L.h * DOT;
     this.#ctx = this.#canvas.getContext('2d')!;
+    this.#record.wide = L.panel !== null;
+    this.#backlog.wide = L.panel !== null;
     this.#p = new Painter(this.#ctx, createFonts(this.#ctx, opts), opts.assets ?? {}, L);
     this.#inv = new InvestigationUI(L);
     this.#pick = new PickUI(L);
@@ -153,38 +158,7 @@ export class Player {
     this.examineMarkers = opts.examineMarkers ?? true;
     this.#syncBgm();
 
-    const onClick = (e: MouseEvent) => {
-      this.#canvas.focus({ preventScroll: true });
-      const b = this.#canvas.getBoundingClientRect();
-      this.#syncBeat(); // 前のフレームの後にエンジンが進んでいても、最新の Beat に対して操作する
-      click(
-        this.#host,
-        Math.floor(((e.clientX - b.left) / b.width) * L.w),
-        Math.floor(((e.clientY - b.top) / b.height) * L.h),
-      );
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target;
-      if (
-        t instanceof Element &&
-        t !== this.#canvas &&
-        t.matches('input, select, textarea, button, [contenteditable]')
-      )
-        return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.repeat && (e.key === 'Enter' || e.key === ' ')) {
-        e.preventDefault();
-        return;
-      } // 押しっぱなしで決定し続けない
-      this.#syncBeat();
-      if (key(this.#host, e.key)) e.preventDefault();
-    };
-    this.#canvas.addEventListener('click', onClick);
-    window.addEventListener('keydown', onKey);
-    this.#cleanup.push(
-      () => this.#canvas.removeEventListener('click', onClick),
-      () => window.removeEventListener('keydown', onKey),
-    );
+    this.#cleanup.push(bindPlayerInput(this.#canvas, this.#host, () => this.#syncBeat()));
 
     const loop = (t: number) => {
       const dt = Math.min(50, t - (this.#last || t));
@@ -201,6 +175,7 @@ export class Player {
     this.engine = engine;
     this.#serial = -1;
     this.#record.open = false;
+    this.#backlog.reset();
     this.#lastLine = null;
     this.#added = null;
     this.#lifeShow = 0;
@@ -273,6 +248,7 @@ export class Player {
   // ---- 更新 ------------------------------------------------------------------------
 
   #syncBeat() {
+    this.#backlog.syncScene(this.engine.state.scene);
     if (this.engine.serial === this.#serial) return;
     this.#serial = this.engine.serial;
     const beat = this.engine.beat;
@@ -301,7 +277,13 @@ export class Player {
       };
     }
     this.#added = null;
-    if (beat.kind === 'shout') this.#audio?.se(`shout_${beat.shout}`); // 吹き出しの声（効果音の ID は shout_objection など）
+    // 吹き出しの声。主人公（by なし）は shout_objection など、ほかの人は shout_objection_<人物 ID>
+    // （元のゲームでは主人公の声だけを本体が鳴らし、検事などの声は台本の se で鳴らす。用意されていなければ鳴らない）
+    if (beat.kind === 'shout') {
+      const player = this.engine.scenario.player;
+      const own = beat.by === null || beat.by === player;
+      this.#audio?.se(own ? `shout_${beat.shout}` : `shout_${beat.shout}_${beat.by}`);
+    }
     for (const ev of this.engine.drainEvents()) {
       switch (ev.type) {
         case 'penalty':
@@ -320,7 +302,11 @@ export class Player {
           if (ev.fx === 'break') this.#effect({ cmd: 'flash', color: 'white', frames: 4 });
           break;
         case 'evidence':
-          if (ev.added) this.#added = ev.id;
+          // 証拠品を加えたら、詳細の窓を出して音を鳴らす（ID は evidence_add。DS 版では窓がすべりこむ音）
+          if (ev.added) {
+            this.#added = ev.id;
+            this.#audio?.se('evidence_add');
+          }
           break;
         case 'bgm':
           this.#effect({ cmd: 'bgm', id: ev.id, frames: ev.frames });
@@ -350,6 +336,7 @@ export class Player {
 
   #update(dt: number) {
     this.#syncBeat();
+    if (this.#backlog.open) return;
     this.#frame++;
     this.#age += dt;
     this.#fx.tick();
@@ -376,6 +363,7 @@ export class Player {
       return;
     }
     this.#tw?.tick(dt);
+    this.#backlog.capture(this.engine.state.scene, b, this.#tw);
     // auto の台詞は、出し終えたらボタンを待たずに進む
     if (b.kind === 'line' && b.auto && !this.#typing && this.#lastPage) this.engine.advance();
   }

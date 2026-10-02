@@ -41,14 +41,44 @@ export function buttonRect(panel: Rect, b: Pick<PanelButton, 'slot' | 'half'>): 
   return { x: b.half === 'left' ? x : x + w + HALF_GAP, y, w, h };
 }
 
-/** 今の場面で欄に出すボタン。confirm は決定（文字送り・次へ）。法廷記録を開いている間は出さない */
+/** 法廷記録を開いている間のボタン（画面の中には描かない）。0 段目が切り替えのタブ、1 段目が「つきつける」、2 段目が「調べる」、4 段目が「もどる」 */
+function recordButtons(h: PlayerHost): PanelButton[] {
+  const { record, engine, labels } = h;
+  const out: PanelButton[] = [];
+  if (record.canSwitch(engine))
+    out.push({
+      slot: 0,
+      label: record.tab === 'evidence' ? labels.profileTab : labels.evidenceTab,
+      run: () => record.switchTab(engine),
+    });
+  if (record.canPresent(engine))
+    out.push({ slot: 1, label: labels.present, run: () => record.present(engine) });
+  if (record.inspectable(engine))
+    out.push({ slot: 2, label: labels.examine, run: () => record.inspect(engine) });
+  out.push({ slot: 4, label: labels.back, run: () => record.back() });
+  return out;
+}
+
+/** 今の場面で欄に出すボタン。confirm は決定（文字送り・次へ）。法廷記録を開いている間は、その記録のボタン */
 export function panelButtons(h: PlayerHost, confirm: () => void): PanelButton[] {
-  if (h.record.open) return [];
+  if (h.backlog?.open)
+    return [
+      { slot: [0, 1], label: '', arrow: 'up', run: () => h.backlog.scroll(-64) },
+      { slot: [2, 3], label: '', arrow: 'down', run: () => h.backlog.scroll(64) },
+      {
+        slot: 4,
+        label: h.labels.back,
+        run: () => {
+          h.backlog.open = false;
+        },
+      },
+    ];
+  if (h.record.open) return recordButtons(h);
   const b = h.beat;
   const openRecord = () => h.record.show(h.engine, 'evidence');
   const out: PanelButton[] = [];
   if (canOpenRecord(h)) out.push({ slot: 0, label: h.labels.record, run: openRecord });
-  const advance: PanelButton = { slot: [1, 4], label: '', arrow: 'right', run: confirm };
+  const advance: PanelButton = { slot: [2, 4], label: '', arrow: 'right', run: confirm };
   switch (b.kind) {
     case 'line':
     case 'card':
@@ -67,7 +97,7 @@ export function panelButtons(h: PlayerHost, confirm: () => void): PanelButton[] 
       );
       break;
     case 'demand':
-      out.push({ slot: 1, label: h.labels.present, run: openRecord });
+      out.push({ slot: 2, label: h.labels.present, run: openRecord });
       if (b.giveUp) out.push({ slot: 4, label: h.labels.giveUp, run: () => h.engine.giveUp() });
       break;
     case 'investigate':
@@ -79,6 +109,20 @@ export function panelButtons(h: PlayerHost, confirm: () => void): PanelButton[] 
     default:
       break;
   }
+  const occupied = out.some((button) =>
+    typeof button.slot === 'number'
+      ? button.slot === 1
+      : button.slot[0] <= 1 && button.slot[1] >= 1,
+  );
+  if (!occupied)
+    out.push({
+      slot: 1,
+      label: h.labels.backlog,
+      run: () => {
+        h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
+        h.backlog.show();
+      },
+    });
   return out;
 }
 
@@ -102,9 +146,17 @@ export function drawPanel(p: Painter, panel: Rect, buttons: PanelButton[], frame
   for (const b of buttons) {
     const r = buttonRect(panel, b);
     const enabled = b.enabled !== false;
-    p.tab(r, 'none', b.label, { enabled });
-    if (b.arrow) arrow(p, r, b.arrow, enabled);
-    if (b.selected && blinkOn) p.brackets(r);
+    p.button(
+      r,
+      () => {
+        p.tab(r, 'none', b.label, { enabled });
+        if (b.arrow) arrow(p, r, b.arrow, enabled);
+        if (b.selected && blinkOn) p.brackets(r);
+      },
+      enabled,
+      b.label || b.arrow || '',
+      b.selected === true,
+    );
   }
 }
 

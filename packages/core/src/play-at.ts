@@ -1,6 +1,7 @@
 // エディタの「ここから再生」: 状態（フラグ・証拠品など）はそのままに、位置だけをシナリオの途中に置いて遊び始める。
 // 途中から始めると、そこまでの背景・人物・音楽などが出ていないので、同じブロックの前の演出の命令を
 // 上から順に（分岐は見ずに）当てて、画面をだいたい作っておく。フラグなどは変えない。
+import { autoShows } from './auto-show.ts';
 import { cloneData } from './clone.ts';
 import { Engine, EngineError } from './engine.ts';
 import { enterStatement, execSimple } from './exec.ts';
@@ -112,13 +113,8 @@ function prepareStage(
     if (DISPLAY_OPS.has(ins.op)) execSimple(ins, s, events);
     else if (ins.op === 'fade') s.stage.fade = ins.dir === 'out' ? ins.color : null;
     else if (ins.op === 'say') {
-      // エンジンと同じく、話し手を出す（心の声では変えない）
-      if (
-        next.autoShow &&
-        ins.speaker &&
-        ins.color !== 'blue' &&
-        s.stage.character !== ins.speaker
-      ) {
+      // エンジンと同じく、話し手を出す
+      if (autoShows(next, ins, s)) {
         s.stage.character = ins.speaker;
         s.stage.pose = null;
       }

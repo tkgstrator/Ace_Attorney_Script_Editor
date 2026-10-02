@@ -268,7 +268,15 @@ export class InvestigationUI {
       const enabled = this.#enabled(b);
       ACTIONS.forEach((_, i) => {
         const r = UI.invButton(i);
-        p.tab(r, 'bottom', labelsOf[i]!, { small: true, k: 6, enabled: enabled[i] });
+        p.button(
+          r,
+          () => {
+            p.tab(r, 'bottom', labelsOf[i]!, { small: true, k: 6, enabled: enabled[i] });
+          },
+          enabled[i] === true,
+          labelsOf[i]!,
+          i === this.#sel,
+        );
         if (i === this.#sel && blinkOn) p.brackets(r);
       });
       return;
@@ -317,17 +325,23 @@ export function cursor(p: Painter, x: number, y: number, color: string) {
 /** 背景を動かすボタン。動く向きの矢印を描く（動いている間は薄く） */
 function scrollButton(p: Painter, bg: BackgroundView) {
   const r = UI.examineScroll;
-  const step = bg.slideStep();
-  p.tab(r, 'tl', '', { enabled: !bg.sliding });
-  if (!step) return;
-  const dir = step.x > 0 ? 'right' : step.x < 0 ? 'left' : 'down';
-  const cx = r.x + 6 + (r.w - 6) / 2,
-    cy = r.y + r.h / 2;
-  if (dir === 'down' && step.y < 0) {
-    // 上向き（下向きの三角形を上下に反転して描く）
-    for (let i = 0; i < 7; i++)
-      p.rect(Math.round(cx - i), Math.round(cy - 3 + i), i * 2 + 1, 1, '#ffffff');
-    return;
-  }
-  p.triangle(cx, cy, 10, 13, dir, '#ffffff');
+  p.button(
+    r,
+    () => {
+      const step = bg.slideStep();
+      p.tab(r, 'tl', '', { enabled: !bg.sliding });
+      if (!step) return;
+      const dir = step.x > 0 ? 'right' : step.x < 0 ? 'left' : 'down';
+      const cx = r.x + 6 + (r.w - 6) / 2,
+        cy = r.y + r.h / 2;
+      if (dir === 'down' && step.y < 0) {
+        // 上向き（下向きの三角形を上下に反転して描く）
+        for (let i = 0; i < 7; i++)
+          p.rect(Math.round(cx - i), Math.round(cy - 3 + i), i * 2 + 1, 1, '#ffffff');
+        return;
+      }
+      p.triangle(cx, cy, 10, 13, dir, '#ffffff');
+    },
+    !bg.sliding,
+  );
 }

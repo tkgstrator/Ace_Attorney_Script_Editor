@@ -2,6 +2,7 @@
 // 値はその都度 Player から読む（getter）ので、処理の途中で状態が変わっても最新の値が見える。
 import type { Beat, Engine } from '@gyakusai/core';
 import type { AudioOut } from './audio.ts';
+import type { Backlog } from './backlog.ts';
 import type { ScreenEffects } from './effects.ts';
 import type { InvestigationUI } from './investigation.ts';
 import type { Labels } from './options.ts';
@@ -28,6 +29,7 @@ export interface PlayerHost {
   readonly onRestart: (() => void) | undefined;
   readonly reduceMotion: boolean;
   readonly record: CourtRecord;
+  readonly backlog: Backlog;
   readonly resume: LineResume;
   readonly inv: InvestigationUI;
   readonly pick: PickUI;

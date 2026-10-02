@@ -178,10 +178,24 @@ export class PickUI {
     }
     if (b.quit) p.tab(UI.invBack, 'tr', labels.giveUp);
     if (b.images.length > 1) {
-      p.tab(UI.pickPrev, 'tl', '', { enabled: this.image > 0 });
-      p.tab(UI.pickNext, 'tl', '', { enabled: this.image < b.images.length - 1 });
-      arrow(p, UI.pickPrev, 'left');
-      arrow(p, UI.pickNext, 'right');
+      p.button(
+        UI.pickPrev,
+        () => {
+          p.tab(UI.pickPrev, 'tl', '', { enabled: this.image > 0 });
+          arrow(p, UI.pickPrev, 'left');
+        },
+        this.image > 0,
+        'left',
+      );
+      p.button(
+        UI.pickNext,
+        () => {
+          p.tab(UI.pickNext, 'tl', '', { enabled: this.image < b.images.length - 1 });
+          arrow(p, UI.pickNext, 'right');
+        },
+        this.image < b.images.length - 1,
+        'right',
+      );
     }
     cursor(p, this.#cursor.x, this.#cursor.y, blinkOn ? '#ffffff' : '#f0a020');
   }

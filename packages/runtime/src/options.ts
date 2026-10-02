@@ -77,8 +77,12 @@ export interface PanFrame {
 
 export const DEFAULT_LABELS = {
   record: '法廷記録',
+  backlog: 'バックログ',
   evidenceFile: '証拠品ファイル',
   profileFile: '人物ファイル',
+  /** 16:9 の右の欄の、もう一方のファイルへ切り替えるボタン（欄のボタンの幅に収まる短い名前） */
+  evidenceTab: '証拠品',
+  profileTab: '人物',
   back: 'もどる',
   press: 'ゆさぶる',
   present: 'つきつける',

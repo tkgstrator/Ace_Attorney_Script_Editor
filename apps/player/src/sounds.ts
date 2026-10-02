@@ -87,6 +87,10 @@ function build(): Record<string, string> {
     'se:discover': wav(
       synth(0.5, (t) => square(t, t < 0.12 ? 784 : t < 0.24 ? 988 : 1319) * 0.25 * env(t, 0.5)),
     ),
+    // 証拠品を加えたとき（上がっていく短い音）
+    'se:evidence_add': wav(
+      synth(0.3, (t) => square(t, t < 0.1 ? 659 : t < 0.2 ? 880 : 1175) * 0.2 * env(t, 0.3)),
+    ),
     // 探偵パート（のんびり）と法廷（緊張感）の短い繰り返し
     'bgm:investigation': wav(
       tune(

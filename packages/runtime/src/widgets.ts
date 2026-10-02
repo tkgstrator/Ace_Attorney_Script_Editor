@@ -125,12 +125,20 @@ export function choiceButtons(
     // 本文の字間ではボタンに収まらないときは、詰めたフォントで描く
     const t =
       p.fonts.text.measure(opt) <= r.w - 8 ? p.fonts.text : (p.fonts.condensed ?? p.fonts.desc);
-    p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
-    p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
-    t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
-    if (locked[i]) lockMark(p, r.x + r.w - 16, r.y + 6);
-    else if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
-    if (i === selected && blinkOn) p.brackets(r);
+    p.button(
+      r,
+      () => {
+        p.rect(r.x, r.y, r.w, r.h, '#f8f8f8');
+        p.rect(r.x, r.y + r.h - 2, r.w, 2, '#c8c0b8');
+        t.draw(opt, r.x + r.w / 2, t.centerY(r.y, r.h - 2), { color: '#8a3010', align: 'center' });
+        if (locked[i]) lockMark(p, r.x + r.w - 16, r.y + 6);
+        else if (done[i]) checkMark(p, r.x + r.w - 16, r.y + 7);
+        if (i === selected && blinkOn) p.brackets(r);
+      },
+      true,
+      opt,
+      i === selected,
+    );
   });
 }
 
@@ -162,7 +170,7 @@ export function thumbnail(p: Painter, id: string, ev: EvidenceDef | undefined, r
 /**
  * 証拠品を入手したときの詳細の窓（DS 版と同じく、画面の幅いっぱいの茶色い枠に、法廷記録の詳細と同じ札を出す）
  */
-export function addedWindow(p: Painter, id: string, ev: EvidenceDef) {
+export function addedWindow(p: Painter, id: string, ev: EvidenceDef, description: string) {
   const r = TOP.added;
   p.rect(r.x, r.y, r.w, r.h, '#efefef');
   p.rect(r.x + 1, r.y + 1, r.w - 1, r.h - 1, '#9c9c9c');
@@ -173,7 +181,7 @@ export function addedWindow(p: Painter, id: string, ev: EvidenceDef) {
   drawCard(p, ADDED_CARD, {
     tab: 'evidence',
     label: ev.name,
-    description: ev.description,
+    description,
     drawIcon: (ic) => p.evidenceIcon(ev.icon ?? id, ev.name, ic.x, ic.y, 2),
   });
 }

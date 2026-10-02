@@ -32,18 +32,25 @@ function tabAt(b: TopButton): Rect {
 
 /** ボタンを描く。enabled が false なら薄く */
 export function drawTopButton(p: Painter, b: TopButton, labels: Labels, enabled = true) {
-  const img = p.assets.ui?.(PART[b]);
-  const ctx = p.ctx;
-  ctx.globalAlpha = enabled ? 1 : 0.5;
-  if (img) {
-    const r = IMAGE_AT[b];
-    ctx.drawImage(img, r.x, r.y);
-  } else if (b === 'record') {
-    p.tab(tabAt(b), 'bl', labels.record, { small: true, k: 6 });
-  } else {
-    p.tab(tabAt(b), 'tl', b === 'press' ? labels.press : labels.present, { small: true, k: 6 });
-  }
-  ctx.globalAlpha = 1;
+  p.button(
+    topButtonRect(p, b),
+    () => {
+      const img = p.assets.ui?.(PART[b]);
+      const ctx = p.ctx;
+      ctx.globalAlpha = enabled ? 1 : 0.5;
+      if (img) {
+        const r = IMAGE_AT[b];
+        ctx.drawImage(img, r.x, r.y);
+      } else if (b === 'record') {
+        p.tab(tabAt(b), 'bl', labels.record, { small: true, k: 6 });
+      } else {
+        p.tab(tabAt(b), 'tl', b === 'press' ? labels.press : labels.present, { small: true, k: 6 });
+      }
+      ctx.globalAlpha = 1;
+    },
+    enabled,
+    b === 'record' ? labels.record : b === 'press' ? labels.press : labels.present,
+  );
 }
 
 /**

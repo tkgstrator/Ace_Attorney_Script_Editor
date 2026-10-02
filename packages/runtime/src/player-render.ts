@@ -1,5 +1,6 @@
 // Player（player.ts）の、上の画面（DS 版のメイン画面）の描画。16:9 では右の欄（panel.ts）も描く。
 
+import { evidenceDescription } from '@gyakusai/core';
 import { lifeGauge, psycheLocks, usesGauge } from './gauge.ts';
 import { SCREEN_H, SCREEN_W, TEXT_COLORS, TOP, UI } from './layout.ts';
 import { drawPanel, panelButtons } from './panel.ts';
@@ -10,6 +11,8 @@ import * as W from './widgets.ts';
 
 /** 1 フレームを描く: 上の画面を揺れの分ずらして描き、フラッシュと法廷記録を重ねる。右の欄は揺らさない */
 export function renderFrame(h: PlayerHost) {
+  h.p.buttons.beginFrame();
+  h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
   const { p, fx, record } = h;
   const { ctx, layout: L } = p;
   ctx.clearRect(0, 0, L.w, L.h);
@@ -19,7 +22,14 @@ export function renderFrame(h: PlayerHost) {
   ctx.restore();
   fx.drawFlash(p);
   // 法廷記録は DS 版の下画面の座標のまま、画面に重ねる
-  if (record.open) record.render(p, h.engine, h.labels, h.frame);
+  if (record.open) {
+    p.buttons.beginFrame();
+    record.render(p, h.engine, h.labels, h.frame);
+  }
+  if (h.backlog.open) {
+    p.buttons.beginFrame();
+    h.backlog.render(p, h.labels);
+  }
   if (L.panel)
     drawPanel(
       p,
@@ -73,7 +83,13 @@ function renderScreen(h: PlayerHost) {
   if (stage.evidence && b.kind !== 'banner' && b.kind !== 'shout')
     W.thumbnail(p, stage.evidence, h.engine.scenario.evidence[stage.evidence], stage.evidenceRight);
   const added = h.added ? h.engine.scenario.evidence[h.added] : undefined;
-  if (h.added && added) W.addedWindow(p, h.added, added);
+  if (h.added && added)
+    W.addedWindow(
+      p,
+      h.added,
+      added,
+      evidenceDescription(h.engine.scenario, h.engine.state, h.added),
+    );
   if (b.kind === 'statement' && !b.cross)
     p.fonts.text.draw(h.labels.testifying, 3, 3, { color: '#48e048', outline: '#0c300c' });
   if (stage.locks && !stage.locks.hidden && b.kind !== 'banner' && b.kind !== 'shout')

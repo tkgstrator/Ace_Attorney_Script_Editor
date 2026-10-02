@@ -1,4 +1,5 @@
 // ドット単位の描画の部品。矩形・枠・タブ・矢印など、画面のどこでも使う小さなものをまとめる。
+import { ButtonPress } from './button-press.ts';
 import { COLORS, type Rect, SCREEN_H, SCREEN_W, type Slant } from './layout.ts';
 import type { Assets } from './options.ts';
 import { type Layout, layoutFor } from './screen.ts';
@@ -22,6 +23,8 @@ export interface Fonts {
 }
 
 export class Painter {
+  readonly buttons = new ButtonPress();
+  #buttonDepth = 0;
   readonly ctx: CanvasRenderingContext2D;
   readonly fonts: Fonts;
   readonly assets: Assets;
@@ -80,6 +83,28 @@ export class Painter {
     }
   }
 
+  /** 絵と文字をまとめて沈める。当たりの位置は変えない */
+  button(r: Rect, draw: () => void, enabled = true, label = '', selected = false) {
+    if (this.#buttonDepth > 0) {
+      draw();
+      return;
+    }
+    this.buttons.register(r, label, enabled, selected);
+    const pressed = this.buttons.pressed(r, enabled);
+    this.ctx.save();
+    if (pressed) {
+      this.ctx.translate(0, 2);
+      this.ctx.filter = 'brightness(0.78)';
+    }
+    this.#buttonDepth++;
+    try {
+      draw();
+    } finally {
+      this.#buttonDepth--;
+      this.ctx.restore();
+    }
+  }
+
   /** 茶色のタブ型のボタン */
   tab(
     r: Rect,
@@ -87,26 +112,35 @@ export class Painter {
     label: string,
     opts: { small?: boolean; fill?: string; enabled?: boolean; k?: number } = {},
   ) {
-    const k = opts.k ?? 12;
-    this.ctx.globalAlpha = opts.enabled === false ? 0.5 : 1;
-    this.shape(r, slant, COLORS.tabEdge, k);
-    this.shape(
-      { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 },
-      slant,
-      opts.fill ?? COLORS.tabFill,
-      k - 1,
+    this.button(
+      r,
+      () => {
+        const k = opts.k ?? 12;
+        this.ctx.globalAlpha = opts.enabled === false ? 0.5 : 1;
+        this.shape(r, slant, COLORS.tabEdge, k);
+        this.shape(
+          { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 },
+          slant,
+          opts.fill ?? COLORS.tabFill,
+          k - 1,
+        );
+        const t = opts.small ? this.fonts.small : this.fonts.text;
+        const inset = k / 2;
+        const left = slant === 'bl' || slant === 'tl',
+          right = slant === 'br' || slant === 'tr';
+        const cx = left
+          ? r.x + inset + (r.w - inset) / 2
+          : right
+            ? r.x + (r.w - inset) / 2
+            : r.x + r.w / 2;
+        t.draw(label, Math.round(cx - t.measure(label) / 2), t.centerY(r.y, r.h), {
+          color: '#ffffff',
+        });
+        this.ctx.globalAlpha = 1;
+      },
+      opts.enabled !== false,
+      label,
     );
-    const t = opts.small ? this.fonts.small : this.fonts.text;
-    const inset = k / 2;
-    const left = slant === 'bl' || slant === 'tl',
-      right = slant === 'br' || slant === 'tr';
-    const cx = left
-      ? r.x + inset + (r.w - inset) / 2
-      : right
-        ? r.x + (r.w - inset) / 2
-        : r.x + r.w / 2;
-    t.draw(label, Math.round(cx - t.measure(label) / 2), t.centerY(r.y, r.h), { color: '#ffffff' });
-    this.ctx.globalAlpha = 1;
   }
 
   /** 中心 (cx, cy)、幅 w、高さ h の三角形の矢印（下向きのときは w が高さ、h が幅） */

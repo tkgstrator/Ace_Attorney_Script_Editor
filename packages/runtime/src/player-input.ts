@@ -6,9 +6,12 @@ import { topButtonRect } from './top-buttons.ts';
 
 /** 決定（Enter・スペース・クリック）。文字送りの途中なら全部出し、ページが残っていれば次のページへ */
 export function confirm(h: PlayerHost) {
+  if (h.backlog.open) return;
+  h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
   const b = h.beat;
   if (h.typing) {
     h.tw?.finish();
+    h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
     return;
   }
   // ページ送り・選択肢の決定の音（元のゲームの SE 0x2f / 0x2b。ID は ui_page / ui_decide）
@@ -64,6 +67,12 @@ function pressStatement(h: PlayerHost) {
 
 /** キー入力。操作に使ったら true */
 export function key(h: PlayerHost, key: string): boolean {
+  if (h.backlog.open) return h.backlog.key(key);
+  if (key === 'b' || key === 'B') {
+    h.backlog.capture(h.engine.state.scene, h.beat, h.tw);
+    h.backlog.show();
+    return true;
+  }
   if (h.record.open) return onRecord(h, () => h.record.key(h.engine, key));
   const b = h.beat;
   if (b.kind === 'investigate')
@@ -82,8 +91,8 @@ export function key(h: PlayerHost, key: string): boolean {
       return true;
     }
   }
-  // サイコ・ロックの挑戦中のつきつけは、Esc か B で「やめる」
-  if (b.kind === 'demand' && b.giveUp && !h.typing && ['Escape', 'b', 'B'].includes(key)) {
+  // サイコ・ロックの挑戦中のつきつけは、Esc で「やめる」（B はバックログ）
+  if (b.kind === 'demand' && b.giveUp && !h.typing && key === 'Escape') {
     h.engine.giveUp();
     return true;
   }
@@ -100,12 +109,19 @@ export function key(h: PlayerHost, key: string): boolean {
 export function click(h: PlayerHost, x: number, y: number) {
   const panel = h.p.layout.panel;
   if (panel && x >= panel.x) {
-    panelButtonAt(
+    const btn = panelButtonAt(
       panel,
       panelButtons(h, () => confirm(h)),
       x,
       y,
-    )?.run();
+    );
+    // 法廷記録のボタンは、キー・クリックと同じく resume を覚える
+    if (btn && h.record.open) onRecord(h, btn.run);
+    else btn?.run();
+    return;
+  }
+  if (h.backlog.open) {
+    h.backlog.click(x, y);
     return;
   }
   if (h.record.open) {

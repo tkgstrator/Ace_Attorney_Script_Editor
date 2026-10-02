@@ -1,5 +1,6 @@
 // Engine の中身: 状態と、命令を実行して止まる場面まで進める処理（シーンへ入る・証言へ移る・探偵メニューにする など）。
 // プレイヤーの操作を受けるのは Engine（engine.ts）で、ここは Engine からだけ使う（パッケージの外には出さない）。
+import { autoShows } from './auto-show.ts';
 import { resumeStep } from './beat.ts';
 import { EngineError } from './errors.ts';
 import { enterStatement, execSimple } from './exec.ts';
@@ -160,13 +161,7 @@ export class Machine {
       const ins = this.instr();
       switch (ins.op) {
         case 'say':
-          // 心の声（青字）では立ち絵を切り替えない
-          if (
-            this.scenario.autoShow &&
-            ins.speaker &&
-            ins.color !== 'blue' &&
-            s.stage.character !== ins.speaker
-          ) {
+          if (autoShows(this.scenario, ins, s)) {
             s.stage.character = ins.speaker;
             s.stage.pose = null;
           }

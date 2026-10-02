@@ -51,10 +51,10 @@ export function drawScene(
   const cf = fx.charFade;
   if (cf?.dir === 'out' && cf.character) {
     ctx.globalAlpha = 1 - cf.elapsed / cf.frames;
-    drawPortrait(p, cf.character, cf.pose, b, t);
+    drawPortrait(p, engine, cf.character, cf.pose, b, t);
   }
   ctx.globalAlpha = cf?.dir === 'in' ? cf.elapsed / cf.frames : 1;
-  if (who) drawPortrait(p, who, pose, b, t);
+  if (who) drawPortrait(p, engine, who, pose, b, t);
   ctx.globalAlpha = 1;
   ctx.restore();
   const fg = assets.foreground?.(key);
@@ -67,21 +67,41 @@ export function drawScene(
 }
 
 /** 人物の立ち絵（動きの指定があれば画面の大きさの絵、なければ画面の下端・中央に合わせた絵） */
-function drawPortrait(p: Painter, who: string, pose: Pose | null, b: Beat, t: SceneTiming) {
+function drawPortrait(
+  p: Painter,
+  engine: Engine,
+  who: string,
+  pose: Pose | null,
+  b: Beat,
+  t: SceneTiming,
+) {
   const { ctx, assets } = p;
-  if (pose) {
-    // 動きの指定があるときは元のゲームと同じく、話し手によらず文字送りの間は talk、止まっている間は idle
-    const img = assets.portrait?.(who, {
-      talking: t.typing,
-      blink: false,
-      anim: t.typing ? pose.talk : pose.idle,
-    });
-    if (img) ctx.drawImage(img, 0, 0);
-    return;
-  }
   const speaking =
     (b.kind === 'line' && b.speaker === who && b.color !== 'blue') ||
     (b.kind === 'statement' && b.witness === who);
+  // show の動きの指定がなければ、人物の既定の動き（話している間だけ talk）
+  const ch = engine.scenario.characters[who];
+  const base = (engine.state.stage.location !== null && ch?.placePose) || ch?.pose;
+  const anim = pose
+    ? t.typing
+      ? pose.talk
+      : pose.idle
+    : base
+      ? speaking && t.typing
+        ? base.talk
+        : base.idle
+      : undefined;
+  if (anim !== undefined) {
+    // 動きの指定があるときは元のゲームと同じく、話し手によらず文字送りの間は talk、止まっている間は idle
+    const img = assets.portrait?.(who, { talking: t.typing, blink: false, anim }) as
+      | HTMLCanvasElement
+      | undefined;
+    // 動きの絵は画面の大きさ。動きの絵が無く仮の立ち絵が返ったときは、下端・中央に合わせる
+    if (img && img.width !== SCREEN_W && !pose)
+      ctx.drawImage(img, Math.round((SCREEN_W - img.width) / 2), SCREEN_H - img.height);
+    else if (img) ctx.drawImage(img, 0, 0);
+    return;
+  }
   const talking = speaking && t.typing && (t.frame >> 3) % 2 === 0;
   const img = assets.portrait?.(who, { talking, blink: t.blink }) as HTMLCanvasElement | undefined;
   if (img) ctx.drawImage(img, Math.round((SCREEN_W - img.width) / 2), SCREEN_H - img.height);
