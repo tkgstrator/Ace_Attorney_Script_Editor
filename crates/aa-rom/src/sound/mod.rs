@@ -30,7 +30,13 @@ pub fn export_raw(sdat: &[u8], out: &mut dyn Sink) -> Result<Vec<(String, usize)
 }
 
 /// 1 曲を鳴らして書き出す中身を作る。(種類 bgm / se, 出力)
-pub fn render_one(sdat: &sdat::Sdat, info: &sdat::SeqInfo, max_bgm: f64, max_se: f64, cache: &mut render::Cache) -> Result<(&'static str, outputs::One)> {
+pub fn render_one(
+    sdat: &sdat::Sdat,
+    info: &sdat::SeqInfo,
+    max_bgm: f64,
+    max_se: f64,
+    cache: &mut render::Cache,
+) -> Result<(&'static str, outputs::One)> {
     let is_bgm = info.name.to_uppercase().starts_with("BGM");
     let r = render::render(sdat, info, if is_bgm { max_bgm } else { max_se }, cache)?;
     let cat = if is_bgm { "bgm" } else { "se" };

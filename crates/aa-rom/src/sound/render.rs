@@ -64,16 +64,33 @@ pub fn np_mean(a: &[f64]) -> f64 {
 /// バンクと波形書庫（曲ごとに読み直さないように覚えておく）
 #[derive(Default)]
 pub struct Cache {
-    banks: BTreeMap<usize, (Arc<Vec<Instrument>>, Vec<Arc<Vec<Option<Arc<Wave>>>>>, Vec<String>)>,
+    banks: BTreeMap<
+        usize,
+        (
+            Arc<Vec<Instrument>>,
+            Vec<Arc<Vec<Option<Arc<Wave>>>>>,
+            Vec<String>,
+        ),
+    >,
     swars: BTreeMap<usize, Arc<Vec<Option<Arc<Wave>>>>>,
 }
 
 impl Cache {
-    fn load(&mut self, sdat: &Sdat, bank_id: usize) -> Result<(Arc<Vec<Instrument>>, Vec<Arc<Vec<Option<Arc<Wave>>>>>, Vec<String>)> {
+    fn load(
+        &mut self,
+        sdat: &Sdat,
+        bank_id: usize,
+    ) -> Result<(
+        Arc<Vec<Instrument>>,
+        Vec<Arc<Vec<Option<Arc<Wave>>>>>,
+        Vec<String>,
+    )> {
         if let Some(b) = self.banks.get(&bank_id) {
             return Ok(b.clone());
         }
-        let Some(&(fid, arcs)) = sdat.banks.get(&bank_id) else { return err(format!("バンク {bank_id} が無い")) };
+        let Some(&(fid, arcs)) = sdat.banks.get(&bank_id) else {
+            return err(format!("バンク {bank_id} が無い"));
+        };
         let bank = Arc::new(parse_sbnk(sdat.file(fid as usize))?);
         let mut waves = Vec::new();
         for wa in arcs {
@@ -83,12 +100,19 @@ impl Cache {
                 continue;
             };
             if let std::collections::btree_map::Entry::Vacant(e) = self.swars.entry(wa) {
-                let w = parse_swar(sdat.file(fid as usize))?.into_iter().map(|x| x.map(Arc::new)).collect();
+                let w = parse_swar(sdat.file(fid as usize))?
+                    .into_iter()
+                    .map(|x| x.map(Arc::new))
+                    .collect();
                 e.insert(Arc::new(w));
             }
             waves.push(self.swars[&wa].clone());
         }
-        let names = arcs.iter().filter(|&&w| w != 0xFFFF).map(|&w| sdat.wavearc_name(w as usize)).collect();
+        let names = arcs
+            .iter()
+            .filter(|&&w| w != 0xFFFF)
+            .map(|&w| sdat.wavearc_name(w as usize))
+            .collect();
         let v = (bank, waves, names);
         self.banks.insert(bank_id, v.clone());
         Ok(v)
@@ -101,7 +125,11 @@ fn frame_start(f: i64) -> i64 {
 }
 
 fn gcd(a: i64, b: i64) -> i64 {
-    if b == 0 { a.abs() } else { gcd(b, a % b) }
+    if b == 0 {
+        a.abs()
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 /// ループの位置（ティック）を決める: (前奏 + ループ 2 回が終わるティック, ループの長さ, ループに入った最初のティック)
@@ -132,7 +160,11 @@ fn loop_plan(p: &Player, end_ticks: &BTreeMap<i64, i64>) -> Option<(i64, i64, i6
     for x in lengths {
         length = length * x / gcd(length, x);
     }
-    let ends = p.tracks.iter().filter(|t| !p.loops.contains_key(&t.no)).filter_map(|t| end_ticks.get(&t.no).copied());
+    let ends = p
+        .tracks
+        .iter()
+        .filter(|t| !p.loops.contains_key(&t.no))
+        .filter_map(|t| end_ticks.get(&t.no).copied());
     let kmin = entries.into_iter().chain(ends).max().unwrap();
     let mut start = firsts.into_iter().max().unwrap(); // 1 回目のループの終わり
     while start < kmin + length {
@@ -156,7 +188,14 @@ pub struct Loop {
 }
 
 /// ループの始まりのティック k（kmin〜kmax）と終わりのずらし方を、継ぎ目の差が最も小さいものにする
-fn choose_loop(left: &[f64], right: &[f64], tick_sample: &[i64], kmin: i64, kmax: i64, length: i64) -> Option<(i64, i64, i64, i64, f64)> {
+fn choose_loop(
+    left: &[f64],
+    right: &[f64],
+    tick_sample: &[i64],
+    kmin: i64,
+    kmax: i64,
+    length: i64,
+) -> Option<(i64, i64, i64, i64, f64)> {
     const WIN: usize = 655;
     let mono = |i: usize| left[i] + right[i];
     let n = left.len();
@@ -201,10 +240,25 @@ pub struct Rendered {
     pub uses_random: bool,
 }
 
-pub fn render(sdat: &Sdat, info: &SeqInfo, max_seconds: f64, cache: &mut Cache) -> Result<Rendered> {
+pub fn render(
+    sdat: &Sdat,
+    info: &SeqInfo,
+    max_seconds: f64,
+    cache: &mut Cache,
+) -> Result<Rendered> {
     let (bank, waves, arc_names) = cache.load(sdat, info.bank as usize)?;
-    let mask = sdat.players.get(&(info.player as usize)).map_or(0, |p| p.1 as i64);
-    let mut p = Player::new(sdat.file(info.file_id as usize), bank, waves, info.volume as i64, info.channel_prio as i64, mask)?;
+    let mask = sdat
+        .players
+        .get(&(info.player as usize))
+        .map_or(0, |p| p.1 as i64);
+    let mut p = Player::new(
+        sdat.file(info.file_id as usize),
+        bank,
+        waves,
+        info.volume as i64,
+        info.channel_prio as i64,
+        mask,
+    )?;
     let (mut left, mut right): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
     let mut end_ticks: BTreeMap<i64, i64> = BTreeMap::new();
     let mut plan = None;
@@ -248,7 +302,9 @@ pub fn render(sdat: &Sdat, info: &SeqInfo, max_seconds: f64, cache: &mut Cache) 
     if let Some((end, length, kmin)) = plan.filter(|pl| (pl.0 as usize) < p.tick_frames.len()) {
         // ティックを実行したフレームの次のフレームから音が変わる
         let tick_sample: Vec<i64> = p.tick_frames.iter().map(|&f| frame_start(f + 1)).collect();
-        if let Some((k, ls, le, d, seam)) = choose_loop(&left, &right, &tick_sample, kmin, end - length, length) {
+        if let Some((k, ls, le, d, seam)) =
+            choose_loop(&left, &right, &tick_sample, kmin, end - length, length)
+        {
             loop_ = Some(Loop {
                 start_tick: k,
                 end_tick: k + length,
@@ -258,7 +314,10 @@ pub fn render(sdat: &Sdat, info: &SeqInfo, max_seconds: f64, cache: &mut Cache) 
                 seam_error: seam,
                 file_end: tick_sample[end as usize],
                 length_ticks: length,
-                tempo_phase: [p.tick_phase[k as usize], p.tick_phase[(k + length) as usize]],
+                tempo_phase: [
+                    p.tick_phase[k as usize],
+                    p.tick_phase[(k + length) as usize],
+                ],
             });
         }
     }

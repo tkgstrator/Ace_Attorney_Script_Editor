@@ -32,6 +32,73 @@ start:
 scenes:
 ${scenes}`;
 
+const MOVE_TRIGGER = `
+id: t
+title: t
+player: a
+characters:
+  a: { name: A }
+evidence: {}
+start:
+  scene: s
+parts:
+  - id: p
+    kind: investigation
+    title: 探偵
+    scenes:
+      s:
+        - investigate: room
+      out:
+        - end: true
+    places:
+      room:
+        name: 部屋
+        person: a
+        examine:
+          - id: look
+            area: [0, 0, 100, 100]
+            then:
+              - a: 見た
+        move: [ trigger ]
+      trigger:
+        name: 引き金
+        person: a
+        enter:
+          - goto: out
+        talk:
+          - id: never
+            topic: 話せない
+            then:
+              - a: 話した
+      other:
+        name: 行き先の無い場所
+        person: a`;
+
+const GAMEOVER_CHAIN = `
+id: t
+title: t
+player: a
+characters:
+  a: { name: A }
+evidence: {}
+flags: {}
+start:
+  scene: s
+gameover: g
+scenes:
+  s:
+    - a: こんにちは
+    - end: true
+  g:
+    - a: ライフが尽きた
+    - goto: g2
+  g2:
+    - a: 判決
+    - gameover: true
+  orphan:
+    - a: どこからも来ない
+    - end: true`;
+
 describe('整合性チェック', () => {
   it('サンプル事件には問題がない', () => {
     const r = verify(sample);
@@ -262,5 +329,15 @@ parts:
       expect(a.findings).toEqual(b.findings);
       expect(a.states).toBe(b.states);
     }
+  });
+
+  it('ゲームオーバーのシーンとその先は、到達しない警告に出さない', () => {
+    const warned = verify(GAMEOVER_CHAIN).findings.map((f) => f.scene);
+    expect(warned).toEqual(['orphan']);
+  });
+
+  it('移動できても来たときのブロックで抜けるだけの場所は、たどり着けない扱いにしない', () => {
+    const msgs = verify(MOVE_TRIGGER).findings.map((f) => f.message);
+    expect(msgs).toEqual(['場所「other」には、どう遊んでもたどり着きません']);
   });
 });

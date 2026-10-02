@@ -69,18 +69,54 @@ pub struct Track {
 impl Track {
     pub fn new(player_prio: i64, no: i64, pos: usize) -> Self {
         Track {
-            no, pos, stack: vec![], wait: 0, end: false, patch: 0, pan: 0, vol: 127, expr: 127, bend: 0, bend_range: 2,
-            transpose: 0, prio: player_prio + 64, note_wait: true, tie: false, tie_channel: None, porta: false,
-            porta_key: 60, porta_time: 0, sweep_pitch: 0, a: 0xFF, d: 0xFF, s: 0xFF, r: 0xFF, mod_type: 0,
-            mod_speed: 16, mod_depth: 0, mod_range: 1, mod_delay: 0, cond: true,
+            no,
+            pos,
+            stack: vec![],
+            wait: 0,
+            end: false,
+            patch: 0,
+            pan: 0,
+            vol: 127,
+            expr: 127,
+            bend: 0,
+            bend_range: 2,
+            transpose: 0,
+            prio: player_prio + 64,
+            note_wait: true,
+            tie: false,
+            tie_channel: None,
+            porta: false,
+            porta_key: 60,
+            porta_time: 0,
+            sweep_pitch: 0,
+            a: 0xFF,
+            d: 0xFF,
+            s: 0xFF,
+            r: 0xFF,
+            mod_type: 0,
+            mod_speed: 16,
+            mod_depth: 0,
+            mod_range: 1,
+            mod_delay: 0,
+            cond: true,
         }
     }
 
     pub fn view(&self) -> TrackView {
         TrackView {
-            vol: self.vol, expr: self.expr, pan: self.pan, bend: self.bend, bend_range: self.bend_range,
-            mod_type: self.mod_type, mod_speed: self.mod_speed, mod_depth: self.mod_depth, mod_range: self.mod_range,
-            mod_delay: self.mod_delay, sweep_pitch: self.sweep_pitch, porta: self.porta, porta_key: self.porta_key,
+            vol: self.vol,
+            expr: self.expr,
+            pan: self.pan,
+            bend: self.bend,
+            bend_range: self.bend_range,
+            mod_type: self.mod_type,
+            mod_speed: self.mod_speed,
+            mod_depth: self.mod_depth,
+            mod_range: self.mod_range,
+            mod_delay: self.mod_delay,
+            sweep_pitch: self.sweep_pitch,
+            porta: self.porta,
+            porta_key: self.porta_key,
             porta_time: self.porta_time,
         }
     }
@@ -98,11 +134,19 @@ impl Player {
             b'b' => self.u8(t),
             b's' => {
                 let v = self.u8(t);
-                if v >= 128 { v - 256 } else { v }
+                if v >= 128 {
+                    v - 256
+                } else {
+                    v
+                }
             }
             b'h' | b'H' => {
                 let v = self.u8(t) | self.u8(t) << 8;
-                if ty == b'h' && v >= 0x8000 { v - 0x10000 } else { v }
+                if ty == b'h' && v >= 0x8000 {
+                    v - 0x10000
+                } else {
+                    v
+                }
             }
             b't' => self.u8(t) | self.u8(t) << 8 | self.u8(t) << 16,
             _ => {
@@ -289,7 +333,11 @@ impl Player {
             }
             0xB5 => {
                 let v = if val >= 0 {
-                    if val < 48 { cur << val } else { 0 }
+                    if val < 48 {
+                        cur << val
+                    } else {
+                        0
+                    }
                 } else if -val < 64 {
                     cur >> -val
                 } else if cur < 0 {
@@ -321,7 +369,9 @@ impl Player {
         let key = (key + self.tracks[t].transpose).clamp(0, 127);
         if self.tracks[t].tie {
             let ch = self.tracks[t].tie_channel;
-            let alive = ch.is_some_and(|c| self.channels[c].state != NONE && self.channels[c].track == Some(t));
+            let alive = ch.is_some_and(|c| {
+                self.channels[c].state != NONE && self.channels[c].track == Some(t)
+            });
             if alive {
                 let c = ch.unwrap();
                 let view = self.tracks[t].view();

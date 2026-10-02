@@ -1,9 +1,10 @@
 // 逆転裁判2・3 の遊びの表示: ライフのゲージ（最大が 10 を超える章）とサイコ・ロックの錠。
 // ゲージは DS 版と同じく右上の横長の棒で、見当違いのときに減る量（lifeRisk）を点滅させる。
 // 錠は、画面の中央に数だけ並べた錠前で表す（壊れた錠は出さない）。
+import { SCREEN_W } from './layout.ts';
 import type { Painter } from './painter.ts';
 
-/** ゲージの位置（4:3 のとき。画面の右に寄せる） */
+/** ゲージの位置（画面の右上） */
 const GAUGE = { x: 172, w: 80, h: 8 };
 
 /** ゲージ（棒）で表すか（最大のライフが「！」で数えられないほど大きい） */
@@ -19,7 +20,7 @@ export function lifeGauge(
   y: number,
 ) {
   const { w, h } = GAUGE;
-  const x = GAUGE.x + p.layout.dx;
+  const x = GAUGE.x;
   const px = (v: number) => Math.round((Math.max(0, Math.min(max, v)) / max) * (w - 2));
   p.rect(x - 1, y - 1, w + 2, h + 2, '#101840');
   p.rect(x, y, w, h, '#303048');
@@ -47,7 +48,7 @@ function padlock(p: Painter, x: number, y: number, color: string) {
 export function psycheLocks(p: Painter, left: number, frame: number) {
   if (left <= 0) return;
   const gap = 22;
-  const x0 = Math.round((p.layout.w - (left * gap - (gap - 16))) / 2);
+  const x0 = Math.round((SCREEN_W - (left * gap - (gap - 16))) / 2);
   const glow = Math.floor(frame / 20) % 2 === 0 ? '#e02828' : '#c01818';
   for (let i = 0; i < left; i++) padlock(p, x0 + i * gap, 40, glow);
 }

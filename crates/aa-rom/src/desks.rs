@@ -16,15 +16,39 @@ const WITNESS_PAL: usize = 0x1ab10f4;
 type Obj = (usize, usize, usize, usize, usize, bool);
 
 pub const DESKS: [(&str, (usize, usize), usize, [Obj; 4]); 3] = [
-    ("defense", COURT_TILES, COURT_PAL, [
-        (0, 144, 64, 64, 0, false), (64, 144, 64, 64, 64, false), (128, 144, 64, 64, 128, false),
-        (192, 160, 16, 32, 192, false)]),
-    ("prosecution", COURT_TILES, COURT_PAL, [
-        (48, 160, 16, 32, 192, true), (64, 144, 64, 64, 128, true), (128, 144, 64, 64, 64, true),
-        (192, 144, 64, 64, 0, true)]),
-    ("witness", WITNESS_TILES, WITNESS_PAL, [
-        (32, 152, 64, 64, 0, false), (96, 152, 32, 64, 64, false), (128, 152, 32, 64, 64, true),
-        (160, 152, 64, 64, 0, true)]),
+    (
+        "defense",
+        COURT_TILES,
+        COURT_PAL,
+        [
+            (0, 144, 64, 64, 0, false),
+            (64, 144, 64, 64, 64, false),
+            (128, 144, 64, 64, 128, false),
+            (192, 160, 16, 32, 192, false),
+        ],
+    ),
+    (
+        "prosecution",
+        COURT_TILES,
+        COURT_PAL,
+        [
+            (48, 160, 16, 32, 192, true),
+            (64, 144, 64, 64, 128, true),
+            (128, 144, 64, 64, 64, true),
+            (192, 144, 64, 64, 0, true),
+        ],
+    ),
+    (
+        "witness",
+        WITNESS_TILES,
+        WITNESS_PAL,
+        [
+            (32, 152, 64, 64, 0, false),
+            (96, 152, 32, 64, 64, false),
+            (128, 152, 32, 64, 64, true),
+            (160, 152, 64, 64, 0, true),
+        ],
+    ),
 ];
 
 /// 机を 256×192 の画面の上の位置に置いた RGBA 画像
@@ -39,7 +63,10 @@ pub fn render(d: &[u8], name: &str) -> Result<Rgba> {
         let n = (w / 8) * (h / 8);
         let t = py_slice(&tiles, first * 64, (first + n) * 64);
         let idx = gfx::tiled(t, w, h)?;
-        let (vh, vw) = (h.min(192usize.saturating_sub(y)), w.min(256usize.saturating_sub(x)));
+        let (vh, vw) = (
+            h.min(192usize.saturating_sub(y)),
+            w.min(256usize.saturating_sub(x)),
+        );
         for yy in 0..vh {
             for xx in 0..vw {
                 let sx = if flip { w - 1 - xx } else { xx };
@@ -58,10 +85,18 @@ pub fn render(d: &[u8], name: &str) -> Result<Rgba> {
 /// ARM9 のリテラルに位置が載っていることを確かめる（別の版の ROM で黙って間違えないように）
 pub fn check_arm9(arm9: &[u8]) -> Result<()> {
     let expected = [COURT_TILES.0, COURT_PAL, WITNESS_TILES.0, WITNESS_PAL];
-    let words: std::collections::HashSet<u32> = (0..arm9.len() / 4).map(|i| u32le(arm9, i * 4)).collect();
-    let missing: Vec<String> = expected.iter().filter(|&&v| !words.contains(&(v as u32))).map(|v| format!("{v:#x}")).collect();
+    let words: std::collections::HashSet<u32> =
+        (0..arm9.len() / 4).map(|i| u32le(arm9, i * 4)).collect();
+    let missing: Vec<String> = expected
+        .iter()
+        .filter(|&&v| !words.contains(&(v as u32)))
+        .map(|v| format!("{v:#x}"))
+        .collect();
     if !missing.is_empty() {
-        return err(format!("ARM9 に机の位置が見つかりません（別の版の ROM？）: {}", missing.join(", ")));
+        return err(format!(
+            "ARM9 に机の位置が見つかりません（別の版の ROM？）: {}",
+            missing.join(", ")
+        ));
     }
     Ok(())
 }

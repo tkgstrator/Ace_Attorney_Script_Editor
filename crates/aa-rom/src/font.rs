@@ -48,7 +48,9 @@ pub fn find_font(rom: &[u8]) -> Result<(usize, usize)> {
             best = Some((s, i));
         }
     }
-    let Some((rs, re)) = best else { return err("フォントらしい所が見つかりません") };
+    let Some((rs, re)) = best else {
+        return err("フォントらしい所が見つかりません");
+    };
     // 区切りの位置: 一番上の行と下の 2 行に点がないマスがいちばん多くなる位置を選ぶ
     let blank_margins = |offset: usize| -> usize {
         let mut n = 0;
@@ -90,7 +92,11 @@ pub fn extract(rom: &[u8]) -> Result<Vec<Glyph>> {
         .map(|i| {
             decode(rom, start + i * GLYPH_BYTES)
                 .iter()
-                .map(|row| row.iter().map(|&v| if v != 0 { '@' } else { '.' }).collect())
+                .map(|row| {
+                    row.iter()
+                        .map(|&v| if v != 0 { '@' } else { '.' })
+                        .collect()
+                })
                 .collect()
         })
         .collect())
@@ -123,7 +129,10 @@ pub fn sheet_png(glyphs: &[Glyph]) -> Vec<u8> {
 
 /// glyphs.txt を読む（read_glyphs）
 pub fn read_glyphs(text: &str) -> Vec<Glyph> {
-    text.split("# ").skip(1).map(|b| b.split('\n').skip(1).take(16).map(String::from).collect()).collect()
+    text.split("# ")
+        .skip(1)
+        .map(|b| b.split('\n').skip(1).take(16).map(String::from).collect())
+        .collect()
 }
 
 /// 番号 TAB 文字 の表（read_tsv）。入れた順を保つ
@@ -134,7 +143,9 @@ pub fn read_tsv(text: &str) -> Vec<(i64, String)> {
             continue;
         }
         let parts: Vec<&str> = line.split('\t').collect();
-        let Ok(k) = parts[0].trim().parse::<i64>() else { continue };
+        let Ok(k) = parts[0].trim().parse::<i64>() else {
+            continue;
+        };
         let v = parts.get(1).copied().unwrap_or("").to_string();
         tsv_set(&mut out, k, v);
     }
@@ -154,7 +165,10 @@ pub fn read_extra(text: &str) -> Vec<(char, Glyph)> {
     let lines: Vec<&str> = text.split('\n').collect();
     let mut out: Vec<(char, Glyph)> = Vec::new();
     for (i, line) in lines.iter().enumerate() {
-        let head = line.strip_prefix("# ").map(|h| h.split('\t').next().unwrap_or("")).unwrap_or("");
+        let head = line
+            .strip_prefix("# ")
+            .map(|h| h.split('\t').next().unwrap_or(""))
+            .unwrap_or("");
         let mut cs = head.chars();
         if let (Some(c), None) = (cs.next(), cs.next()) {
             let rows = lines[i + 1..(i + 1 + CELL).min(lines.len())]
@@ -198,8 +212,12 @@ pub struct OtherFont {
 fn other_game(o: &OtherFont, base: &HashMap<char, Glyph>) -> Vec<(char, Glyph)> {
     let mut shift: Vec<(i64, i64)> = Vec::new();
     for (i, ch) in &o.mapping {
-        let Some(c) = single(ch).filter(|c| base.contains_key(c)) else { continue };
-        let Some(g) = o.glyphs.get(*i as usize) else { continue };
+        let Some(c) = single(ch).filter(|c| base.contains_key(c)) else {
+            continue;
+        };
+        let Some(g) = o.glyphs.get(*i as usize) else {
+            continue;
+        };
         if let (Some(a), Some(b)) = (top(g), top(&base[&c])) {
             match shift.iter_mut().find(|(k, _)| k == i) {
                 Some(e) => e.1 = b - a,
@@ -216,15 +234,25 @@ fn other_game(o: &OtherFont, base: &HashMap<char, Glyph>) -> Vec<(char, Glyph)> 
             continue;
         }
         let near = shift.iter().min_by_key(|(k, _)| (k - i).abs()).unwrap();
-        let dy = if matches!(near.1.abs(), 0 | 4) { near.1 } else { 0 };
+        let dy = if matches!(near.1.abs(), 0 | 4) {
+            near.1
+        } else {
+            0
+        };
         let g = &o.glyphs[*i as usize];
         let blank = ".".repeat(CELL);
         let rows: Glyph = if dy >= 0 {
             let dy = dy as usize;
-            std::iter::repeat_n(blank, dy).chain(g.iter().take(CELL.saturating_sub(dy)).cloned()).collect()
+            std::iter::repeat_n(blank, dy)
+                .chain(g.iter().take(CELL.saturating_sub(dy)).cloned())
+                .collect()
         } else {
             let dy = (-dy) as usize;
-            g.iter().skip(dy).cloned().chain(std::iter::repeat_n(blank, dy)).collect()
+            g.iter()
+                .skip(dy)
+                .cloned()
+                .chain(std::iter::repeat_n(blank, dy))
+                .collect()
         };
         out.push((c, rows));
     }
@@ -245,7 +273,12 @@ pub fn build(
         tsv_set(&mut m, *k, v.clone());
     }
     // 漢字の終わり（空の番号）より後ろは、同じ字を上に寄せた 2 組目なので使わない
-    let end = m.iter().filter(|(i, c)| *i >= KANJI_START as i64 && c.is_empty()).map(|(i, _)| *i).min().unwrap_or(glyphs.len() as i64);
+    let end = m
+        .iter()
+        .filter(|(i, c)| *i >= KANJI_START as i64 && c.is_empty())
+        .map(|(i, _)| *i)
+        .min()
+        .unwrap_or(glyphs.len() as i64);
     let mut sorted = m.clone();
     sorted.sort_by_key(|(i, _)| *i);
     let mut index: Vec<(char, i64)> = Vec::new();
@@ -257,7 +290,9 @@ pub fn build(
         }
     };
     for (i, ch) in &sorted {
-        let Some(c) = single(ch).filter(|_| *i < end) else { continue };
+        let Some(c) = single(ch).filter(|_| *i < end) else {
+            continue;
+        };
         setdefault(c, *i, &mut index);
         // 半角の英数字・記号は全角でも引けるようにする（逆も）
         let wide: String = c.to_string().nfkc().collect();
@@ -273,7 +308,10 @@ pub fn build(
             setdefault(*alias, i, &mut index);
         }
     }
-    let mut shapes: HashMap<char, Glyph> = index.iter().map(|&(c, i)| (c, glyphs[i as usize].clone())).collect();
+    let mut shapes: HashMap<char, Glyph> = index
+        .iter()
+        .map(|&(c, i)| (c, glyphs[i as usize].clone()))
+        .collect();
     for o in also {
         for (c, g) in other_game(o, &shapes) {
             shapes.insert(c, g);
@@ -298,6 +336,9 @@ pub fn build(
         }
     }
     let s: String = chars.iter().collect();
-    let json = format!("{{\"size\": {CELL}, \"columns\": {COLUMNS}, \"chars\": {}}}\n", crate::json::Json::Str(s).dumps());
+    let json = format!(
+        "{{\"size\": {CELL}, \"columns\": {COLUMNS}, \"chars\": {}}}\n",
+        crate::json::Json::Str(s).dumps()
+    );
     (gfx::png_gray(w, h, &img), json)
 }

@@ -1,0 +1,17 @@
+<!--
+  NCSF（https://github.com/CyberBotX/NCSF、MIT）の再生部で SDAT の SSEQ を WAV にする小さな道具。
+  NCSF のソースはリポジトリに入れない。手元に clone した場所を NcsfDir（-p:NcsfDir=...）で渡す。
+  ビルドと実行は tools/rom/ncsf_render.py がする（ビルドの出力は NCSF の clone の中の .ncsf-render-build/）。
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>1701;1702;0436</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(NcsfDir)/NCSFPlayer/NCSFPlayer.csproj" />
+  </ItemGroup>
+</Project>

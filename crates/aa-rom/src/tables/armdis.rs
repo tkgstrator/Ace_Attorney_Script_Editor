@@ -4,9 +4,16 @@
 //! よく使う命令（データ処理・分岐・ロード/ストア・ロード/ストア多重・乗算・svc）だけを扱う。
 //! 扱えない命令は None を返す（capstone との一致は crates/aa-rom/tests で確かめる）。
 
-const COND: [&str; 15] = ["eq", "ne", "hs", "lo", "mi", "pl", "vs", "vc", "hi", "ls", "ge", "lt", "gt", "le", ""];
-const REGS: [&str; 16] = ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "sb", "sl", "fp", "ip", "sp", "lr", "pc"];
-const DP: [&str; 16] = ["and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc", "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"];
+const COND: [&str; 15] = [
+    "eq", "ne", "hs", "lo", "mi", "pl", "vs", "vc", "hi", "ls", "ge", "lt", "gt", "le", "",
+];
+const REGS: [&str; 16] = [
+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "sb", "sl", "fp", "ip", "sp", "lr", "pc",
+];
+const DP: [&str; 16] = [
+    "and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc", "tst", "teq", "cmp", "cmn", "orr",
+    "mov", "bic", "mvn",
+];
 const SHIFT: [&str; 4] = ["lsl", "lsr", "asr", "ror"];
 
 fn reg(r: u32) -> &'static str {
@@ -16,7 +23,11 @@ fn reg(r: u32) -> &'static str {
 /// capstone の即値の書き方（9 より大きければ 16 進）
 fn imm(v: i64) -> String {
     if v >= 0 {
-        if v > 9 { format!("#0x{v:x}") } else { format!("#{v}") }
+        if v > 9 {
+            format!("#0x{v:x}")
+        } else {
+            format!("#{v}")
+        }
     } else if v < -9 {
         format!("#-0x{:x}", -v)
     } else {
@@ -26,7 +37,11 @@ fn imm(v: i64) -> String {
 
 /// 即値のシフト量（lsr/asr の 0 は 32）
 fn shift_amount(ty: u32, amt: u32) -> u32 {
-    if amt == 0 && (ty == 1 || ty == 2) { 32 } else { amt }
+    if amt == 0 && (ty == 1 || ty == 2) {
+        32
+    } else {
+        amt
+    }
 }
 
 /// レジスター + 即値シフト（", lsl #2" の部分。シフト量は 10 進）
@@ -37,7 +52,12 @@ fn so_reg_imm(rm: u32, ty: u32, amt: u32) -> String {
     if ty == 3 && amt == 0 {
         return format!("{}, rrx", reg(rm));
     }
-    format!("{}, {} #{}", reg(rm), SHIFT[ty as usize], shift_amount(ty, amt))
+    format!(
+        "{}, {} #{}",
+        reg(rm),
+        SHIFT[ty as usize],
+        shift_amount(ty, amt)
+    )
 }
 
 fn reglist(list: u32) -> String {
@@ -111,7 +131,11 @@ fn data_or_misc(w: u32, cc: &str) -> Option<(String, String)> {
         return None; // レジスターでシフトする形に pc は使えない
     }
     let name = DP[opc as usize];
-    let sfx = if s == 1 && !(8..=11).contains(&opc) { "s" } else { "" };
+    let sfx = if s == 1 && !(8..=11).contains(&opc) {
+        "s"
+    } else {
+        ""
+    };
     // 第 2 オペランド
     let (op2, alias): (String, Option<(String, String)>) = if i == 1 {
         let (rot, v) = ((w >> 8) & 15, w & 0xFF);
@@ -130,7 +154,15 @@ fn data_or_misc(w: u32, cc: &str) -> Option<(String, String)> {
                 if ty == 3 && amt == 0 {
                     Some((format!("rrx{sfx}{cc}"), format!("{}, {}", reg(rd), reg(rm))))
                 } else {
-                    Some((format!("{}{sfx}{cc}", SHIFT[ty as usize]), format!("{}, {}, {}", reg(rd), reg(rm), imm(shift_amount(ty, amt) as i64))))
+                    Some((
+                        format!("{}{sfx}{cc}", SHIFT[ty as usize]),
+                        format!(
+                            "{}, {}, {}",
+                            reg(rd),
+                            reg(rm),
+                            imm(shift_amount(ty, amt) as i64)
+                        ),
+                    ))
                 }
             } else {
                 None
@@ -138,8 +170,16 @@ fn data_or_misc(w: u32, cc: &str) -> Option<(String, String)> {
             (so_reg_imm(rm, ty, amt), a)
         } else {
             let rs = (w >> 8) & 15;
-            let a = (opc == 13).then(|| (format!("{}{sfx}{cc}", SHIFT[ty as usize]), format!("{}, {}, {}", reg(rd), reg(rm), reg(rs))));
-            (format!("{}, {} {}", reg(rm), SHIFT[ty as usize], reg(rs)), a)
+            let a = (opc == 13).then(|| {
+                (
+                    format!("{}{sfx}{cc}", SHIFT[ty as usize]),
+                    format!("{}, {}, {}", reg(rd), reg(rm), reg(rs)),
+                )
+            });
+            (
+                format!("{}, {} {}", reg(rm), SHIFT[ty as usize], reg(rs)),
+                a,
+            )
         }
     };
     if let Some(a) = alias {
@@ -155,12 +195,27 @@ fn data_or_misc(w: u32, cc: &str) -> Option<(String, String)> {
 
 fn multiply(w: u32, cc: &str) -> Option<(String, String)> {
     let (rd, rn, rs, rm) = ((w >> 16) & 15, (w >> 12) & 15, (w >> 8) & 15, w & 15);
-    let four = |n: &str| Some((format!("{n}{cc}"), format!("{}, {}, {}, {}", reg(rn), reg(rd), reg(rm), reg(rs))));
+    let four = |n: &str| {
+        Some((
+            format!("{n}{cc}"),
+            format!("{}, {}, {}, {}", reg(rn), reg(rd), reg(rm), reg(rs)),
+        ))
+    };
     match (w >> 20) & 0xFF {
-        0x00 | 0x01 if rn == 0 => Some((format!("mul{}{cc}", if w & (1 << 20) != 0 { "s" } else { "" }), format!("{}, {}, {}", reg(rd), reg(rm), reg(rs)))),
+        0x00 | 0x01 if rn == 0 => Some((
+            format!("mul{}{cc}", if w & (1 << 20) != 0 { "s" } else { "" }),
+            format!("{}, {}, {}", reg(rd), reg(rm), reg(rs)),
+        )),
         0x02 | 0x03 | 0x06 => {
-            let n = match (w >> 20) & 0xF { 2 => "mla", 3 => "mlas", _ => "mls" };
-            Some((format!("{n}{cc}"), format!("{}, {}, {}, {}", reg(rd), reg(rm), reg(rs), reg(rn))))
+            let n = match (w >> 20) & 0xF {
+                2 => "mla",
+                3 => "mlas",
+                _ => "mls",
+            };
+            Some((
+                format!("{n}{cc}"),
+                format!("{}, {}, {}, {}", reg(rd), reg(rm), reg(rs), reg(rn)),
+            ))
         }
         0x04 => four("umaal"),
         0x08 => four("umull"),
@@ -177,7 +232,13 @@ fn multiply(w: u32, cc: &str) -> Option<(String, String)> {
 
 /// ロード/ストア（ハーフワード・符号付き・ダブルワード）
 fn halfword(w: u32, cc: &str) -> Option<(String, String)> {
-    let (p, u, i, wb, l) = ((w >> 24) & 1, (w >> 23) & 1, (w >> 22) & 1, (w >> 21) & 1, (w >> 20) & 1);
+    let (p, u, i, wb, l) = (
+        (w >> 24) & 1,
+        (w >> 23) & 1,
+        (w >> 22) & 1,
+        (w >> 21) & 1,
+        (w >> 20) & 1,
+    );
     let sh = (w >> 5) & 3;
     let (rn, rd) = ((w >> 16) & 15, (w >> 12) & 15);
     let name = match (l, sh) {
@@ -206,14 +267,24 @@ fn halfword(w: u32, cc: &str) -> Option<(String, String)> {
     let sign = if u == 1 { "" } else { "-" };
     let off = if i == 1 {
         let v = ((w >> 4) & 0xF0 | w & 15) as i64;
-        if u == 1 { imm(v) } else if v == 0 { "#-0".into() } else { imm(-v) }
+        if u == 1 {
+            imm(v)
+        } else if v == 0 {
+            "#-0".into()
+        } else {
+            imm(-v)
+        }
     } else {
         format!("{sign}{}", reg(w))
     };
     let zero = i == 1 && ((w >> 4) & 0xF0 | w & 15) == 0 && u == 1 && wb == 0;
     let addr = if p == 1 {
         let wbs = if wb == 1 { "!" } else { "" };
-        if zero { format!("[{}]{wbs}", reg(rn)) } else { format!("[{}, {off}]{wbs}", reg(rn)) }
+        if zero {
+            format!("[{}]{wbs}", reg(rn))
+        } else {
+            format!("[{}, {off}]{wbs}", reg(rn))
+        }
     } else {
         format!("[{}], {off}", reg(rn))
     };
@@ -222,7 +293,14 @@ fn halfword(w: u32, cc: &str) -> Option<(String, String)> {
 
 /// ldr / str / ldrb / strb
 fn single(w: u32, cc: &str) -> (String, String) {
-    let (i, p, u, b, wb, l) = ((w >> 25) & 1, (w >> 24) & 1, (w >> 23) & 1, (w >> 22) & 1, (w >> 21) & 1, (w >> 20) & 1);
+    let (i, p, u, b, wb, l) = (
+        (w >> 25) & 1,
+        (w >> 24) & 1,
+        (w >> 23) & 1,
+        (w >> 22) & 1,
+        (w >> 21) & 1,
+        (w >> 20) & 1,
+    );
     let (rn, rd) = ((w >> 16) & 15, (w >> 12) & 15);
     let mut name = String::from(if l == 1 { "ldr" } else { "str" });
     if b == 1 {
@@ -232,13 +310,18 @@ fn single(w: u32, cc: &str) -> (String, String) {
         name.push('t');
     }
     // ldr rX, [sp], #4 = pop {rX}（capstone は str の方を push にしない）
-    if i == 0 && b == 0 && rn == 13 && w & 0xFFF == 4
-        && l == 1 && p == 0 && u == 1 && wb == 0 {
-            return (format!("pop{cc}"), format!("{{{}}}", reg(rd)));
-        }
+    if i == 0 && b == 0 && rn == 13 && w & 0xFFF == 4 && l == 1 && p == 0 && u == 1 && wb == 0 {
+        return (format!("pop{cc}"), format!("{{{}}}", reg(rd)));
+    }
     let off = if i == 0 {
         let v = (w & 0xFFF) as i64;
-        if u == 1 { imm(v) } else if v == 0 { "#-0".into() } else { imm(-v) }
+        if u == 1 {
+            imm(v)
+        } else if v == 0 {
+            "#-0".into()
+        } else {
+            imm(-v)
+        }
     } else {
         let sign = if u == 1 { "" } else { "-" };
         format!("{sign}{}", so_reg_imm(w & 15, (w >> 5) & 3, (w >> 7) & 31))
@@ -246,7 +329,11 @@ fn single(w: u32, cc: &str) -> (String, String) {
     let zero = i == 0 && w & 0xFFF == 0 && u == 1 && wb == 0;
     let addr = if p == 1 {
         let wbs = if wb == 1 { "!" } else { "" };
-        if zero { format!("[{}]{wbs}", reg(rn)) } else { format!("[{}, {off}]{wbs}", reg(rn)) }
+        if zero {
+            format!("[{}]{wbs}", reg(rn))
+        } else {
+            format!("[{}, {off}]{wbs}", reg(rn))
+        }
     } else {
         format!("[{}], {off}", reg(rn))
     };
@@ -255,7 +342,13 @@ fn single(w: u32, cc: &str) -> (String, String) {
 
 /// ldm / stm（push / pop）
 fn multi(w: u32, cc: &str) -> Option<(String, String)> {
-    let (p, u, s, wb, l) = ((w >> 24) & 1, (w >> 23) & 1, (w >> 22) & 1, (w >> 21) & 1, (w >> 20) & 1);
+    let (p, u, s, wb, l) = (
+        (w >> 24) & 1,
+        (w >> 23) & 1,
+        (w >> 22) & 1,
+        (w >> 21) & 1,
+        (w >> 20) & 1,
+    );
     let rn = (w >> 16) & 15;
     let list = w & 0xFFFF;
     if list == 0 {
@@ -278,5 +371,8 @@ fn multi(w: u32, cc: &str) -> Option<(String, String)> {
     };
     let name = if l == 1 { "ldm" } else { "stm" };
     let wbs = if wb == 1 { "!" } else { "" };
-    Some((format!("{name}{mode}{cc}"), format!("{}{wbs}, {}{hat}", reg(rn), reglist(list))))
+    Some((
+        format!("{name}{mode}{cc}"),
+        format!("{}{wbs}, {}{hat}", reg(rn), reglist(list)),
+    ))
 }

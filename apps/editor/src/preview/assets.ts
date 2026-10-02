@@ -8,7 +8,7 @@ import { loadDsFont } from '../../../player/src/ds-font.ts';
 import { loadImageAssets } from '../../../player/src/image-assets.ts';
 import { withOfficialAnims } from '../../../player/src/official-anims.ts';
 import { isOfficialAvailable, loadOfficialAssets } from '../../../player/src/official-assets.ts';
-import { isOfficialAudioAvailable, officialSounds } from '../../../player/src/official-audio.ts';
+import { defaultOfficialAudioKind, officialSounds } from '../../../player/src/official-audio.ts';
 import { gameOf, type OfficialGame } from '../../../player/src/official-game.ts';
 import { withOfficialRecord } from '../../../player/src/official-record.ts';
 import { withOfficialStage } from '../../../player/src/official-stage.ts';
@@ -58,14 +58,13 @@ export function getDsFont() {
   return fonts;
 }
 
-/** プレビューの音（DS 版の音があればそれ、なければ合成した仮の音） */
+/** プレビューの音（DS 版の音があればそれ（原音、なければ互換）、なければ合成した仮の音） */
 export function getAudio(chapter?: string | null): AudioOut {
   const game = currentGame(chapter);
   let a = audio.get(game);
   if (!a) {
-    a = createAudio(
-      isOfficialAudioAvailable(game) ? officialSounds(sampleSounds(), game) : sampleSounds(),
-    );
+    const kind = defaultOfficialAudioKind(game);
+    a = createAudio(kind ? officialSounds(sampleSounds(), game, kind) : sampleSounds());
     audio.set(game, a);
   }
   return a;

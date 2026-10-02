@@ -13,7 +13,16 @@ pub enum FVal {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinOp {
-    And, Or, Eq, Ne, Lt, Le, Gt, Ge, Add, Sub,
+    And,
+    Or,
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Add,
+    Sub,
 }
 
 #[derive(Clone, Debug)]
@@ -51,12 +60,21 @@ pub enum TableVar {
 /// 止まる命令の種類（Beat の kind に対応する）
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StopKind {
-    Line, Shout, Banner, Card, Wait, Fade,
+    Line,
+    Shout,
+    Banner,
+    Card,
+    Wait,
+    Fade,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResumeTo {
-    Next, Stay, First, CrossIntro, AfterReading,
+    Next,
+    Stay,
+    First,
+    CrossIntro,
+    AfterReading,
 }
 
 #[derive(Clone, Debug)]
@@ -77,7 +95,14 @@ pub enum Op {
     /// options は IR の並び（証拠品の番号, pc）。profiles は人物ファイルの正解（人物ファイルの番号, pc）で、
     /// None なら人物ファイルはつきつけられない
     /// give_up はサイコ・ロックの「やめる」の行き先（あれば、つきつけずにやめられる）
-    Demand { prompt: String, speaker: bool, options: Vec<(u32, u32)>, profiles: Option<Vec<(u32, u32)>>, wrong: u32, give_up: Option<u32> },
+    Demand {
+        prompt: String,
+        speaker: bool,
+        options: Vec<(u32, u32)>,
+        profiles: Option<Vec<(u32, u32)>>,
+        wrong: u32,
+        give_up: Option<u32>,
+    },
     /// 法廷記録を使えなくする（true）・使えるようにする（false）。ui の record（ほかの ui は Nop）
     Lock(bool),
     Set(u32, FVal),
@@ -104,14 +129,32 @@ impl Op {
         match self {
             Op::Nop(n) => n,
             Op::Stop(k) => match k {
-                StopKind::Line => "say", StopKind::Shout => "shout", StopKind::Banner => "banner",
-                StopKind::Card => "card", StopKind::Wait => "wait", StopKind::Fade => "fade",
+                StopKind::Line => "say",
+                StopKind::Shout => "shout",
+                StopKind::Banner => "banner",
+                StopKind::Card => "card",
+                StopKind::Wait => "wait",
+                StopKind::Fade => "fade",
             },
-            Op::Choice(_) => "choice", Op::Pick(_) => "pick", Op::Demand { .. } => "demand", Op::Set(..) => "set", Op::Add(..) => "add",
-            Op::Give(_) => "give", Op::Take(_) => "take", Op::Jump(_) => "jump", Op::JumpUnless(..) => "jumpUnless",
-            Op::Random(_) => "random", Op::Goto(_) => "goto", Op::Investigate(_) => "investigate", Op::Menu => "menu",
-            Op::Resume(_) => "resume", Op::InspectEnd => "inspectEnd", Op::End => "end", Op::Gameover => "gameover",
-            Op::Penalty(_) => "penalty", Op::Lock(_) => "ui",
+            Op::Choice(_) => "choice",
+            Op::Pick(_) => "pick",
+            Op::Demand { .. } => "demand",
+            Op::Set(..) => "set",
+            Op::Add(..) => "add",
+            Op::Give(_) => "give",
+            Op::Take(_) => "take",
+            Op::Jump(_) => "jump",
+            Op::JumpUnless(..) => "jumpUnless",
+            Op::Random(_) => "random",
+            Op::Goto(_) => "goto",
+            Op::Investigate(_) => "investigate",
+            Op::Menu => "menu",
+            Op::Resume(_) => "resume",
+            Op::InspectEnd => "inspectEnd",
+            Op::End => "end",
+            Op::Gameover => "gameover",
+            Op::Penalty(_) => "penalty",
+            Op::Lock(_) => "ui",
         }
     }
 }
@@ -196,10 +239,18 @@ pub struct Scene {
 
 impl Scene {
     pub fn testimony(&self) -> Option<&Testimony> {
-        if let Kind::Testimony(t) = &self.kind { Some(t) } else { None }
+        if let Kind::Testimony(t) = &self.kind {
+            Some(t)
+        } else {
+            None
+        }
     }
     pub fn place(&self) -> Option<&Place> {
-        if let Kind::Place(p) = &self.kind { Some(p) } else { None }
+        if let Kind::Place(p) = &self.kind {
+            Some(p)
+        } else {
+            None
+        }
     }
 }
 
@@ -267,17 +318,27 @@ impl Model {
         self.scenes.len() + self.extra_visit.len()
     }
     pub fn scene_index(&self, id: &str) -> Option<u32> {
-        self.scenes.iter().position(|s| s.id == id).map(|i| i as u32)
+        self.scenes
+            .iter()
+            .position(|s| s.id == id)
+            .map(|i| i as u32)
     }
     /// 存在しないシーンの参照の名前
     pub fn scene_name(&self, i: u32) -> &str {
         let n = self.scenes.len();
-        if (i as usize) < n { &self.scenes[i as usize].id } else { &self.missing_scenes[i as usize - n] }
+        if (i as usize) < n {
+            &self.scenes[i as usize].id
+        } else {
+            &self.missing_scenes[i as usize - n]
+        }
     }
     pub fn is_profile(&self, x: u32) -> bool {
         self.evidence[x as usize].profile
     }
     pub fn flag_index(&self, name: &str) -> Option<u32> {
-        self.flag_names.iter().position(|s| s == name).map(|i| i as u32)
+        self.flag_names
+            .iter()
+            .position(|s| s == name)
+            .map(|i| i as u32)
     }
 }

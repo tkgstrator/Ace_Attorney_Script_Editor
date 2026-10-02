@@ -84,7 +84,32 @@
                 "maximum": 9007199254740991
               },
               "description": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "when": {
+                          "description": "この条件が真のとき出す。省略するといつでも満たす（最後に置く既定）",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ]
               },
               "icon": {
                 "description": "人物ファイルの顔の絵のキー（省略すると人物 ID。元のゲームから変換したときは r<記録の番号>）",
@@ -94,6 +119,80 @@
             },
             "required": [
               "description"
+            ],
+            "additionalProperties": false
+          },
+          "pose": {
+            "description": "既定の立ち絵の動き（元のゲームの動きの番号）。show で動きを指定していないとき、話している間は talk、それ以外は idle で出す",
+            "type": "object",
+            "properties": {
+              "talk": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              },
+              "idle": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "talk",
+              "idle"
+            ],
+            "additionalProperties": false
+          },
+          "placePose": {
+            "description": "location で背景を場所に変えている間（控え室・探索編）の既定の動き。省略すると pose（法廷の横向きの絵と、控え室の正面の絵を分けるときに使う）",
+            "type": "object",
+            "properties": {
+              "talk": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              },
+              "idle": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "talk",
+              "idle"
             ],
             "additionalProperties": false
           }
@@ -117,7 +216,32 @@
             "type": "string"
           },
           "description": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "when": {
+                      "description": "この条件が真のとき出す。省略するといつでも満たす（最後に置く既定）",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ]
           },
           "icon": {
             "description": "アイコンの絵のキー（省略すると証拠品 ID。元のゲームから変換したときは r<記録の番号>）",

@@ -15,6 +15,8 @@ export default defineConfig({
       // 逆転裁判2・3 から変換した章（同じく手元用）
       official2: fileURLToPath(new URL('../../assets/extracted/aa2/converted', import.meta.url)),
       official3: fileURLToPath(new URL('../../assets/extracted/aa3/converted', import.meta.url)),
+      // 3DS の逆転裁判6 から変換した章（tools/convert/ctr で作る。絵と音はまだ無いので蘇る逆転のものを使う）
+      official6: fileURLToPath(new URL('../../assets/extracted/aa6/converted', import.meta.url)),
     }),
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },

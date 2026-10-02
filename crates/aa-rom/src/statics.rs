@@ -31,7 +31,10 @@ pub fn script_opcodes() -> &'static [(String, usize); 128] {
             for (k, v) in m {
                 let o: usize = k.parse().expect("命令の番号");
                 if let Json::Arr(a) = v {
-                    t[o] = (a[0].as_str().unwrap().to_string(), a[1].as_i64().unwrap() as usize);
+                    t[o] = (
+                        a[0].as_str().unwrap().to_string(),
+                        a[1].as_i64().unwrap() as usize,
+                    );
                 }
             }
         }

@@ -5,9 +5,16 @@ use serde_json::Value;
 
 impl Ctx {
     pub(super) fn place(&mut self, o: &Obj) -> Result<Place, String> {
-        let arr = |k: &str| o.get(k).and_then(Value::as_array).cloned().unwrap_or_default();
+        let arr = |k: &str| {
+            o.get(k)
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+        };
         let mut person = vec![];
-        for p in arr("person") { person.push(self.when(obj(&p)?)?); }
+        for p in arr("person") {
+            person.push(self.when(obj(&p)?)?);
+        }
         let mut examine = vec![];
         for x in arr("examine") {
             let xo = obj(&x)?;
@@ -24,7 +31,12 @@ impl Ctx {
         let mut talk = vec![];
         for x in arr("talk") {
             let xo = obj(&x)?;
-            talk.push(Talk { seen: self.seen.get(str_of(xo, "id")?), topic: str_of(xo, "topic")?.to_string(), when: self.when(xo)?, pc: pc_of(xo, "pc")? });
+            talk.push(Talk {
+                seen: self.seen.get(str_of(xo, "id")?),
+                topic: str_of(xo, "topic")?.to_string(),
+                when: self.when(xo)?,
+                pc: pc_of(xo, "pc")?,
+            });
         }
         let mut moves = vec![];
         for m in arr("move") {

@@ -1,20 +1,18 @@
 import { Engine, type Snapshot, type Value } from '@gyakusai/core';
-import {
-  createAudio,
-  downloadSnapshot,
-  fitCanvas,
-  loadFonts,
-  localStorageStore,
-  Player,
-  pickSnapshotFile,
-} from '@gyakusai/runtime';
+import { createAudio, fitCanvas, loadFonts, localStorageStore, Player } from '@gyakusai/runtime';
 import { formatDiagnostic, loadScenario } from '@gyakusai/script';
 import { CASES, selectedCase } from './cases.ts';
 import { loadDsFont } from './ds-font.ts';
 import { loadImageAssets } from './image-assets.ts';
 import { withOfficialAnims } from './official-anims.ts';
 import { isOfficialAvailable, loadOfficialAssets } from './official-assets.ts';
-import { isOfficialAudioAvailable, officialSounds, soundIdsToPreload } from './official-audio.ts';
+import {
+  defaultOfficialAudioKind,
+  isOfficialAudioAvailable,
+  type OfficialAudioKind,
+  officialSounds,
+  soundIdsToPreload,
+} from './official-audio.ts';
 import { withOfficialRecord } from './official-record.ts';
 import { withOfficialStage } from './official-stage.ts';
 import { withOfficialUi } from './official-ui.ts';
@@ -22,21 +20,39 @@ import { createPlaceholderAssets } from './placeholder-art.ts';
 import { sampleSounds } from './sounds.ts';
 
 const SAVE_KEY = 'gyakusai:player:save';
+// 自動保存（進むたびに覚え、再読み込みしたらその場面から再開する。スロットは章の ID）
+const AUTOSAVE_KEY = 'gyakusai:player:autosave';
+const AUTOSAVE_ON_KEY = 'gyakusai:player:autosave-on';
 const MARKERS_KEY = 'gyakusai:player:examineMarkers';
+const VOLUME_KEY = 'gyakusai:player:volume';
+const MUTE_KEY = 'gyakusai:player:mute';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const chosen = selectedCase();
 const { scenario, diagnostics } = loadScenario(await chosen.load());
 
-// 章の切り替え
+// 章の切り替え: タイトル（作品）を選ぶと、そのタイトルの章が並ぶ
+const seriesSelect = $<HTMLSelectElement>('series');
 const caseSelect = $<HTMLSelectElement>('case');
-caseSelect.replaceChildren(...CASES.map((c) => new Option(c.label, c.id)));
+const seriesList = [...new Set(CASES.map((c) => c.series))];
+seriesSelect.replaceChildren(...seriesList.map((s) => new Option(s, s)));
+seriesSelect.value = chosen.series;
+const listChapters = (series: string) =>
+  caseSelect.replaceChildren(
+    ...CASES.filter((c) => c.series === series).map((c) => new Option(c.chapter, c.id)),
+  );
+listChapters(chosen.series);
 caseSelect.value = chosen.id;
-caseSelect.addEventListener('change', () => {
+const openCase = (id: string) => {
   const url = new URL(location.href);
-  url.searchParams.set('case', caseSelect.value);
+  url.searchParams.set('case', id);
   location.href = url.href;
+};
+seriesSelect.addEventListener('change', () => {
+  const first = CASES.find((c) => c.series === seriesSelect.value);
+  if (first) openCase(first.id);
 });
+caseSelect.addEventListener('change', () => openCase(caseSelect.value));
 
 // 診断（エラー・警告）があれば画面下に出す
 if (diagnostics.length > 0) {
@@ -93,13 +109,54 @@ if (scenario) {
     location.href = url.href;
   });
   const fonts = await loadDsFont();
-  // 音: DS 版の音を取り出してあれば、それ（名前で指定したもの・割り当てたもの）を優先し、なければ合成した仮の音
-  const officialAudio = official && isOfficialAudioAvailable(game);
-  const audio = createAudio(officialAudio ? officialSounds(sampleSounds(), game) : sampleSounds());
+  // 音: DS 版の音を取り出してあれば、それ（名前で指定したもの・割り当てたもの）を優先し、なければ合成した仮の音。
+  // 「サウンド」で選ぶ（グラフィックとは別）: DS（原音）= ?sound=ncsf（NCSF で書き出した音）、
+  // DS（互換）= ?sound=compat（自前で書き出した音）、仮の音 = ?sound=synth。
+  // 指定がなければ 原音 → 互換 → 仮の音 の順に、使えるものを選ぶ。書き出していないものは選べない
+  const defaultKind = defaultOfficialAudioKind(game);
+  const soundParam = new URLSearchParams(location.search).get('sound');
+  const audioKind: OfficialAudioKind | null =
+    soundParam === 'synth'
+      ? null
+      : (soundParam === 'ncsf' || soundParam === 'compat') &&
+          isOfficialAudioAvailable(game, soundParam)
+        ? soundParam
+        : defaultKind;
+  const sound = $<HTMLSelectElement>('sound');
+  sound.value = audioKind ?? 'synth';
+  for (const kind of ['ncsf', 'compat'] as const) {
+    sound.querySelector<HTMLOptionElement>(`option[value="${kind}"]`)!.disabled =
+      !isOfficialAudioAvailable(game, kind);
+  }
+  sound.addEventListener('change', () => {
+    const url = new URL(location.href);
+    if (sound.value === (defaultKind ?? 'synth')) url.searchParams.delete('sound');
+    else url.searchParams.set('sound', sound.value);
+    location.href = url.href;
+  });
+  const audio = createAudio(
+    audioKind ? officialSounds(sampleSounds(), game, audioKind) : sampleSounds(),
+  );
+  // 音量とミュート（このブラウザに覚えておく）
+  const volume = $<HTMLInputElement>('volume');
+  const mute = $<HTMLInputElement>('mute');
+  volume.value = String(loadNumber(VOLUME_KEY, 100));
+  mute.checked = loadFlag(MUTE_KEY, false);
+  audio.setVolume?.(Number(volume.value) / 100);
+  audio.setMuted?.(mute.checked);
+  volume.addEventListener('input', () => {
+    audio.setVolume?.(Number(volume.value) / 100);
+    saveNumber(VOLUME_KEY, Number(volume.value));
+  });
+  mute.addEventListener('change', () => {
+    audio.setMuted?.(mute.checked);
+    saveFlag(MUTE_KEY, mute.checked);
+    canvas.focus({ preventScroll: true });
+  });
   // 効果音は先に読み込んでおく（初めて鳴らすときに遅れないように。待たずに進める）
   void audio.preload?.(
-    officialAudio
-      ? soundIdsToPreload(game)
+    audioKind
+      ? soundIdsToPreload(game, audioKind)
       : [
           'blip_male',
           'blip_female',
@@ -140,11 +197,33 @@ if (scenario) {
   });
   let unsubscribe = () => {};
 
+  // 自動保存: 状態が変わるたびに（まとめて 300ms 後に）覚える。切り替えはこのブラウザに覚えておく
+  const autoStore = localStorageStore(AUTOSAVE_KEY);
+  const autosave = $<HTMLInputElement>('autosave');
+  autosave.checked = loadFlag(AUTOSAVE_ON_KEY, true);
+  let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleAutosave = () => {
+    if (!autosave.checked) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      void autoStore.save(chosen.id, engine.snapshot()).catch(() => {});
+    }, 300);
+  };
+  autosave.addEventListener('change', () => {
+    saveFlag(AUTOSAVE_ON_KEY, autosave.checked);
+    if (autosave.checked) scheduleAutosave();
+    else void autoStore.remove(chosen.id);
+    canvas.focus({ preventScroll: true });
+  });
+
   const start = (snapshot?: Snapshot) => {
     unsubscribe();
     engine = new Engine(scenario, snapshot);
     player.setEngine(engine);
-    unsubscribe = engine.subscribe(renderDebug);
+    unsubscribe = engine.subscribe(() => {
+      renderDebug();
+      scheduleAutosave();
+    });
     renderDebug();
     canvas.focus({ preventScroll: true });
   };
@@ -166,9 +245,13 @@ if (scenario) {
     jump.value = '';
     canvas.focus({ preventScroll: true });
   });
+  // 最初から: オートセーブも消す（再読み込みしても最初から）
   $('restart').addEventListener('click', () => {
-    start();
-    message('最初から始めました');
+    clearTimeout(autosaveTimer);
+    void autoStore.remove(chosen.id).then(() => {
+      start();
+      message('最初から始めました');
+    });
   });
   // セーブデータ: 保存先は SaveStore で差し替えられる（Web では localStorage。スロットは章の ID）
   const store = localStorageStore(SAVE_KEY);
@@ -187,18 +270,6 @@ if (scenario) {
       message('ロードしました');
     }, fail('ロード'));
   });
-  $('export').addEventListener('click', () => {
-    downloadSnapshot(engine.snapshot());
-    message('セーブデータを書き出しました');
-  });
-  $('import').addEventListener('click', () => {
-    pickSnapshotFile(scenario!.id).then((data) => {
-      if (!data) return;
-      start(data);
-      message('セーブデータを読み込みました');
-    }, fail('読み込み'));
-  });
-
   function renderDebug() {
     const s = engine.state;
     const phase =
@@ -253,13 +324,55 @@ if (scenario) {
     return dd;
   }
 
-  start();
+  // 自動保存があれば、その場面から再開する（シナリオを書き換えて合わなくなったら最初から）
+  const resumed = autosave.checked ? await autoStore.load(chosen.id).catch(() => null) : null;
+  try {
+    start(resumed ?? undefined);
+    if (resumed) message('オートセーブした場面から再開しました');
+  } catch {
+    start();
+    message('オートセーブがこの章と合わないため、最初から始めました');
+  }
 }
 
 function el(tag: string, text: string) {
   const e = document.createElement(tag);
   e.textContent = text;
   return e;
+}
+
+function loadFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === 'on';
+  } catch {
+    return fallback;
+  }
+}
+
+function saveFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? 'on' : 'off');
+  } catch {
+    /* 覚えられなくてもよい */
+  }
+}
+
+function loadNumber(key: string, fallback: number): number {
+  try {
+    const v = Number(localStorage.getItem(key));
+    return localStorage.getItem(key) === null || Number.isNaN(v) ? fallback : v;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveNumber(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* 覚えられなくてもよい */
+  }
 }
 
 function loadMarkers(): boolean {

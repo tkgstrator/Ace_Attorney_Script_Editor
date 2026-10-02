@@ -4,6 +4,21 @@
 import { z } from 'zod';
 import { Cond, FlagValue, Id } from './schema-base.ts';
 
+/** 証拠品・人物ファイルの説明。文字列はいつも同じ、配列は when を満たす最初の text を出す */
+const Description = z.union([
+  z.string(),
+  z
+    .array(
+      z.strictObject({
+        when: Cond.optional().describe(
+          'この条件が真のとき出す。省略するといつでも満たす（最後に置く既定）',
+        ),
+        text: z.string(),
+      }),
+    )
+    .min(1),
+]);
+
 export function makeScenario<S extends z.ZodType>(steps: S) {
   const Statement = z.strictObject({
     id: Id.optional().describe('証言の ID。エディタや参照のために付けておくのを推奨'),
@@ -146,20 +161,38 @@ export function makeScenario<S extends z.ZodType>(steps: S) {
               .optional()
               .describe('人物ファイルでの表示名（漢字の氏名など）。省略すると name'),
             age: z.number().int().nonnegative().optional(),
-            description: z.string(),
+            description: Description,
             icon: Id.optional().describe(
               '人物ファイルの顔の絵のキー（省略すると人物 ID。元のゲームから変換したときは r<記録の番号>）',
             ),
           })
           .optional()
           .describe('法廷記録の人物ファイルに載せる内容'),
+        pose: z
+          .strictObject({
+            talk: z.union([z.number().int().nonnegative(), Id]),
+            idle: z.union([z.number().int().nonnegative(), Id]),
+          })
+          .optional()
+          .describe(
+            '既定の立ち絵の動き（元のゲームの動きの番号）。show で動きを指定していないとき、話している間は talk、それ以外は idle で出す',
+          ),
+        placePose: z
+          .strictObject({
+            talk: z.union([z.number().int().nonnegative(), Id]),
+            idle: z.union([z.number().int().nonnegative(), Id]),
+          })
+          .optional()
+          .describe(
+            'location で背景を場所に変えている間（控え室・探索編）の既定の動き。省略すると pose（法廷の横向きの絵と、控え室の正面の絵を分けるときに使う）',
+          ),
       }),
     ),
     evidence: z.record(
       Id,
       z.strictObject({
         name: z.string(),
-        description: z.string(),
+        description: Description,
         icon: Id.optional().describe(
           'アイコンの絵のキー（省略すると証拠品 ID。元のゲームから変換したときは r<記録の番号>）',
         ),

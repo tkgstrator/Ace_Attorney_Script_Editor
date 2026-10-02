@@ -38,8 +38,9 @@ fn sl(e: &[u16], a: usize, b: usize) -> &[u16] {
 /// 項目を区画に分ける（区画の位置はバイト単位。見出しの末尾のラベルも空の区画として数える）
 pub fn sections(e: &[u16]) -> Vec<&[u16]> {
     let n = e[0] as usize | (e[1] as usize) << 16;
-    let mut offs: Vec<usize> =
-        (0..n).map(|i| (e[2 + 2 * i] as usize | (e[3 + 2 * i] as usize) << 16) / 2).collect();
+    let mut offs: Vec<usize> = (0..n)
+        .map(|i| (e[2 + 2 * i] as usize | (e[3 + 2 * i] as usize) << 16) / 2)
+        .collect();
     offs.push(e.len());
     (0..n).map(|i| sl(e, offs[i], offs[i + 1])).collect()
 }
@@ -92,7 +93,11 @@ pub fn decode(s: &[u16]) -> Vec<Tok> {
 /// フォントの番号 → 文字（LAYOUT、OCR の結果 mapping.tsv、手で直した font_fixes.tsv の順に上書き）
 pub fn load_chars(mapping: &[(i64, String)], fixes: &[(i64, String)]) -> HashMap<u16, String> {
     let lay = layout_chars();
-    let mut out: HashMap<u16, String> = lay.iter().enumerate().map(|(i, c)| (i as u16, c.to_string())).collect();
+    let mut out: HashMap<u16, String> = lay
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (i as u16, c.to_string()))
+        .collect();
     for (k, v) in mapping {
         if *k >= lay.len() as i64 && !v.is_empty() {
             out.insert(*k as u16, v.clone());

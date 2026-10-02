@@ -81,16 +81,41 @@ pub fn export_all(inp: &Inputs, out: &mut dyn crate::sink::Sink) -> crate::Resul
     let a9 = crate::nds::Arm9::new(inp.rom)?;
     let arm9 = crate::nds::arm9(inp.rom)?;
     let entries: Vec<Vec<u16>> = inp.items.iter().map(|d| crate::bytes::words16(d)).collect();
-    script::export(inp.items, &a9, &mut crate::sink::Prefixed { inner: out, prefix: "tables".into() })?;
-    out.put("tables/court.json", court::export(&entries, &a9, inp.chars)?.into_bytes());
+    script::export(
+        inp.items,
+        &a9,
+        &mut crate::sink::Prefixed {
+            inner: out,
+            prefix: "tables".into(),
+        },
+    )?;
+    out.put(
+        "tables/court.json",
+        court::export(&entries, &a9, inp.chars)?.into_bytes(),
+    );
     chars::export(inp.data, &a9, inp.items, out, true)?;
     record::export(inp.data, arm9, out)?;
     anims::export(inp.data, arm9, out)?;
     let rom = crate::Rom::new(inp.rom)?;
-    out.put("tables/sound.json", sound::build(&a9, rom.file("sound_data.sdat")?)?.dumps().into_bytes());
+    out.put(
+        "tables/sound.json",
+        sound::build(&a9, rom.file("sound_data.sdat")?)?
+            .dumps()
+            .into_bytes(),
+    );
     let bg_map = crate::script::dump::bg_map(inp.rom, inp.bg_pngs)?.join("\n") + "\n";
-    let refs = invest::Refs { tex_pngs: inp.tex_pngs, bg_map: Some(&bg_map), prefix: inp.prefix };
-    out.put("tables/investigation.json", invest::export(&a9, &refs)?.into_bytes());
-    out.put("tables/invest_start.json", invest_start::export(&a9)?.into_bytes());
+    let refs = invest::Refs {
+        tex_pngs: inp.tex_pngs,
+        bg_map: Some(&bg_map),
+        prefix: inp.prefix,
+    };
+    out.put(
+        "tables/investigation.json",
+        invest::export(&a9, &refs)?.into_bytes(),
+    );
+    out.put(
+        "tables/invest_start.json",
+        invest_start::export(&a9)?.into_bytes(),
+    );
     Ok(())
 }
