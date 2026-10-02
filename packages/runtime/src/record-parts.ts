@@ -1,10 +1,10 @@
 // 法廷記録の画面の部品（DS 版の下画面から写した形と色）。
 // 背景 → 板・枠・アイコン・文字 → 横じま → 上下の帯とボタン、の順に重ねる。
 // 横じまは、DS 版では画面の中ほど（y 32〜173）の 4 行ごとに 1 行、明るい行が重なっている。
-import { REC_COLORS as C, SCREEN_W, UI, type Rect } from './layout.ts';
+import { REC_COLORS as C, type Rect, SCREEN_W, UI } from './layout.ts';
 import type { UiPart } from './options.ts';
 import type { Painter } from './painter.ts';
-import { shapeRuns, spansOf, type Run, type Shape, type ShapeStyle } from './shape.ts';
+import { type Run, type Shape, type ShapeStyle, shapeRuns, spansOf } from './shape.ts';
 
 const cache = new Map<string, Run[]>();
 
@@ -156,27 +156,34 @@ export function drawPresentButton(p: Painter) {
 
 /** 赤い縦長のボタンと、その中の白い矢印（arrow が false なら矢印なし） */
 export function sideButton(p: Painter, r: Rect, dir: 'left' | 'right', arrow = true) {
-  const right = r.x + r.w / 2 > SCREEN_W / 2;
-  paint(p, `side${r.x},${r.y},${r.h}`, () => sideBar(r, right), {
-    edges: [C.btnOuter, C.sideEdge],
-    fill: C.sideFill,
-    inner: { top: C.btnLight, bottom: C.sideDark, left: C.sideInner, right: C.sideInner },
-  });
-  if (!arrow) return;
-  // 高さ 13、幅 7 の三角形。先の側の 1 ドットは中間の色
-  const top = r.y + r.h / 2 - 6;
-  for (let i = 0; i <= 12; i++) {
-    const k = 6 - Math.abs(i - 6);
-    if (dir === 'left') {
-      const xr = r.x + 10;
-      p.rect(xr - k + 1, top + i, k, 1, '#ffffff');
-      p.rect(xr - k, top + i, 1, 1, C.arrowAa);
-    } else {
-      const xl = r.x + 5;
-      p.rect(xl, top + i, k, 1, '#ffffff');
-      p.rect(xl + k, top + i, 1, 1, C.arrowAa);
-    }
-  }
+  p.button(
+    r,
+    () => {
+      const right = r.x + r.w / 2 > SCREEN_W / 2;
+      paint(p, `side${r.x},${r.y},${r.h}`, () => sideBar(r, right), {
+        edges: [C.btnOuter, C.sideEdge],
+        fill: C.sideFill,
+        inner: { top: C.btnLight, bottom: C.sideDark, left: C.sideInner, right: C.sideInner },
+      });
+      if (!arrow) return;
+      // 高さ 13、幅 7 の三角形。先の側の 1 ドットは中間の色
+      const top = r.y + r.h / 2 - 6;
+      for (let i = 0; i <= 12; i++) {
+        const k = 6 - Math.abs(i - 6);
+        if (dir === 'left') {
+          const xr = r.x + 10;
+          p.rect(xr - k + 1, top + i, k, 1, '#ffffff');
+          p.rect(xr - k, top + i, 1, 1, C.arrowAa);
+        } else {
+          const xl = r.x + 5;
+          p.rect(xl, top + i, k, 1, '#ffffff');
+          p.rect(xl + k, top + i, 1, 1, C.arrowAa);
+        }
+      }
+    },
+    arrow,
+    dir,
+  );
 }
 
 /**

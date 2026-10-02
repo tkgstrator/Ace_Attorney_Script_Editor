@@ -56,11 +56,19 @@ pub fn parse() -> Result<Args, String> {
         max_se: 60.0,
         audio_only: None,
     };
-    let val = |it: &mut dyn Iterator<Item = String>, k: &str| it.next().ok_or(format!("{k} の値がありません"));
+    let val = |it: &mut dyn Iterator<Item = String>, k: &str| {
+        it.next().ok_or(format!("{k} の値がありません"))
+    };
     while let Some(x) = it.next() {
         match x.as_str() {
             "--out" => a.out = PathBuf::from(val(&mut it, &x)?),
-            "--only" => a.steps = val(&mut it, &x)?.split(',').filter(|s| !s.is_empty()).map(String::from).collect(),
+            "--only" => {
+                a.steps = val(&mut it, &x)?
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(String::from)
+                    .collect()
+            }
             "--no-raw" => a.raw = false,
             "--font-mapping" => a.font_mapping = Some(PathBuf::from(val(&mut it, &x)?)),
             "--font-fixes" => a.font_fixes = Some(PathBuf::from(val(&mut it, &x)?)),
@@ -70,7 +78,14 @@ pub fn parse() -> Result<Args, String> {
             "--jobs" => a.jobs = val(&mut it, &x)?.parse().map_err(|_| "--jobs は数")?,
             "--max-bgm" => a.max_bgm = val(&mut it, &x)?.parse().map_err(|_| "--max-bgm は数")?,
             "--max-se" => a.max_se = val(&mut it, &x)?.parse().map_err(|_| "--max-se は数")?,
-            "--audio-only" => a.audio_only = Some(val(&mut it, &x)?.split(',').map(|s| s.trim().to_string()).collect()),
+            "--audio-only" => {
+                a.audio_only = Some(
+                    val(&mut it, &x)?
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect(),
+                )
+            }
             "-h" | "--help" => return Err(String::new()),
             s if s.starts_with("--") => return Err(format!("知らないオプション: {s}")),
             _ => rom = Some(PathBuf::from(x)),
@@ -88,5 +103,9 @@ pub fn parse() -> Result<Args, String> {
 /// このリポジトリの根（crates/aa-extract から 2 つ上。見つからなければ今のフォルダー）
 pub fn repo_root() -> PathBuf {
     let here = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    here.parent().and_then(|p| p.parent()).map(PathBuf::from).filter(|p| p.join("tools/rom").exists()).unwrap_or_else(|| PathBuf::from("."))
+    here.parent()
+        .and_then(|p| p.parent())
+        .map(PathBuf::from)
+        .filter(|p| p.join("tools/rom").exists())
+        .unwrap_or_else(|| PathBuf::from("."))
 }

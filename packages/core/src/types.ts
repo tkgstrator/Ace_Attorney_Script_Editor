@@ -213,12 +213,25 @@ export interface CharacterDef {
   /** 文字送りの音の種類（既定 male） */
   blip?: BlipKind;
   /** 法廷記録の人物ファイルに載せる内容。ない人物は載せない。name は人物ファイルでの表示名（名前欄の name と別にできる） */
-  profile?: { name?: string; age?: number; description: string; icon?: string };
+  profile?: { name?: string; age?: number; description: Description; icon?: string };
+  /** 既定の立ち絵の動き（show で動きを指定していないとき。話している間は talk、それ以外は idle） */
+  pose?: Pose;
+  /** location で背景を場所に変えている間（控え室・探索編）の既定の動き。省略すると pose */
+  placePose?: Pose;
 }
+
+/** 条件で切り替わる説明の 1 つ。when を省いたものはいつでも満たす */
+export interface DescriptionCase {
+  when?: Expr;
+  text: string;
+}
+
+/** 証拠品・人物ファイルの説明。文字列はいつも同じ、配列は満たす最初のものを出す（pickDescription） */
+export type Description = string | DescriptionCase[];
 
 export interface EvidenceDef {
   name: string;
-  description: string;
+  description: Description;
   /** アイコンの絵のキー（省略すると証拠品 ID） */
   icon?: string;
   /** 「詳しく調べる」で実行するシーン（コンパイラが examine から作る。調べる場所の選択肢から始まる） */

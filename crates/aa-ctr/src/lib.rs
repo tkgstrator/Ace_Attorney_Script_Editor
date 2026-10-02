@@ -2,6 +2,7 @@
 //! tools/rom/ctr.py・mt_arc.py・mt_gmd.py・mt_sound.py（Python 版）を参照。
 
 pub mod arc;
+pub mod conv;
 pub mod gmd;
 pub mod keys;
 pub mod mca;

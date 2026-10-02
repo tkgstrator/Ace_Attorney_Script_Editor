@@ -43,7 +43,9 @@ pub struct Refs<'a> {
 fn sec(v: Option<i64>) -> Json {
     match v {
         None | Some(0xffff) => Json::Null,
-        Some(v) => Json::obj().with("raw", v).with("script", if v >= 0x80 { "story" } else { "common" })
+        Some(v) => Json::obj()
+            .with("raw", v)
+            .with("script", if v >= 0x80 { "story" } else { "common" })
             .with("section", if v >= 0x80 { v - 0x80 } else { v }),
     }
 }
@@ -53,16 +55,25 @@ fn tex(r: &Refs, base: usize, i: usize, step: usize) -> Json {
     let pre = format!("{a:x}");
     let mut hits: Vec<&String> = r.tex_pngs.iter().filter(|n| n.starts_with(&pre)).collect();
     hits.sort();
-    Json::obj().with("data_bin", format!("{a:#x}"))
-        .with("png", hits.first().map(|h| format!("{}/data/tail/tex/{h}", r.prefix)))
+    Json::obj().with("data_bin", format!("{a:#x}")).with(
+        "png",
+        hits.first()
+            .map(|h| format!("{}/data/tail/tex/{h}", r.prefix)),
+    )
 }
 
 fn copies(a9: &Arm9, func: u32, part: i64) -> Result<BTreeMap<i64, (i64, i64)>> {
     let mut out = BTreeMap::new();
     for (_, acts) in run(a9, func, 0, part)? {
         for act in acts {
-            if act.name == "copy" && act.args.len() >= 3 && act.args[..3].iter().all(Option::is_some) {
-                out.insert(act.args[1].unwrap(), (act.args[0].unwrap(), act.args[2].unwrap()));
+            if act.name == "copy"
+                && act.args.len() >= 3
+                && act.args[..3].iter().all(Option::is_some)
+            {
+                out.insert(
+                    act.args[1].unwrap(),
+                    (act.args[0].unwrap(), act.args[2].unwrap()),
+                );
             }
         }
     }
@@ -72,7 +83,17 @@ fn copies(a9: &Arm9, func: u32, part: i64) -> Result<BTreeMap<i64, (i64, i64)>> 
 fn parse_places(d: &[u8]) -> Vec<(usize, u8, Vec<u8>)> {
     (0..d.len() / 8)
         .filter(|i| d[i * 8 + 1..i * 8 + 4] == [0xff, 0xff, 0xff])
-        .map(|i| (i, d[i * 8], d[i * 8 + 4..i * 8 + 8].iter().copied().filter(|&x| x != 0xff).collect()))
+        .map(|i| {
+            (
+                i,
+                d[i * 8],
+                d[i * 8 + 4..i * 8 + 8]
+                    .iter()
+                    .copied()
+                    .filter(|&x| x != 0xff)
+                    .collect(),
+            )
+        })
         .collect()
 }
 
@@ -83,11 +104,24 @@ fn parse_talk(d: &[u8]) -> Vec<Json> {
         if e[0] == 0xff {
             break;
         }
-        let topics: Vec<Json> = (0..4).filter(|&k| e[4 + k] != 0xff).map(|k| {
-            let s = u16::from_le_bytes([e[12 + 2 * k], e[13 + 2 * k]]) as i64;
-            Json::obj().with("topic", e[4 + k]).with("read_flag", e[8 + k]).with("section", sec(Some(s)))
-        }).collect();
-        out.push(Json::obj().with("id", i).with("place", e[0]).with("person", e[1]).with("active", e[3] == 1).with("topics", topics));
+        let topics: Vec<Json> = (0..4)
+            .filter(|&k| e[4 + k] != 0xff)
+            .map(|k| {
+                let s = u16::from_le_bytes([e[12 + 2 * k], e[13 + 2 * k]]) as i64;
+                Json::obj()
+                    .with("topic", e[4 + k])
+                    .with("read_flag", e[8 + k])
+                    .with("section", sec(Some(s)))
+            })
+            .collect();
+        out.push(
+            Json::obj()
+                .with("id", i)
+                .with("place", e[0])
+                .with("person", e[1])
+                .with("active", e[3] == 1)
+                .with("topics", topics),
+        );
     }
     out
 }
@@ -101,16 +135,29 @@ fn parse_examine(d: &[u8]) -> Result<Json> {
         if kind == 0xff {
             break;
         }
-        let pts: Vec<i16> = (0..8).map(|j| i16_at(d, b + 4 + 2 * j)).collect::<Result<_>>()?;
+        let pts: Vec<i16> = (0..8)
+            .map(|j| i16_at(d, b + 4 + 2 * j))
+            .collect::<Result<_>>()?;
         let k = match kind {
             0xfd => "cond",
             0xfe => "off",
             _ => "normal",
         };
-        let quad: Vec<Json> = (0..4).map(|j| Json::from(vec![pts[2 * j], pts[2 * j + 1]])).collect();
-        let mut e = Json::obj().with("section", sec(Some(s))).with("kind", k).with("quad", quad);
+        let quad: Vec<Json> = (0..4)
+            .map(|j| Json::from(vec![pts[2 * j], pts[2 * j + 1]]))
+            .collect();
+        let mut e = Json::obj()
+            .with("section", sec(Some(s)))
+            .with("kind", k)
+            .with("quad", quad);
         if kind == 0xfd {
-            e.set("cond", conds.get(&cond.to_string()).cloned().unwrap_or_else(|| Json::from(format!("never ({cond:#x})"))));
+            e.set(
+                "cond",
+                conds
+                    .get(&cond.to_string())
+                    .cloned()
+                    .unwrap_or_else(|| Json::from(format!("never ({cond:#x})"))),
+            );
         } else if kind != 0 && kind != 0xfe {
             e.set("b2", kind); // 第 5 話の表では場所の番号が入っている（判定には使わない）
         }
@@ -126,9 +173,18 @@ fn parse_present(a9: &Arm9, mut addr: u32) -> Result<Vec<Json>> {
         if e[3] == 0xff {
             return Ok(out);
         }
-        let (s, dflt) = (u16::from_le_bytes([e[4], e[5]]) as i64, u16::from_le_bytes([e[6], e[7]]) as i64);
-        out.push(Json::obj().with("place", e[0]).with("item", (e[1] != 0xff).then_some(e[1])).with("person", e[2])
-            .with("section", sec(Some(s))).with("default", sec(Some(dflt))));
+        let (s, dflt) = (
+            u16::from_le_bytes([e[4], e[5]]) as i64,
+            u16::from_le_bytes([e[6], e[7]]) as i64,
+        );
+        out.push(
+            Json::obj()
+                .with("place", e[0])
+                .with("item", (e[1] != 0xff).then_some(e[1]))
+                .with("person", e[2])
+                .with("section", sec(Some(s)))
+                .with("default", sec(Some(dflt))),
+        );
         addr += 8;
     }
 }
@@ -155,8 +211,14 @@ fn parse_court_present(a9: &Arm9, mut addr: u32) -> Result<Vec<Json>> {
         if h(0) == 0xffff {
             return Ok(out);
         }
-        out.push(Json::obj().with("at", sec(Some(h(0)))).with("item", h(2)).with("section", sec(Some(h(4))))
-            .with("flag", (b[6] != 0xff).then_some(b[6])).with("b7", b[7]));
+        out.push(
+            Json::obj()
+                .with("at", sec(Some(h(0))))
+                .with("item", h(2))
+                .with("section", sec(Some(h(4))))
+                .with("flag", (b[6] != 0xff).then_some(b[6]))
+                .with("b7", b[7]),
+        );
         addr += 8;
     }
 }
@@ -179,7 +241,9 @@ fn conv_paths(a9: &Arm9, paths: Vec<Way>, exam: &mut Json) -> Result<Vec<Json>> 
                 Cond::Flag((g, n), v) => {
                     when.set(format!("{g}:{n:#x}"), v);
                 }
-                Cond::Other(s, v) => extra.push(format!("{s} = {}", if v { "True" } else { "False" })),
+                Cond::Other(s, v) => {
+                    extra.push(format!("{s} = {}", if v { "True" } else { "False" }))
+                }
             }
         }
         let mut dos = Vec::new();
@@ -195,18 +259,30 @@ fn conv_paths(a9: &Arm9, paths: Vec<Way>, exam: &mut Json) -> Result<Vec<Json>> 
                     }
                     Json::obj().with("examine", key)
                 }
-                "event" | "event_keep_bgm" => Json::obj().with(name.clone(), sec(g(0))).with("set_flag", format!("0:{}", hexs(g(1)))),
-                "char" => Json::obj().with("char", g(0)).with("talk", g(1)).with("idle", g(2)),
+                "event" | "event_keep_bgm" => Json::obj()
+                    .with(name.clone(), sec(g(0)))
+                    .with("set_flag", format!("0:{}", hexs(g(1)))),
+                "char" => Json::obj()
+                    .with("char", g(0))
+                    .with("talk", g(1))
+                    .with("idle", g(2)),
                 "bgm" | "se" | "op_2232c" | "load_part" => Json::obj().with(name.clone(), g(0)),
                 "bg" => Json::obj().with("bg", g(1)),
                 "bg_prepare" => continue, // 直後の bg と組
                 "bgm_stop" => Json::obj().with("bgm_stop", true),
-                "char_raw" => Json::obj().with("char", g(0)).with("talk", g(2)).with("idle", g(2)),
+                "char_raw" => Json::obj()
+                    .with("char", g(0))
+                    .with("talk", g(2))
+                    .with("idle", g(2)),
                 "set_flag" => {
                     let a0 = g(0).map_or("None".to_string(), |v| v.to_string());
-                    Json::obj().with("set_flag", format!("{a0}:{}", hexs(g(1)))).with("value", g(2))
+                    Json::obj()
+                        .with("set_flag", format!("{a0}:{}", hexs(g(1))))
+                        .with("value", g(2))
                 }
-                _ => Json::obj().with("call", name.clone()).with("args", args.clone()),
+                _ => Json::obj()
+                    .with("call", name.clone())
+                    .with("args", args.clone()),
             };
             dos.push(j);
         }
@@ -223,7 +299,8 @@ fn read_bgmap(text: Option<&str>, prefix: &str) -> BTreeMap<i64, Option<String>>
     for line in text.unwrap_or("").lines().skip(1) {
         let c: Vec<&str> = line.split('\t').collect();
         if let Ok(k) = c[0].parse::<i64>() {
-            let v = (c.len() > 5 && !c[5].is_empty()).then(|| format!("{prefix}/data/tail/bg/{}", c[5]));
+            let v = (c.len() > 5 && !c[5].is_empty())
+                .then(|| format!("{prefix}/data/tail/bg/{}", c[5]));
             out.insert(k, v);
         }
     }

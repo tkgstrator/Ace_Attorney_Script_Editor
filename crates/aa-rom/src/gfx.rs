@@ -28,7 +28,11 @@ pub struct Rgba {
 
 impl Indexed {
     pub fn zeros(w: usize, h: usize) -> Self {
-        Indexed { w, h, px: vec![0; w * h] }
+        Indexed {
+            w,
+            h,
+            px: vec![0; w * h],
+        }
     }
     pub fn at(&self, x: usize, y: usize) -> u8 {
         self.px[y * self.w + x]
@@ -40,13 +44,19 @@ impl Indexed {
 
 impl Rgba {
     pub fn zeros(w: usize, h: usize) -> Self {
-        Rgba { w, h, px: vec![0; w * h * 4] }
+        Rgba {
+            w,
+            h,
+            px: vec![0; w * h * 4],
+        }
     }
 }
 
 /// BGR555 のパレットを (R, G, B) の一覧にする
 pub fn palette(b: &[u8]) -> Vec<Rgb> {
-    b.as_chunks::<2>().0.iter()
+    b.as_chunks::<2>()
+        .0
+        .iter()
         .map(|c| {
             let v = u16::from_le_bytes([c[0], c[1]]) as u32;
             let f = |x: u32| (x * 255 / 31) as u8;
@@ -85,7 +95,12 @@ pub fn unpack1(b: &[u8]) -> Vec<u8> {
 /// 8×8 タイルを横方向に並べた画素列を h×w にする
 pub fn tiled(px: &[u8], w: usize, h: usize) -> Result<Indexed> {
     if px.len() < w * h || !w.is_multiple_of(8) || !h.is_multiple_of(8) {
-        return err(format!("タイルの大きさが合いません: {} < {}×{}", px.len(), w, h));
+        return err(format!(
+            "タイルの大きさが合いません: {} < {}×{}",
+            px.len(),
+            w,
+            h
+        ));
     }
     let mut out = Indexed::zeros(w, h);
     let tw = w / 8;
@@ -105,7 +120,11 @@ pub fn linear(px: &[u8], w: usize, h: usize) -> Result<Indexed> {
     if px.len() < w * h {
         return err("画素が足りません");
     }
-    Ok(Indexed { w, h, px: px[..w * h].to_vec() })
+    Ok(Indexed {
+        w,
+        h,
+        px: px[..w * h].to_vec(),
+    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -144,7 +163,14 @@ pub fn obj_blocks(px: &[u8], w: usize, h: usize, bw: usize, bh: usize) -> Result
     Ok(out)
 }
 
-fn encode(w: usize, h: usize, color: png::ColorType, pal: Option<Vec<u8>>, trns: Option<Vec<u8>>, data: &[u8]) -> Vec<u8> {
+fn encode(
+    w: usize,
+    h: usize,
+    color: png::ColorType,
+    pal: Option<Vec<u8>>,
+    trns: Option<Vec<u8>>,
+    data: &[u8],
+) -> Vec<u8> {
     let mut buf = Vec::new();
     {
         let mut e = png::Encoder::new(&mut buf, w as u32, h as u32);
@@ -175,7 +201,14 @@ pub fn png_indexed(idx: &Indexed, pal: &[Rgb], transparent0: bool) -> Vec<u8> {
     }
     let flat: Vec<u8> = pal.iter().flatten().copied().collect();
     let trns = transparent0.then(|| vec![0u8]);
-    encode(idx.w, idx.h, png::ColorType::Indexed, Some(flat), trns, &idx.px)
+    encode(
+        idx.w,
+        idx.h,
+        png::ColorType::Indexed,
+        Some(flat),
+        trns,
+        &idx.px,
+    )
 }
 
 /// RGBA の PNG
@@ -202,10 +235,13 @@ pub fn to_rgba(idx: &Indexed, pal: &[Rgb]) -> Rgba {
 /// 繰り返す GIF（各コマは全体の大きさ、色番号 0 が透明、前のコマは背景で消す）。ImageMagick の
 /// `magick -dispose background -delay D f00.png … -loop 0 anim.gif` と同じ見え方になる（1 コマ 255 色まで）
 pub fn gif_anim(frames: &[(&Rgba, u16)]) -> Vec<u8> {
-    let Some((first, _)) = frames.first() else { return Vec::new() };
+    let Some((first, _)) = frames.first() else {
+        return Vec::new();
+    };
     let mut buf = Vec::new();
     {
-        let mut enc = gif::Encoder::new(&mut buf, first.w as u16, first.h as u16, &[]).expect("GIF");
+        let mut enc =
+            gif::Encoder::new(&mut buf, first.w as u16, first.h as u16, &[]).expect("GIF");
         enc.set_repeat(gif::Repeat::Infinite).expect("GIF");
         for (img, delay) in frames {
             let mut pal: Vec<[u8; 3]> = vec![[0, 0, 0]];

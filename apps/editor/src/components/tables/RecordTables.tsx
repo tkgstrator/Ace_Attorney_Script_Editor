@@ -149,6 +149,50 @@ function RecordTable({
 const ID_NOTE =
   'ID を変えると、章の中の参照（台詞の人物・つきつけ・条件式など）も書き換えます。台詞の本文の中の文中コマンド（[show …] など）は書き換えないので、右の診断で確かめてください。';
 
+/** 説明の欄。文字列はそのまま編集、条件で切り替わる配列は「条件」と「文」を 1 組ずつ並べる（組の追加・削除は YAML で） */
+function DescriptionInput({
+  path,
+  value,
+  placeholder,
+  label,
+}: {
+  path: Path;
+  value: unknown;
+  placeholder?: string;
+  label: string;
+}) {
+  if (!Array.isArray(value))
+    return (
+      <TextInput multiline path={path} value={value} placeholder={placeholder} aria-label={label} />
+    );
+  return (
+    <div className="flex flex-col gap-1">
+      {value.map((c, i) => {
+        const item = rec(c);
+        return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: 組の追加・並べ替えはここでは行わない
+          <div key={i} className="flex flex-col gap-1">
+            <TextInput
+              path={[...path, i, 'when']}
+              value={item.when}
+              optional
+              mono
+              placeholder="条件（省略すると既定）"
+              aria-label={`${label}の条件 ${i + 1}`}
+            />
+            <TextInput
+              multiline
+              path={[...path, i, 'text']}
+              value={item.text}
+              aria-label={`${label} ${i + 1}`}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CharactersTable() {
   return (
     <RecordTable
@@ -200,12 +244,11 @@ export function CharactersTable() {
               />
             </td>
             <td className="px-1">
-              <TextInput
-                multiline
+              <DescriptionInput
                 path={[...p, 'profile', 'description']}
                 value={prof.description}
                 placeholder="人物ファイルの説明"
-                aria-label={`${id} の説明（人物ファイル）`}
+                label={`${id} の説明（人物ファイル）`}
               />
             </td>
           </>
@@ -246,11 +289,10 @@ export function EvidenceTable() {
               <TextInput path={[...p, 'name']} value={e.name} aria-label={`${id} の名前`} />
             </td>
             <td className="px-1">
-              <TextInput
-                multiline
+              <DescriptionInput
                 path={[...p, 'description']}
                 value={e.description}
-                aria-label={`${id} の説明`}
+                label={`${id} の説明`}
               />
             </td>
           </>

@@ -20,7 +20,15 @@ pub fn list_files(rom: &[u8]) -> Result<Vec<NdsFile>> {
     Ok(files)
 }
 
-fn walk(rom: &[u8], fnt: usize, fat: usize, dir_id: u16, prefix: &str, out: &mut Vec<NdsFile>, depth: u32) -> Result<()> {
+fn walk(
+    rom: &[u8],
+    fnt: usize,
+    fat: usize,
+    dir_id: u16,
+    prefix: &str,
+    out: &mut Vec<NdsFile>,
+    depth: u32,
+) -> Result<()> {
     if depth > 64 {
         return err("FNT の入れ子が深すぎます");
     }
@@ -34,17 +42,32 @@ fn walk(rom: &[u8], fnt: usize, fat: usize, dir_id: u16, prefix: &str, out: &mut
             break;
         }
         let len = (n & 0x7F) as usize;
-        let raw = rom.get(p..p + len).ok_or_else(|| Error("FNT の名前が範囲外".into()))?;
+        let raw = rom
+            .get(p..p + len)
+            .ok_or_else(|| Error("FNT の名前が範囲外".into()))?;
         let (name, _, _) = encoding_rs::SHIFT_JIS.decode(raw);
         p += len;
         if n > 0x80 {
             let sub = u16_at(rom, p)?;
             p += 2;
-            walk(rom, fnt, fat, sub, &format!("{prefix}{name}/"), out, depth + 1)?;
+            walk(
+                rom,
+                fnt,
+                fat,
+                sub,
+                &format!("{prefix}{name}/"),
+                out,
+                depth + 1,
+            )?;
         } else {
             let start = u32_at(rom, fat + file_id as usize * 8)? as usize;
             let end = u32_at(rom, fat + file_id as usize * 8 + 4)? as usize;
-            out.push(NdsFile { id: file_id, path: format!("{prefix}{name}"), start, end });
+            out.push(NdsFile {
+                id: file_id,
+                path: format!("{prefix}{name}"),
+                start,
+                end,
+            });
             file_id = file_id.wrapping_add(1);
         }
     }
@@ -94,7 +117,9 @@ impl<'a> Arm9<'a> {
 
     /// Python の read(addr, n): 領域の終わりで切れることがある
     pub fn read(&self, addr: u32, n: usize) -> Result<&'a [u8]> {
-        let (data, o) = self.find(addr).ok_or_else(|| Error(format!("範囲外: {addr:#x}")))?;
+        let (data, o) = self
+            .find(addr)
+            .ok_or_else(|| Error(format!("範囲外: {addr:#x}")))?;
         Ok(crate::bytes::py_slice(data, o, o + n))
     }
 
@@ -116,6 +141,8 @@ impl<'a> Arm9<'a> {
 
     pub fn u8(&self, addr: u32) -> Result<u8> {
         let b = self.read(addr, 1)?;
-        b.first().copied().ok_or_else(|| Error(format!("範囲外: {addr:#x}")))
+        b.first()
+            .copied()
+            .ok_or_else(|| Error(format!("範囲外: {addr:#x}")))
     }
 }

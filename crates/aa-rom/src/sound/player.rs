@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::bank::{Instrument, Wave};
 use super::channel::{Channel, NOISE, NONE, PCM, PSG, PSG_BASE_TIMER, START};
-use super::tables::{cnv_attack, cnv_fall, cnv_sust};
+use super::tables::{cnv_attack, cnv_fall, cnv_scale, cnv_sust};
 use super::track::Track;
 use crate::bytes::{err, Result};
 
@@ -47,7 +47,14 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(sseq: &[u8], bank: Arc<Vec<Instrument>>, waves: Vec<Arc<Vec<Option<Arc<Wave>>>>>, seq_vol: i64, prio: i64, channel_mask: i64) -> Result<Self> {
+    pub fn new(
+        sseq: &[u8],
+        bank: Arc<Vec<Instrument>>,
+        waves: Vec<Arc<Vec<Option<Arc<Wave>>>>>,
+        seq_vol: i64,
+        prio: i64,
+        channel_mask: i64,
+    ) -> Result<Self> {
         if sseq.get(..4) != Some(b"SSEQ") {
             return err("SSEQ ではありません");
         }
@@ -57,13 +64,17 @@ impl Player {
             base,
             bank,
             waves,
-            seq_vol: cnv_sust(seq_vol),
+            seq_vol: cnv_scale(seq_vol),
             master_vol: 0,
             prio,
-            mask: if channel_mask != 0 { channel_mask } else { 0xFFFF },
+            mask: if channel_mask != 0 {
+                channel_mask
+            } else {
+                0xFFFF
+            },
             tempo: 120,
             tempo_rate: 256,
-            tempo_count: 0,
+            tempo_count: 240,
             vars: [-1; 32],
             seed: 0x12345678,
             used_random: false,
@@ -103,7 +114,10 @@ impl Player {
 
     pub fn loop_event(&mut self, t: usize, target: usize) {
         let no = self.tracks[t].no;
-        self.loops.entry(no).or_default().push((self.tick_no, target));
+        self.loops
+            .entry(no)
+            .or_default()
+            .push((self.tick_no, target));
     }
 
     pub fn release_track(&mut self, t: usize) {
@@ -149,7 +163,11 @@ impl Player {
     pub fn note_on(&mut self, t: usize, key: i64, vel: i64, length: i64) -> Option<usize> {
         let tr = &self.tracks[t];
         // Python の list[i] と同じく、負の番号は後ろから数える
-        let pi = if tr.patch < 0 { self.bank.len() as i64 + tr.patch } else { tr.patch };
+        let pi = if tr.patch < 0 {
+            self.bank.len() as i64 + tr.patch
+        } else {
+            tr.patch
+        };
         let inst = self.bank.get(usize::try_from(pi).ok()?)?;
         let reg = inst.region_for(key)?;
         if ![PCM, PSG, NOISE].contains(&reg.kind) {
@@ -160,7 +178,8 @@ impl Player {
             let arc = self.waves.get(reg.swar as usize);
             wave = arc.and_then(|a| a.get(reg.swav as usize).cloned().flatten());
             if wave.is_none() {
-                self.missing.insert(format!("swar{}/swav{}", reg.swar, reg.swav));
+                self.missing
+                    .insert(format!("swar{}/swav{}", reg.swar, reg.swav));
                 return None;
             }
         }
@@ -237,11 +256,12 @@ impl Player {
             }
             self.channels[k].update();
         }
-        self.tempo_count += (self.tempo * self.tempo_rate) >> 8;
         while self.tempo_count >= 240 {
             self.tempo_count -= 240;
             self.run_tick();
         }
+        // NCSFCommon/Player.cs の Main と同じく、ティック処理後にテンポを足す。
+        self.tempo_count += (self.tempo * self.tempo_rate) >> 8;
         self.frame_no += 1;
     }
 }

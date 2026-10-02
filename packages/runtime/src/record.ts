@@ -1,10 +1,10 @@
 // 法廷記録。証拠品ファイルと人物ファイルの 2 つのタブがあり、それぞれ一覧と詳細の表示を持つ。
 // DS 版では下画面に出ていたものを、メイン画面に重ねて出す（配置・色は DS 版の下画面に合わせ、背景ごと不透明に描く）。
-import { heldProfiles, type Engine } from '@gyakusai/core';
-import { RECORD_PER_PAGE, REC_COLORS as C, UI, hit, type Rect } from './layout.ts';
+import { type Engine, evidenceDescription, heldProfiles, profileDescription } from '@gyakusai/core';
+import { REC_COLORS as C, hit, RECORD_PER_PAGE, type Rect, UI } from './layout.ts';
 import type { Labels } from './options.ts';
 import type { Painter } from './painter.ts';
-import { RECORD_CARD, drawCard, nameText } from './record-card.ts';
+import { drawCard, nameText, RECORD_CARD } from './record-card.ts';
 import * as Parts from './record-parts.ts';
 
 export type RecordTab = 'evidence' | 'profile';
@@ -13,6 +13,8 @@ export class CourtRecord {
   open = false;
   tab: RecordTab = 'evidence';
   detail = false;
+  /** 16:9 か（ボタンを右の欄（panel.ts）に出すので、画面の中には描かず、クリックも受けない） */
+  wide = false;
   #sel: Record<RecordTab, number> = { evidence: 0, profile: 0 };
 
   /** 今のタブに並ぶ項目（証拠品 ID か人物 ID） */
@@ -33,7 +35,7 @@ export class CourtRecord {
     this.#sel[tab] = Math.min(this.#sel[tab], Math.max(0, this.items(engine, tab).length - 1));
   }
 
-  #switchTab(engine: Engine) {
+  switchTab(engine: Engine) {
     this.show(engine, this.tab === 'evidence' ? 'profile' : 'evidence');
   }
 
@@ -51,11 +53,11 @@ export class CourtRecord {
   }
 
   /** 右上のタブで、もう一方のファイルに切り替えられるか（つきつけるときは、両方をつきつけられる場面だけ） */
-  #canSwitch(engine: Engine): boolean {
+  canSwitch(engine: Engine): boolean {
     return !engine.canPresent || engine.canPresentProfile;
   }
 
-  #present(engine: Engine) {
+  present(engine: Engine) {
     if (!this.canPresent(engine)) return;
     const id = this.items(engine)[this.selected(engine)];
     if (!id) return;
@@ -71,11 +73,17 @@ export class CourtRecord {
     return id && 'inspect' in b && b.inspect?.includes(id) ? id : null;
   }
 
-  #inspect(engine: Engine) {
+  inspect(engine: Engine) {
     const id = this.inspectable(engine);
     if (!id) return;
     this.open = false;
     engine.inspect(id);
+  }
+
+  /** 「もどる」: 詳細なら一覧に、一覧なら閉じる */
+  back() {
+    if (this.detail) this.detail = false;
+    else this.open = false;
   }
 
   // ---- 入力 ------------------------------------------------------------------------
@@ -88,12 +96,11 @@ export class CourtRecord {
     else if (key === 'ArrowDown' && !this.detail) this.#move(engine, 4, false);
     else if (key === 'Enter' || key === ' ') {
       if (!this.detail) this.detail = this.items(engine).length > 0;
-      else this.#present(engine);
-    } else if (key === 'Tab' || key === 'r' || key === 'R') this.#switchTab(engine);
-    else if (key === 'e' || key === 'E') this.#inspect(engine);
+      else this.present(engine);
+    } else if (key === 'Tab' || key === 'r' || key === 'R') this.switchTab(engine);
+    else if (key === 'e' || key === 'E') this.inspect(engine);
     else if (key === 'x' || key === 'X' || key === 'Escape') {
-      if (this.detail) this.detail = false;
-      else this.open = false;
+      this.back();
     } else return false;
     return true;
   }
@@ -101,22 +108,24 @@ export class CourtRecord {
   /** 開いているときのクリック */
   click(engine: Engine, x: number, y: number) {
     const R = UI.rec;
-    if (hit(R.back, x, y)) {
-      this.open = false;
-      return;
-    }
-    const present = this.canPresent(engine);
-    if (this.#canSwitch(engine) && hit(R.switchTab, x, y)) {
-      this.#switchTab(engine);
-      return;
-    }
-    if (present && hit(R.presentBtn, x, y)) {
-      this.#present(engine);
-      return;
-    }
-    if (this.inspectable(engine) && hit(R.inspectBtn, x, y)) {
-      this.#inspect(engine);
-      return;
+    // 16:9 のボタンは右の欄にある（画面の中のボタンは効かない）
+    if (!this.wide) {
+      if (hit(R.back, x, y)) {
+        this.open = false;
+        return;
+      }
+      if (this.canSwitch(engine) && hit(R.switchTab, x, y)) {
+        this.switchTab(engine);
+        return;
+      }
+      if (this.canPresent(engine) && hit(R.presentBtn, x, y)) {
+        this.present(engine);
+        return;
+      }
+      if (this.inspectable(engine) && hit(R.inspectBtn, x, y)) {
+        this.inspect(engine);
+        return;
+      }
     }
     if (this.detail) {
       if (hit(R.itemL, x, y)) this.#move(engine, -1);
@@ -173,31 +182,60 @@ export class CourtRecord {
     Parts.uiTopPlate(p, present);
     // つきつけるときは、人物ファイルもつきつけられる場面（探偵パートなど）だけ、もう一方のファイルへのタブを出す
     // （DS 版と同じ。キーの Tab ではいつでも切り替えられる）
-    if (
-      this.#canSwitch(engine) &&
-      !Parts.putUi(p, this.tab === 'evidence' ? 'toProfile' : 'toEvidence', 176, 0)
-    ) {
-      Parts.drawSwitchTab(p);
-      this.#switchLabel(p, this.tab === 'evidence' ? labels.profileFile : labels.evidenceFile);
-    }
-    if (present && !Parts.putUi(p, 'present', 88, 0)) {
-      Parts.drawPresentButton(p);
-      buttonText(p, labels.present, 128, 15);
-    }
+    if (!this.wide && this.canSwitch(engine))
+      p.button(
+        R.switchTab,
+        () => {
+          if (!Parts.putUi(p, this.tab === 'evidence' ? 'toProfile' : 'toEvidence', 176, 0)) {
+            Parts.drawSwitchTab(p);
+            this.#switchLabel(
+              p,
+              this.tab === 'evidence' ? labels.profileFile : labels.evidenceFile,
+            );
+          }
+        },
+        true,
+        this.tab === 'evidence' ? labels.profileTab : labels.evidenceTab,
+      );
+    if (!this.wide && present)
+      p.button(
+        R.presentBtn,
+        () => {
+          if (!Parts.putUi(p, 'present', 88, 0)) {
+            Parts.drawPresentButton(p);
+            buttonText(p, labels.present, 128, 15);
+          }
+        },
+        true,
+        labels.present,
+      );
     Parts.bottomBar(p);
     Parts.uiBottomPlate(p);
-    if (!Parts.putUi(p, 'back', 0, 160)) {
-      Parts.drawBackButton(p);
-      buttonText(p, labels.back, 36, 176);
-    }
-    // 詳しく調べられる証拠品の詳細では、右下に「調べる」（DS 版では 3D の画面を開く）
-    if (this.inspectable(engine)) {
-      const b = R.inspectBtn;
-      p.rect(b.x, b.y, b.w, b.h, C.btnOuter);
-      p.rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, C.btnEdge);
-      p.rect(b.x + 2, b.y + 2, b.w - 4, b.h - 4, C.btnFill);
-      buttonText(p, labels.examine, b.x + b.w / 2, b.y + b.h / 2);
-    }
+    if (!this.wide)
+      p.button(
+        R.back,
+        () => {
+          if (!Parts.putUi(p, 'back', 0, 160)) {
+            Parts.drawBackButton(p);
+            buttonText(p, labels.back, 36, 176);
+          }
+        },
+        true,
+        labels.back,
+      );
+    if (!this.wide && this.inspectable(engine))
+      p.button(
+        R.inspectBtn,
+        () => {
+          const b = R.inspectBtn;
+          p.rect(b.x, b.y, b.w, b.h, C.btnOuter);
+          p.rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, C.btnEdge);
+          p.rect(b.x + 2, b.y + 2, b.w - 4, b.h - 4, C.btnFill);
+          buttonText(p, labels.examine, b.x + b.w / 2, b.y + b.h / 2);
+        },
+        true,
+        labels.examine,
+      );
   }
 
   /** 右上のタブの文字（先頭に薄い色の ➡） */
@@ -213,8 +251,12 @@ export class CourtRecord {
     ] as const;
     const x0 = 183,
       y0 = 11;
-    arrow.forEach(([a, b], i) => p.rect(x0 + a - 1, y0 + i - 1, b - a + 3, 3, C.btnTextEdge));
-    arrow.forEach(([a, b], i) => p.rect(x0 + a, y0 + i, b - a + 1, 1, C.btnArrow));
+    arrow.forEach(([a, b], i) => {
+      p.rect(x0 + a - 1, y0 + i - 1, b - a + 3, 3, C.btnTextEdge);
+    });
+    arrow.forEach(([a, b], i) => {
+      p.rect(x0 + a, y0 + i, b - a + 1, 1, C.btnArrow);
+    });
     titleText(p, label, 192, 10, 62, C.btnTextEdge);
   }
 
@@ -259,13 +301,13 @@ export class CourtRecord {
     Parts.frieze(p, R.friezeBottom);
     const desc =
       this.tab === 'evidence'
-        ? (engine.scenario.evidence[id]?.description ?? '')
-        : (engine.scenario.characters[id]?.profile?.description ?? '');
+        ? evidenceDescription(engine.scenario, engine.state, id)
+        : profileDescription(engine.scenario, engine.state, id);
     drawCard(p, RECORD_CARD, {
       tab: this.tab,
       label: this.#label(engine, id),
       description: desc,
-      drawIcon: (r) => this.#icon(p, engine, id, r),
+      drawIcon: (r) => p.button(r, () => this.#icon(p, engine, id, r), true, id),
     });
     Parts.sideButton(p, R.itemL, 'left');
     Parts.sideButton(p, R.itemR, 'right');
@@ -288,11 +330,19 @@ export class CourtRecord {
         Parts.emptyCell(p, c);
         continue;
       }
-      p.rect(c.x, c.y, c.w, c.h, C.cellFill);
-      this.#icon(p, engine, id, c);
-      // 選んでいる項目の枠（DS 版では点滅する）
-      if (idx === sel && (frame >> 5) % 4 !== 3)
-        Parts.frame(p, { x: c.x - 2, y: c.y - 2, w: c.w + 3, h: c.h + 3 });
+      p.button(
+        c,
+        () => {
+          p.rect(c.x, c.y, c.w, c.h, C.cellFill);
+          this.#icon(p, engine, id, c);
+          // 選んでいる項目の枠（DS 版では点滅する）
+          if (idx === sel && (frame >> 5) % 4 !== 3)
+            Parts.frame(p, { x: c.x - 2, y: c.y - 2, w: c.w + 3, h: c.h + 3 });
+        },
+        true,
+        id,
+        idx === sel,
+      );
     }
     const pages = Math.ceil(items.length / RECORD_PER_PAGE);
     Parts.sideButton(p, R.pageL, 'left', pages > 1);

@@ -54,7 +54,11 @@ impl RomImage {
     #[wasm_bindgen(constructor)]
     pub fn new(bytes: Vec<u8>) -> Result<RomImage, JsError> {
         Rom::new(&bytes).map_err(js_err)?;
-        Ok(RomImage { bytes, opts: Options::default(), state: State::default() })
+        Ok(RomImage {
+            bytes,
+            opts: Options::default(),
+            state: State::default(),
+        })
     }
 
     /// 手順の名前の一覧（行う順）
@@ -64,12 +68,21 @@ impl RomImage {
 
     /// NitroFS のファイルのパスの一覧
     pub fn files(&self) -> Result<Vec<String>, JsError> {
-        Ok(Rom::new(&self.bytes).map_err(js_err)?.files.iter().map(|f| f.path.clone()).collect())
+        Ok(Rom::new(&self.bytes)
+            .map_err(js_err)?
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect())
     }
 
     /// NitroFS のファイルの中身
     pub fn file(&self, path: &str) -> Result<Vec<u8>, JsError> {
-        Ok(Rom::new(&self.bytes).map_err(js_err)?.file(path).map_err(js_err)?.to_vec())
+        Ok(Rom::new(&self.bytes)
+            .map_err(js_err)?
+            .file(path)
+            .map_err(js_err)?
+            .to_vec())
     }
 
     /// 台本の文字の対応（mapping.tsv と font_fixes.tsv の中身）。無ければ台本の漢字は {番号} になる
@@ -81,8 +94,17 @@ impl RomImage {
 
     /// DS 版にない字の字形（font_extra.txt）とほかの作品のフォント（glyphs.txt, mapping.tsv, font_fixes の組）
     #[wasm_bindgen(js_name = addFontSource)]
-    pub fn add_font_source(&mut self, glyphs_txt: String, mapping_tsv: String, fixes_tsv: Option<String>) {
-        self.opts.font_also.push(OtherFontText { glyphs: glyphs_txt, mapping: mapping_tsv, fixes: fixes_tsv });
+    pub fn add_font_source(
+        &mut self,
+        glyphs_txt: String,
+        mapping_tsv: String,
+        fixes_tsv: Option<String>,
+    ) {
+        self.opts.font_also.push(OtherFontText {
+            glyphs: glyphs_txt,
+            mapping: mapping_tsv,
+            fixes: fixes_tsv,
+        });
     }
 
     #[wasm_bindgen(js_name = setFontExtra)]
@@ -99,8 +121,13 @@ impl RomImage {
     /// 手順を 1 つ行い、書き出すもの (パス, Uint8Array) を on_file に 1 つずつ渡す。渡した数を返す
     pub fn extract(&mut self, step: &str, on_file: &js_sys::Function) -> Result<u32, JsValue> {
         let rom = Rom::new(&self.bytes).map_err(|e| JsValue::from(js_err(e)))?;
-        let mut sink = JsSink { f: on_file, count: 0, error: None };
-        pipeline::run_step(&rom, step, &self.opts, &mut self.state, &mut sink).map_err(|e| JsValue::from(js_err(e)))?;
+        let mut sink = JsSink {
+            f: on_file,
+            count: 0,
+            error: None,
+        };
+        pipeline::run_step(&rom, step, &self.opts, &mut self.state, &mut sink)
+            .map_err(|e| JsValue::from(js_err(e)))?;
         if let Some(e) = sink.error {
             return Err(e);
         }
@@ -118,7 +145,14 @@ impl RomImage {
             .iter()
             .find(|s| s.name == name || s.index.to_string() == name)
             .ok_or_else(|| JsError::new(&format!("シーケンスが無い: {name}")))?;
-        let (_, one) = render_one(&sdat, info, self.opts.max_bgm, self.opts.max_se, &mut Cache::default()).map_err(js_err)?;
+        let (_, one) = render_one(
+            &sdat,
+            info,
+            self.opts.max_bgm,
+            self.opts.max_se,
+            &mut Cache::default(),
+        )
+        .map_err(js_err)?;
         Ok(one.wav)
     }
 }

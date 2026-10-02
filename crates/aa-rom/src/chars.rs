@@ -55,7 +55,9 @@ pub fn unrle16(c: &[u8]) -> Vec<u8> {
 /// (パレットの一覧, 部品の 4bpp データの一覧)
 pub fn parse_gfx(b: &[u8]) -> Result<(Vec<Vec<Rgb>>, Vec<Vec<u8>>)> {
     let npal = (u32_at(b, 0)? & 0xFF) as usize;
-    let pals = (0..npal).map(|i| gfx::palette(py_slice(b, 4 + 32 * i, 36 + 32 * i))).collect();
+    let pals = (0..npal)
+        .map(|i| gfx::palette(py_slice(b, 4 + 32 * i, 36 + 32 * i)))
+        .collect();
     let q = 4 + 32 * npal;
     let n = (u32_at(b, q)? / 4) as usize;
     let mut offs = Vec::with_capacity(n + 1);
@@ -109,7 +111,9 @@ pub fn parse_anim(b: &[u8]) -> Result<(Vec<(u16, u16)>, Vec<(usize, Vec<Piece>)>
 fn pieces(pals: &[Vec<Rgb>], cells: &[Vec<u8>], frame: &[Piece]) -> Result<Vec<(i32, i32, Rgba)>> {
     let mut out = Vec::new();
     for &(x, y, i, attr) in frame {
-        let Some((w, h)) = oam_size(attr >> 4) else { continue };
+        let Some((w, h)) = oam_size(attr >> 4) else {
+            continue;
+        };
         let i = i as usize;
         if i >= cells.len() || cells[i].len() * 2 < w * h {
             continue;
@@ -129,7 +133,11 @@ fn pieces(pals: &[Vec<Rgb>], cells: &[Vec<u8>], frame: &[Piece]) -> Result<Vec<(
 }
 
 /// 全部のコマを同じ大きさ（全コマを囲む四角）で描き、(コマの位置 → RGBA, 原点) を返す
-pub fn render(pals: &[Vec<Rgb>], cells: &[Vec<u8>], frames: &[(usize, Vec<Piece>)]) -> Result<(BTreeMap<usize, Rgba>, (i32, i32))> {
+pub fn render(
+    pals: &[Vec<Rgb>],
+    cells: &[Vec<u8>],
+    frames: &[(usize, Vec<Piece>)],
+) -> Result<(BTreeMap<usize, Rgba>, (i32, i32))> {
     let mut all = Vec::with_capacity(frames.len());
     for (off, f) in frames {
         all.push((*off, pieces(pals, cells, f)?));
@@ -181,7 +189,10 @@ pub fn export_pack(parts: &[Vec<u8>], dst: &str, out: &mut dyn Sink) {
             Ok((seq, imgs, origin))
         })();
         match r {
-            Err(e) => out.put(&format!("{d}/error.txt"), format!("読み取れませんでした: {e}\n").into_bytes()),
+            Err(e) => out.put(
+                &format!("{d}/error.txt"),
+                format!("読み取れませんでした: {e}\n").into_bytes(),
+            ),
             Ok((seq, imgs, origin)) => {
                 let mut names = BTreeMap::new();
                 for (n, (off, img)) in imgs.iter().enumerate() {
@@ -191,7 +202,12 @@ pub fn export_pack(parts: &[Vec<u8>], dst: &str, out: &mut dyn Sink) {
                 }
                 let rows: Vec<String> = seq
                     .iter()
-                    .map(|&(o, t)| format!("{}\t{t}", names.get(&(o as usize)).map_or("-", |s| s.as_str())))
+                    .map(|&(o, t)| {
+                        format!(
+                            "{}\t{t}",
+                            names.get(&(o as usize)).map_or("-", |s| s.as_str())
+                        )
+                    })
                     .collect();
                 let tsv = format!(
                     "# 原点（キャラクターの基準点）: 画像の {}\nコマ\t長さ（1/60 秒）\n{}\n",
@@ -202,7 +218,10 @@ pub fn export_pack(parts: &[Vec<u8>], dst: &str, out: &mut dyn Sink) {
                 if names.len() > 1 {
                     let frames: Vec<(&gfx::Rgba, u16)> = seq
                         .iter()
-                        .filter_map(|&(o, t)| imgs.get(&(o as usize)).map(|img| (img, gfx::gif_delay(t as u32))))
+                        .filter_map(|&(o, t)| {
+                            imgs.get(&(o as usize))
+                                .map(|img| (img, gfx::gif_delay(t as u32)))
+                        })
                         .collect();
                     out.put(&format!("{d}/anim.gif"), gfx::gif_anim(&frames));
                 }

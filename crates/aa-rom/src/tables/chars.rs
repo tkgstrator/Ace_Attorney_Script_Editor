@@ -34,7 +34,10 @@ pub fn pack_parts(d: &[u8]) -> Result<Vec<&[u8]>> {
     let n = u32_at(d, PACK)? as usize;
     let mut out = Vec::with_capacity(n);
     for k in 0..n {
-        let (p, s) = (u32_at(d, PACK + 4 + 8 * k)? as usize, u32_at(d, PACK + 8 + 8 * k)? as usize);
+        let (p, s) = (
+            u32_at(d, PACK + 4 + 8 * k)? as usize,
+            u32_at(d, PACK + 8 + 8 * k)? as usize,
+        );
         out.push(crate::bytes::py_slice(d, PACK + p, PACK + p + s));
     }
     Ok(out)
@@ -53,7 +56,13 @@ fn parse_block(anim: &[u8], off: usize) -> Result<(usize, Vec<Step>, Option<&'st
         if q + 8 > anim.len() {
             break;
         }
-        let (fo, dur, flag, se, fx) = (u16_at(anim, q)? as usize, anim[q + 2], anim[q + 3], u16_at(anim, q + 4)?, u16_at(anim, q + 6)?);
+        let (fo, dur, flag, se, fx) = (
+            u16_at(anim, q)? as usize,
+            anim[q + 2],
+            anim[q + 3],
+            u16_at(anim, q + 4)?,
+            u16_at(anim, q + 6)?,
+        );
         if let Some(e) = end_name(dur) {
             end = Some(e);
             // 終わりの印の項目の効果音・演出も、ここに来たときに実行される
@@ -68,7 +77,9 @@ fn parse_block(anim: &[u8], off: usize) -> Result<(usize, Vec<Step>, Option<&'st
 }
 
 /// 台本の命令 30 から (動き → 人物の出現回数, (項目, 人物, 話す, 黙る) の一覧)
-pub fn script_usage(entries: &[Vec<u8>]) -> (BTreeMap<u16, Counter<u16>>, Vec<(usize, u16, u16, u16)>) {
+pub fn script_usage(
+    entries: &[Vec<u8>],
+) -> (BTreeMap<u16, Counter<u16>>, Vec<(usize, u16, u16, u16)>) {
     let mut anim_char: BTreeMap<u16, Counter<u16>> = BTreeMap::new();
     let mut uses = Vec::new();
     for (e, b) in entries.iter().enumerate() {
@@ -96,7 +107,12 @@ pub fn script_usage(entries: &[Vec<u8>]) -> (BTreeMap<u16, Counter<u16>>, Vec<(u
 }
 
 /// 区間のコマを描いて (コマの絶対位置 → 番号, 原点, 大きさ, PNG の一覧)
-fn render_anim(gfx_b: &[u8], anim_b: &[u8], gofs: usize, seq: &[Step]) -> Result<(BTreeMap<usize, usize>, (i32, i32), [usize; 2], Vec<Vec<u8>>)> {
+fn render_anim(
+    gfx_b: &[u8],
+    anim_b: &[u8],
+    gofs: usize,
+    seq: &[Step],
+) -> Result<(BTreeMap<usize, usize>, (i32, i32), [usize; 2], Vec<Vec<u8>>)> {
     let (pals, cells) = parse_gfx(crate::bytes::py_slice(gfx_b, gofs, gfx_b.len()))?;
     let mut frames: Vec<(usize, Vec<Piece>)> = Vec::new();
     for (fo, ..) in seq {
@@ -114,7 +130,13 @@ fn render_anim(gfx_b: &[u8], anim_b: &[u8], gofs: usize, seq: &[Step]) -> Result
 }
 
 /// tables/char_anims.json と tables/chars.json（と by_anim の PNG。out の根は出力の根）
-pub fn export(d: &[u8], a: &Arm9, script_items: &[Vec<u8>], out: &mut dyn Sink, png: bool) -> Result<()> {
+pub fn export(
+    d: &[u8],
+    a: &Arm9,
+    script_items: &[Vec<u8>],
+    out: &mut dyn Sink,
+    png: bool,
+) -> Result<()> {
     let parts = pack_parts(d)?;
     if parts.len() / 2 != a.u32(0x020235a0)? as usize {
         return crate::bytes::err("人物のパックの数が ARM9 と合わない");
@@ -122,7 +144,10 @@ pub fn export(d: &[u8], a: &Arm9, script_items: &[Vec<u8>], out: &mut dyn Sink, 
     let (anim_char, uses) = script_usage(script_items);
     let mut table = Vec::new();
     for i in 0..ANIM_COUNT {
-        table.push((a.u16(ANIM_TABLE + 4 * i)? as usize, a.u16(ANIM_TABLE + 4 * i + 2)? as usize));
+        table.push((
+            a.u16(ANIM_TABLE + 4 * i)? as usize,
+            a.u16(ANIM_TABLE + 4 * i + 2)? as usize,
+        ));
     }
     // ファイル NNN → 人物（台本で使われた動きから）
     let mut file_char: BTreeMap<usize, Counter<u16>> = BTreeMap::new();
@@ -147,22 +172,37 @@ pub fn export(d: &[u8], a: &Arm9, script_items: &[Vec<u8>], out: &mut dyn Sink, 
             }
         }
         let used = anim_char.get(&(i as u16)).filter(|c| !c.0.is_empty());
-        let inferred = file_char.get(&nnn).filter(|c| !c.0.is_empty() && i < SCRIPT_ANIMS);
+        let inferred = file_char
+            .get(&nnn)
+            .filter(|c| !c.0.is_empty() && i < SCRIPT_ANIMS);
         let chr = used.or(inferred).map(|c| c.most_common());
-        let from = if used.is_some() { Some("script") } else if inferred.is_some() { Some("same_file") } else { None };
+        let from = if used.is_some() {
+            Some("script")
+        } else if inferred.is_some() {
+            Some("same_file")
+        } else {
+            None
+        };
         let mut ent = Json::obj()
-            .with("file", format!("{nnn:03}")).with("block_offset", off).with("gfx_offset", gofs)
-            .with("char", chr).with("char_from", from)
+            .with("file", format!("{nnn:03}"))
+            .with("block_offset", off)
+            .with("gfx_offset", gofs)
+            .with("char", chr)
+            .with("char_from", from)
             .with("script_uses", used.map_or(0, |c| c.total()))
-            .with("end", end).with("loop", end == Some("loop"))
-            .with("origin", vec![origin.0, origin.1]).with("size", size.to_vec())
+            .with("end", end)
+            .with("loop", end == Some("loop"))
+            .with("origin", vec![origin.0, origin.1])
+            .with("size", size.to_vec())
             .with("frames", Json::Arr(vec![]));
         if png {
             ent.set("png_dir", format!("data/tail/chars/by_anim/{i:03}"));
         }
         let mut frames = Vec::new();
         for &(fo, dur, flag, se, fx) in &seq {
-            let mut fr = Json::obj().with("frame", fo.and_then(|f| order.get(&f).copied())).with("dur", dur);
+            let mut fr = Json::obj()
+                .with("frame", fo.and_then(|f| order.get(&f).copied()))
+                .with("dur", dur);
             if fo.is_none() {
                 fr.set("at_end", true);
             }
@@ -173,17 +213,23 @@ pub fn export(d: &[u8], a: &Arm9, script_items: &[Vec<u8>], out: &mut dyn Sink, 
                 fr.set("alt_tiles", true); // 部品の番号を 9 ビットで読む（今の人物では未使用）
             }
             if flag & 4 != 0 {
-                fr.set("effect", match fx {
-                    1 => Json::from("shake"),
-                    2 => Json::from("flash"),
-                    x => Json::from(x),
-                });
+                fr.set(
+                    "effect",
+                    match fx {
+                        1 => Json::from("shake"),
+                        2 => Json::from("flash"),
+                        x => Json::from(x),
+                    },
+                );
             }
             frames.push(fr);
         }
         ent.set("frames", frames);
         if off == 0 {
-            ent.set("same_as_extracted", format!("data/tail/chars/2202220/{nnn:03}"));
+            ent.set(
+                "same_as_extracted",
+                format!("data/tail/chars/2202220/{nnn:03}"),
+            );
         }
         anims.set(i.to_string(), ent);
         anim_chars.push(chr);
@@ -203,15 +249,30 @@ pub fn export(d: &[u8], a: &Arm9, script_items: &[Vec<u8>], out: &mut dyn Sink, 
     let mut chars = Json::obj();
     for (c, ids) in &per_char {
         let files: BTreeSet<&String> = ids.iter().map(|&i| &anim_files[i]).collect();
-        let oam = if *c < CHAR_COUNT { Some(a.u16(CHAR_TABLE + 4 * *c as u32)?) } else { None };
-        chars.set(c.to_string(), Json::obj()
-            .with("name", names.get(&c.to_string()).cloned().unwrap_or(Json::Null))
-            .with("name_id", *c)
-            .with("anims", ids.clone())
-            .with("files", files.into_iter().cloned().collect::<Vec<_>>())
-            .with("script_entries", entries_of.get(c).map_or(vec![], |s| s.iter().copied().collect()))
-            .with("pos", Json::obj().with("x", 128).with("y", 96))
-            .with("oam_max", oam));
+        let oam = if *c < CHAR_COUNT {
+            Some(a.u16(CHAR_TABLE + 4 * *c as u32)?)
+        } else {
+            None
+        };
+        chars.set(
+            c.to_string(),
+            Json::obj()
+                .with(
+                    "name",
+                    names.get(&c.to_string()).cloned().unwrap_or(Json::Null),
+                )
+                .with("name_id", *c)
+                .with("anims", ids.clone())
+                .with("files", files.into_iter().cloned().collect::<Vec<_>>())
+                .with(
+                    "script_entries",
+                    entries_of
+                        .get(c)
+                        .map_or(vec![], |s| s.iter().copied().collect()),
+                )
+                .with("pos", Json::obj().with("x", 128).with("y", 96))
+                .with("oam_max", oam),
+        );
     }
     let meta = Json::obj()
         .with("_about", "動きの番号（台本 30 の話す/黙る動き）→ アニメーション。ARM9 0x020a8f80 の表と data.bin 0x2202220 のパック")

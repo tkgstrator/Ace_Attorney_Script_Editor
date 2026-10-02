@@ -11,25 +11,50 @@ const MAX_VARS: usize = 12;
 struct Bits<'a>(&'a [TableVar], usize);
 
 impl crate::expr::Env for Bits<'_> {
-    fn var(&self, f: u32) -> Result<FVal, String> { Ok(FVal::Bool(self.get(TableVar::Flag(f)))) }
-    fn life(&self) -> f64 { 0.0 }
-    fn has(&self, x: u32) -> bool { self.get(TableVar::Has(x)) }
-    fn visited(&self, x: u32) -> bool { self.get(TableVar::Visited(x)) }
-    fn seen(&self, x: u32) -> bool { self.get(TableVar::Seen(x)) }
+    fn var(&self, f: u32) -> Result<FVal, String> {
+        Ok(FVal::Bool(self.get(TableVar::Flag(f))))
+    }
+    fn life(&self) -> f64 {
+        0.0
+    }
+    fn has(&self, x: u32) -> bool {
+        self.get(TableVar::Has(x))
+    }
+    fn visited(&self, x: u32) -> bool {
+        self.get(TableVar::Visited(x))
+    }
+    fn seen(&self, x: u32) -> bool {
+        self.get(TableVar::Seen(x))
+    }
 }
 
 impl Bits<'_> {
     fn get(&self, v: TableVar) -> bool {
-        self.0.iter().position(|x| *x == v).is_some_and(|i| self.1 >> i & 1 == 1)
+        self.0
+            .iter()
+            .position(|x| *x == v)
+            .is_some_and(|i| self.1 >> i & 1 == 1)
     }
 }
 
 fn compile(e: &mut Expr, bool_flags: &[bool], m: &Model) {
     // 変数 1 つだけの式などは、そのままでも速い
-    if matches!(e, Expr::Var(_) | Expr::Has(_) | Expr::Visited(_) | Expr::Seen(_) | Expr::Lit(_) | Expr::Table(_)) { return; }
+    if matches!(
+        e,
+        Expr::Var(_)
+            | Expr::Has(_)
+            | Expr::Visited(_)
+            | Expr::Seen(_)
+            | Expr::Lit(_)
+            | Expr::Table(_)
+    ) {
+        return;
+    }
     let mut names = vec![];
     refs(e, &mut names);
-    if names.is_empty() || names.len() > MAX_VARS { return; }
+    if names.is_empty() || names.len() > MAX_VARS {
+        return;
+    }
     let mut vars = vec![];
     for n in names {
         vars.push(match n {
@@ -43,7 +68,9 @@ fn compile(e: &mut Expr, bool_flags: &[bool], m: &Model) {
     let n = 1usize << vars.len();
     let mut bits = vec![0u64; n.div_ceil(64)];
     for i in 0..n {
-        if test(Some(e), &Bits(&vars, i), m).unwrap_or(false) { bits[i >> 6] |= 1 << (i & 63); }
+        if test(Some(e), &Bits(&vars, i), m).unwrap_or(false) {
+            bits[i >> 6] |= 1 << (i & 63);
+        }
     }
     let orig = std::mem::replace(e, Expr::Lit(FVal::Undef));
     *e = Expr::Table(Box::new(Table { orig, vars, bits }));
@@ -58,19 +85,29 @@ fn skip_tables(sc: &mut Scene) {
     let (mut last, mut count) = (u32::MAX, 0u32);
     for pc in (0..n).rev() {
         match sc.program[pc] {
-            Op::Nop(_) => { sc.nop_end[pc] = next; }
+            Op::Nop(_) => {
+                sc.nop_end[pc] = next;
+            }
             Op::Stop(_) => {
                 next = pc as u32;
                 sc.nop_end[pc] = next;
-                if last == u32::MAX { last = pc as u32; count = 0; }
+                if last == u32::MAX {
+                    last = pc as u32;
+                    count = 0;
+                }
                 count += 1;
                 sc.stop_run[pc] = (last, count);
                 continue;
             }
-            _ => { next = pc as u32; sc.nop_end[pc] = next; }
+            _ => {
+                next = pc as u32;
+                sc.nop_end[pc] = next;
+            }
         }
         // Nop は Stop の続きを切らない。ほかの命令は切る
-        if !matches!(sc.program[pc], Op::Nop(_)) { last = u32::MAX; }
+        if !matches!(sc.program[pc], Op::Nop(_)) {
+            last = u32::MAX;
+        }
     }
 }
 
@@ -81,7 +118,12 @@ fn defer_table(sc: &mut Scene) {
     let mut next = false;
     for pc in (0..sc.program.len()).rev() {
         let op = &sc.program[pc];
-        if record(op) { sc.defer[pc] = next; next = true; } else if !matches!(op, Op::Nop(_) | Op::Stop(_)) { next = false; }
+        if record(op) {
+            sc.defer[pc] = next;
+            next = true;
+        } else if !matches!(op, Op::Nop(_) | Op::Stop(_)) {
+            next = false;
+        }
     }
 }
 
@@ -91,7 +133,11 @@ pub fn prepare(m: &mut Model) {
     m.scenes.iter_mut().for_each(defer_table);
     let bool_flags = boolean_flags(m);
     let snapshot = m.clone();
-    let c = |e: &mut Option<Expr>| if let Some(e) = e { compile(e, &bool_flags, &snapshot) };
+    let c = |e: &mut Option<Expr>| {
+        if let Some(e) = e {
+            compile(e, &bool_flags, &snapshot)
+        }
+    };
     for sc in &mut m.scenes {
         for ins in &mut sc.program {
             match ins {

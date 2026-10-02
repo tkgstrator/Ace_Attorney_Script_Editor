@@ -7,6 +7,9 @@ import {
   dsSmallFontSpec,
   dsTitleFontSpec,
   loadBitmapAtlas,
+  PIXEL_MPLUS_10,
+  PIXEL_MPLUS_12_TIGHT,
+  type BitmapAtlas,
   type FontSpec,
 } from '@gyakusai/runtime';
 
@@ -27,7 +30,7 @@ async function atlasOf(name: string) {
  * 本文用と、法廷記録の説明文・名前・見出し用（見出しは本文のフォントを細く縮めたもの）。
  * 法廷記録の字は、元のゲームの説明文・名前の絵から作った小さい字のフォント（ds-small-font / 証拠品の名前 ds-small-name-font /
  * 人物の名前 ds-small-profile-name-font）。
- * それが無い字は本文のフォントを縮めたもの（名前は本文のフォント）で補う。小さい字のフォントが無ければ、本文のフォントを詰めて並べる
+ * それが無い字は PixelMplus10（名前は本文のフォント）で補う。小さい字のフォントが無ければ、本文のフォントを詰めて並べる
  */
 export async function loadDsFont(): Promise<
   | {
@@ -50,11 +53,28 @@ export async function loadDsFont(): Promise<
   ]);
   return {
     font,
-    descriptionFont: desc ? dsDescFontSpec(desc, dsSmallFontSpec(atlas)) : dsFontSpec(atlas, 12),
+    descriptionFont: descriptionFont(atlas, desc),
     ...(name ? { recordNameFont: dsNameFontSpec(name, font) } : {}),
     ...(profileName ? { recordProfileNameFont: dsNameFontSpec(profileName, font) } : {}),
     recordTitleFont: dsTitleFontSpec(atlas),
     // 長い選択肢は、元のゲームと同じ大きさの本文の字を詰めて並べる（法廷記録の小さい字は使わない）
     condensedFont: dsFontSpec(atlas, 12),
   };
+}
+
+/**
+ * 法廷記録の説明文のフォント。?descfont= で選ぶ（見比べる用）。
+ * - body（既定）: 本文の DS フォントを 12 ドットのマスに詰めて並べる。字がそろっていて、字体が混ざらない
+ * - small: 元のゲームの説明文の小さい字。無い字は本文のフォントを縮めて補う（縮めるとつぶれる）
+ * - mplus: 元のゲームの説明文の小さい字。無い字は PixelMplus10 で補う
+ * - mplus10 / mplus12: 同梱の PixelMplus10（11 ドットのマス）・PixelMplus12（12 ドットのマス）だけで描く
+ * 小さい字のフォントは、元のゲームの説明文に出てくる字しか無い（手書きのシナリオでは別の字体が混ざりやすい）
+ */
+function descriptionFont(atlas: BitmapAtlas, desc: BitmapAtlas | undefined): FontSpec {
+  const mode = new URLSearchParams(location.search).get('descfont');
+  if (desc && mode === 'small') return dsDescFontSpec(desc, dsSmallFontSpec(atlas));
+  if (desc && mode === 'mplus') return dsDescFontSpec(desc, PIXEL_MPLUS_10);
+  if (mode === 'mplus10') return { ...PIXEL_MPLUS_10, cell: 11 };
+  if (mode === 'mplus12') return PIXEL_MPLUS_12_TIGHT;
+  return dsFontSpec(atlas, 12);
 }

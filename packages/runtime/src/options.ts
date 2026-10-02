@@ -77,8 +77,12 @@ export interface PanFrame {
 
 export const DEFAULT_LABELS = {
   record: '法廷記録',
+  backlog: 'バックログ',
   evidenceFile: '証拠品ファイル',
   profileFile: '人物ファイル',
+  /** 16:9 の右の欄の、もう一方のファイルへ切り替えるボタン（欄のボタンの幅に収まる短い名前） */
+  evidenceTab: '証拠品',
+  profileTab: '人物',
   back: 'もどる',
   press: 'ゆさぶる',
   present: 'つきつける',
@@ -117,7 +121,7 @@ export interface PlayerOptions {
   condensedFont?: FontSpec;
   /**
    * 画面の横幅。'4:3' は DS 版と同じ 256×192 ドット、'16:9' は 342×192 ドット。既定 '4:3'。
-   * 16:9 では、部品を画面の左・右・中央に寄せ、背景・立ち絵・法廷記録は 4:3 の枠（256 幅）を中央に置いて描く
+   * 16:9 は、左の 256×192 に 4:3 と同じ画面を描き、右の 86 ドットの欄に DS 版の下画面のボタンを並べる（panel.ts）
    */
   aspect?: Aspect;
   /** テキストウィンドウの 1 行の文字数（全角）。既定 16 */

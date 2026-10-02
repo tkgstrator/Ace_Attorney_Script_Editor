@@ -29,13 +29,11 @@ export class PanView {
     if (!pan || !frames || !pano || this.#k === 0) return false;
     const f: PanFrame | undefined = frames[Math.min(this.#k, frames.length) - 1];
     if (!f) return false;
-    // 表の座標は 4:3 の画面のもの。広い画面では 4:3 の枠を中央に置き（人物と机は 4:3 と同じく画面の中央の基準で動く）、
-    // 全景は見える幅だけ左右に広げて描く（全景の端より外は黒）
-    const { ox, w: W, h: H } = p.layout;
+    // 全景の端より外は黒
     if (f.bgX === null) drawBackground();
     else {
-      p.rect(0, 0, W, H, '#000000');
-      drawSpan(ctx, pano, f.bgX - ox, W, H);
+      p.rect(0, 0, SCREEN_W, SCREEN_H, '#000000');
+      drawSpan(ctx, pano, f.bgX, SCREEN_W, SCREEN_H);
     }
     // 人物: 流す前の人物か、行き先の人物（今の状態）を、原点の x を char_x に合わせて描く
     const who = f.char === 'departing' ? pan.from.character : engine.state.stage.character;
@@ -50,13 +48,13 @@ export class PanView {
         const w = (img as { width: number }).width,
           h = (img as { height: number }).height;
         // 動きの指定がある立ち絵は画面の大きさ（原点が中央）、ない立ち絵は下端・中央に合わせる
-        if (pose) ctx.drawImage(img, f.charX - SCREEN_W / 2 + ox, 0);
-        else ctx.drawImage(img, Math.round(f.charX - w / 2) + ox, SCREEN_H - h);
+        if (pose) ctx.drawImage(img, f.charX - SCREEN_W / 2, 0);
+        else ctx.drawImage(img, Math.round(f.charX - w / 2), SCREEN_H - h);
       }
     }
     if (f.desk) {
       const desk = assets.foreground?.(f.desk.kind);
-      if (desk) ctx.drawImage(desk, f.desk.dx + ox, 0, SCREEN_W, SCREEN_H);
+      if (desk) ctx.drawImage(desk, f.desk.dx, 0, SCREEN_W, SCREEN_H);
     }
     return true;
   }

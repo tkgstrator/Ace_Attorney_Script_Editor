@@ -1,6 +1,10 @@
 // シナリオの実行器（packages/core の Engine のうち、分岐と状態に関わる部分だけ）。
 // 表示・音は扱わない（人物ファイルは証拠品と同じく持つ）。命令の意味・エラーの文は core に合わせる。
-use crate::{expr::{test, Env}, model::*, state::{Mode, Phase, State}};
+use crate::{
+    expr::{test, Env},
+    model::*,
+    state::{Mode, Phase, State},
+};
 
 #[path = "engine_choose.rs"]
 mod choose;
@@ -12,15 +16,36 @@ pub type Res<T = ()> = Result<T, String>;
 /// 今の表示単位（Beat）の種類
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BeatKind {
-    Line, Shout, Banner, Card, Fade, Wait, Choice, Pick, Demand, Statement { cross: bool }, Investigate, End, Gameover,
+    Line,
+    Shout,
+    Banner,
+    Card,
+    Fade,
+    Wait,
+    Choice,
+    Pick,
+    Demand,
+    Statement { cross: bool },
+    Investigate,
+    End,
+    Gameover,
 }
 
 impl BeatKind {
     pub fn name(self) -> &'static str {
         match self {
-            BeatKind::Line => "line", BeatKind::Shout => "shout", BeatKind::Banner => "banner", BeatKind::Card => "card",
-            BeatKind::Fade => "fade", BeatKind::Wait => "wait", BeatKind::Choice => "choice", BeatKind::Pick => "pick", BeatKind::Demand => "demand",
-            BeatKind::Statement { .. } => "statement", BeatKind::Investigate => "investigate", BeatKind::End => "end",
+            BeatKind::Line => "line",
+            BeatKind::Shout => "shout",
+            BeatKind::Banner => "banner",
+            BeatKind::Card => "card",
+            BeatKind::Fade => "fade",
+            BeatKind::Wait => "wait",
+            BeatKind::Choice => "choice",
+            BeatKind::Pick => "pick",
+            BeatKind::Demand => "demand",
+            BeatKind::Statement { .. } => "statement",
+            BeatKind::Investigate => "investigate",
+            BeatKind::End => "end",
             BeatKind::Gameover => "gameover",
         }
     }
@@ -35,14 +60,25 @@ pub struct StateEnv<'a> {
 impl Env for StateEnv<'_> {
     fn var(&self, f: u32) -> Res<FVal> {
         match self.s.flags[f as usize] {
-            FVal::Undef => Err(format!("未定義のフラグです: {}", self.m.flag_names[f as usize])),
+            FVal::Undef => Err(format!(
+                "未定義のフラグです: {}",
+                self.m.flag_names[f as usize]
+            )),
             v => Ok(v),
         }
     }
-    fn life(&self) -> f64 { self.s.life }
-    fn has(&self, ev: u32) -> bool { self.s.holds(ev) }
-    fn visited(&self, id: u32) -> bool { self.s.visited.has(id) }
-    fn seen(&self, id: u32) -> bool { self.s.seen.has(id) }
+    fn life(&self) -> f64 {
+        self.s.life
+    }
+    fn has(&self, ev: u32) -> bool {
+        self.s.holds(ev)
+    }
+    fn visited(&self, id: u32) -> bool {
+        self.s.visited.has(id)
+    }
+    fn seen(&self, id: u32) -> bool {
+        self.s.seen.has(id)
+    }
 }
 
 #[derive(Clone)]
@@ -53,7 +89,10 @@ pub struct Engine<'m> {
 
 impl<'m> Engine<'m> {
     pub fn new(m: &'m Model) -> Res<Engine<'m>> {
-        let mut e = Engine { m, s: State::initial(m) };
+        let mut e = Engine {
+            m,
+            s: State::initial(m),
+        };
         e.enter(m.start_scene)?;
         e.settle()?;
         Ok(e)
@@ -64,26 +103,40 @@ impl<'m> Engine<'m> {
     }
 
     pub fn test(&self, e: Option<&Expr>) -> Res<bool> {
-        test(e, &StateEnv { s: &self.s, m: self.m }, self.m)
+        test(
+            e,
+            &StateEnv {
+                s: &self.s,
+                m: self.m,
+            },
+            self.m,
+        )
     }
 
     pub fn scene(&self) -> Res<&'m Scene> {
-        self.m.scenes.get(self.s.scene as usize).ok_or_else(|| format!("存在しないシーンです: {}", self.m.scene_name(self.s.scene)))
+        self.m
+            .scenes
+            .get(self.s.scene as usize)
+            .ok_or_else(|| format!("存在しないシーンです: {}", self.m.scene_name(self.s.scene)))
     }
 
     pub fn place(&self) -> Res<&'m Place> {
         let sc = self.scene()?;
-        sc.place().ok_or_else(|| format!("探索編の場所ではありません: {}", sc.id))
+        sc.place()
+            .ok_or_else(|| format!("探索編の場所ではありません: {}", sc.id))
     }
 
     pub fn testimony(&self) -> Res<&'m Testimony> {
         let sc = self.scene()?;
-        sc.testimony().ok_or_else(|| format!("証言のシーンではありません: {}", sc.id))
+        sc.testimony()
+            .ok_or_else(|| format!("証言のシーンではありません: {}", sc.id))
     }
 
     pub fn instr(&self) -> Res<&'m Op> {
         let sc = self.scene()?;
-        sc.program.get(self.s.pc as usize).ok_or_else(|| format!("{} の命令 {} がありません", sc.id, self.s.pc))
+        sc.program
+            .get(self.s.pc as usize)
+            .ok_or_else(|| format!("{} の命令 {} がありません", sc.id, self.s.pc))
     }
 
     pub fn beat(&self) -> Res<BeatKind> {
@@ -91,12 +144,18 @@ impl<'m> Engine<'m> {
             Mode::Investigate => BeatKind::Investigate,
             Mode::Testimony => match self.s.phase {
                 Phase::Intro | Phase::CrossIntro => BeatKind::Banner,
-                p => BeatKind::Statement { cross: p == Phase::Cross },
+                p => BeatKind::Statement {
+                    cross: p == Phase::Cross,
+                },
             },
             Mode::Run => match self.instr()? {
                 Op::Stop(k) => match k {
-                    StopKind::Line => BeatKind::Line, StopKind::Shout => BeatKind::Shout, StopKind::Banner => BeatKind::Banner,
-                    StopKind::Card => BeatKind::Card, StopKind::Wait => BeatKind::Wait, StopKind::Fade => BeatKind::Fade,
+                    StopKind::Line => BeatKind::Line,
+                    StopKind::Shout => BeatKind::Shout,
+                    StopKind::Banner => BeatKind::Banner,
+                    StopKind::Card => BeatKind::Card,
+                    StopKind::Wait => BeatKind::Wait,
+                    StopKind::Fade => BeatKind::Fade,
                 },
                 Op::Choice(_) => BeatKind::Choice,
                 Op::Pick(_) => BeatKind::Pick,
@@ -113,13 +172,20 @@ impl<'m> Engine<'m> {
     pub fn visible_statements(&self, t: &Testimony) -> Res<Vec<u32>> {
         let mut out = vec![];
         for (i, st) in t.statements.iter().enumerate() {
-            if self.test(st.when.as_ref())? { out.push(i as u32); }
+            if self.test(st.when.as_ref())? {
+                out.push(i as u32);
+            }
         }
         Ok(out)
     }
 
     fn first_visible(&self, t: &Testimony) -> Res<u32> {
-        self.visible_statements(t)?.first().copied().ok_or_else(|| format!("{} に表示できる証言がありません", self.m.scenes[self.s.scene as usize].id))
+        self.visible_statements(t)?.first().copied().ok_or_else(|| {
+            format!(
+                "{} に表示できる証言がありません",
+                self.m.scenes[self.s.scene as usize].id
+            )
+        })
     }
 
     fn next_visible(&self, t: &Testimony, from: u32) -> Res<Option<u32>> {
@@ -143,9 +209,14 @@ impl<'m> Engine<'m> {
     fn apply_before(&mut self, pc: u32) -> Res {
         let program = &self.scene()?.program;
         for ins in &program[pc as usize..] {
-            if matches!(ins, Op::Resume(_)) { return Ok(()); }
+            if matches!(ins, Op::Resume(_)) {
+                return Ok(());
+            }
             if !self.exec_simple(ins) {
-                return Err(format!("証言の前のブロックに止まる命令があります: {}", ins.name()));
+                return Err(format!(
+                    "証言の前のブロックに止まる命令があります: {}",
+                    ins.name()
+                ));
             }
         }
         Ok(())
@@ -157,24 +228,41 @@ impl<'m> Engine<'m> {
         let statement = match to {
             ResumeTo::CrossIntro => None,
             ResumeTo::AfterReading => match t.after {
-                Some(pc) => { self.run(pc); return Ok(()); }
+                Some(pc) => {
+                    self.run(pc);
+                    return Ok(());
+                }
                 None => None,
             },
             ResumeTo::First => Some(self.first_visible(t)?),
             ResumeTo::Stay => {
-                let when = t.statements.get(self.s.statement as usize).and_then(|st| st.when.as_ref());
-                Some(if self.test(when)? { self.s.statement } else { self.first_visible(t)? })
+                let when = t
+                    .statements
+                    .get(self.s.statement as usize)
+                    .and_then(|st| st.when.as_ref());
+                Some(if self.test(when)? {
+                    self.s.statement
+                } else {
+                    self.first_visible(t)?
+                })
             }
             ResumeTo::Next => match self.next_visible(t, self.s.statement)? {
                 Some(i) => Some(i),
                 None => match t.looping {
-                    Some(pc) => { self.run(pc); return Ok(()); }
+                    Some(pc) => {
+                        self.run(pc);
+                        return Ok(());
+                    }
                     None => Some(self.first_visible(t)?),
                 },
             },
         };
         match statement {
-            None => { self.s.mode = Mode::Testimony; self.s.phase = Phase::CrossIntro; Ok(()) }
+            None => {
+                self.s.mode = Mode::Testimony;
+                self.s.phase = Phase::CrossIntro;
+                Ok(())
+            }
             Some(i) => self.to_statement(Phase::Cross, i),
         }
     }
@@ -187,16 +275,28 @@ impl<'m> Engine<'m> {
     }
 
     pub fn enter(&mut self, scene: u32) -> Res {
-        let sc = self.m.scenes.get(scene as usize).ok_or_else(|| format!("存在しないシーンです: {}", self.m.scene_name(scene)))?;
+        let sc = self
+            .m
+            .scenes
+            .get(scene as usize)
+            .ok_or_else(|| format!("存在しないシーンです: {}", self.m.scene_name(scene)))?;
         let s = &mut self.s;
         s.scene = scene;
         s.pc = 0;
         s.var_ev = None;
         s.inspect_from = None;
         match sc.kind {
-            Kind::Testimony(_) => { s.visited.add(scene); s.mode = Mode::Testimony; s.phase = Phase::Intro; s.statement = 0; }
+            Kind::Testimony(_) => {
+                s.visited.add(scene);
+                s.mode = Mode::Testimony;
+                s.phase = Phase::Intro;
+                s.statement = 0;
+            }
             Kind::Place(_) => s.mode = Mode::Run,
-            Kind::Dialogue => { s.visited.add(scene); s.mode = Mode::Run; }
+            Kind::Dialogue => {
+                s.visited.add(scene);
+                s.mode = Mode::Run;
+            }
         }
         Ok(())
     }
@@ -204,7 +304,10 @@ impl<'m> Engine<'m> {
     pub fn go_place(&mut self, id: u32) -> Res {
         self.enter(id)?;
         match self.place()?.enter {
-            Some(pc) => { self.run(pc); Ok(()) }
+            Some(pc) => {
+                self.run(pc);
+                Ok(())
+            }
             None => self.to_menu(),
         }
     }
@@ -236,7 +339,11 @@ impl<'m> Engine<'m> {
                 };
                 s.flags[*f as usize] = FVal::Num(cur + a);
             }
-            Op::Give(e) => if !s.evidence.contains(e) { s.evidence.push(*e) },
+            Op::Give(e) => {
+                if !s.evidence.contains(e) {
+                    s.evidence.push(*e)
+                }
+            }
             Op::Take(e) => s.evidence.retain(|x| x != e),
             Op::Lock(l) => s.record_locked = *l,
             _ => return false,
@@ -249,7 +356,9 @@ impl<'m> Engine<'m> {
         let mut n = 0;
         while n < STEP_LIMIT {
             n += 1;
-            if self.s.mode != Mode::Run { return Ok(()); }
+            if self.s.mode != Mode::Run {
+                return Ok(());
+            }
             let ins = self.instr()?;
             match ins {
                 // 表示だけの命令は、続く分をまとめて飛ばす
@@ -258,24 +367,47 @@ impl<'m> Engine<'m> {
                     n += (to - self.s.pc) as usize - 1;
                     self.s.pc = to;
                 }
-                Op::Stop(_) | Op::Choice(_) | Op::Pick(_) | Op::Demand { .. } | Op::End | Op::Gameover => return Ok(()),
+                Op::Stop(_)
+                | Op::Choice(_)
+                | Op::Pick(_)
+                | Op::Demand { .. }
+                | Op::End
+                | Op::Gameover => return Ok(()),
                 Op::Jump(to) => self.s.pc = *to,
                 // 乱数の行き先がないときは次へ（行き先があるものは、読み込むときに選択肢にしている）
                 Op::Random(_) => self.s.pc += 1,
-                Op::JumpUnless(c, to) => self.s.pc = if self.test(Some(c))? { self.s.pc + 1 } else { *to },
+                Op::JumpUnless(c, to) => {
+                    self.s.pc = if self.test(Some(c))? {
+                        self.s.pc + 1
+                    } else {
+                        *to
+                    }
+                }
                 Op::Goto(sc) => self.enter(*sc)?,
                 Op::Resume(to) => self.resume(*to)?,
                 Op::Investigate(p) => self.go_place(*p)?,
                 Op::Menu => self.to_menu()?,
                 Op::InspectEnd => {
-                    let f = self.s.inspect_from.ok_or("詳しく調べるブロックの外で inspectEnd に来ました")?;
+                    let f = self
+                        .s
+                        .inspect_from
+                        .ok_or("詳しく調べるブロックの外で inspectEnd に来ました")?;
                     self.s.scene = f.scene;
                     self.s.pc = f.pc;
-                    self.s.mode = if f.mode == Mode::Testimony { Mode::Testimony } else { Mode::Run };
+                    self.s.mode = if f.mode == Mode::Testimony {
+                        Mode::Testimony
+                    } else {
+                        Mode::Run
+                    };
                     self.s.inspect_from = None;
                     self.s.var_ev = f.var_ev;
-                    if f.mode == Mode::Testimony { self.s.phase = f.phase; self.s.statement = f.statement; }
-                    if f.mode == Mode::Investigate { self.to_menu()?; }
+                    if f.mode == Mode::Testimony {
+                        self.s.phase = f.phase;
+                        self.s.statement = f.statement;
+                    }
+                    if f.mode == Mode::Investigate {
+                        self.to_menu()?;
+                    }
                 }
                 Op::Penalty(a) => {
                     self.s.life = (self.s.life - a).max(0.0);
@@ -284,16 +416,24 @@ impl<'m> Engine<'m> {
                     } else if let Some(g) = self.m.gameover_scene {
                         self.enter(g)?;
                     } else {
-                        return Err("ライフが尽きましたが、gameover シーンが定義されていません".into());
+                        return Err(
+                            "ライフが尽きましたが、gameover シーンが定義されていません".into()
+                        );
                     }
                 }
                 _ => {
-                    if self.exec_simple(ins) { self.s.pc += 1; } else { return Err(format!("実行できない命令です: {}", ins.name())); }
+                    if self.exec_simple(ins) {
+                        self.s.pc += 1;
+                    } else {
+                        return Err(format!("実行できない命令です: {}", ins.name()));
+                    }
                 }
             }
         }
         if self.s.mode == Mode::Run {
-            return Err(format!("{STEP_LIMIT} 命令を実行しても止まりません（無限ループの可能性）"));
+            return Err(format!(
+                "{STEP_LIMIT} 命令を実行しても止まりません（無限ループの可能性）"
+            ));
         }
         Ok(())
     }
@@ -306,9 +446,15 @@ impl<'m> Engine<'m> {
             match self.s.phase {
                 Phase::Intro => match t.reading {
                     Some(pc) => self.run(pc),
-                    None => { let i = self.first_visible(t)?; self.to_statement(Phase::Reading, i)?; }
+                    None => {
+                        let i = self.first_visible(t)?;
+                        self.to_statement(Phase::Reading, i)?;
+                    }
                 },
-                Phase::CrossIntro => { let i = self.first_visible(t)?; self.to_statement(Phase::Cross, i)?; }
+                Phase::CrossIntro => {
+                    let i = self.first_visible(t)?;
+                    self.to_statement(Phase::Cross, i)?;
+                }
                 Phase::Reading => match self.next_visible(t, self.s.statement)? {
                     Some(i) => self.to_statement(Phase::Reading, i)?,
                     None => match t.after {
@@ -320,7 +466,9 @@ impl<'m> Engine<'m> {
             }
         } else if self.s.mode == Mode::Run {
             match self.instr()? {
-                op @ (Op::Choice(_) | Op::Pick(_) | Op::Demand { .. }) => return Err(format!("{} では advance できません", op.name())),
+                op @ (Op::Choice(_) | Op::Pick(_) | Op::Demand { .. }) => {
+                    return Err(format!("{} では advance できません", op.name()))
+                }
                 Op::End | Op::Gameover => return Ok(()),
                 _ => self.s.pc += 1,
             }
@@ -348,7 +496,11 @@ impl<'m> Engine<'m> {
         let item = &self.m.evidence[ev as usize];
         let profile = item.profile;
         if !self.s.holds(ev) {
-            return Err(if profile { format!("人物ファイルに載っていない人物です: {}", item.id) } else { format!("持っていない証拠品です: {}", item.id) });
+            return Err(if profile {
+                format!("人物ファイルに載っていない人物です: {}", item.id)
+            } else {
+                format!("持っていない証拠品です: {}", item.id)
+            });
         }
         let find = |list: &[(u32, u32)]| list.iter().find(|(e, _)| *e == ev).map(|(_, pc)| *pc);
         match self.s.mode {
@@ -356,21 +508,48 @@ impl<'m> Engine<'m> {
                 self.require_cross("present")?;
                 let t = self.testimony()?;
                 let st = &t.statements[self.s.statement as usize];
-                let list = if profile { st.present_profile.as_deref().ok_or("この証言では人物ファイルをつきつけられません")? } else { &st.present };
+                let list = if profile {
+                    st.present_profile
+                        .as_deref()
+                        .ok_or("この証言では人物ファイルをつきつけられません")?
+                } else {
+                    &st.present
+                };
                 self.s.var_ev = Some(ev);
                 self.run(find(list).unwrap_or(t.wrong));
             }
             Mode::Investigate => {
                 let p = self.place()?;
-                if !self.person_here(p)? { return Err("この場所には証拠品をつきつける相手がいません".into()); }
+                if !self.person_here(p)? {
+                    return Err("この場所には証拠品をつきつける相手がいません".into());
+                }
                 self.s.var_ev = Some(ev);
-                self.run(find(if profile { &p.present_profile } else { &p.present }).unwrap_or(p.present_wrong));
+                self.run(
+                    find(if profile {
+                        &p.present_profile
+                    } else {
+                        &p.present
+                    })
+                    .unwrap_or(p.present_wrong),
+                );
             }
             Mode::Run => {
-                let Op::Demand { options, profiles, wrong, .. } = self.instr()? else { return Err("今は証拠品をつきつけられません".into()) };
+                let Op::Demand {
+                    options,
+                    profiles,
+                    wrong,
+                    ..
+                } = self.instr()?
+                else {
+                    return Err("今は証拠品をつきつけられません".into());
+                };
                 let list = if profile {
-                    profiles.as_deref().ok_or("このつきつけの要求では人物ファイルをつきつけられません")?
-                } else { options };
+                    profiles
+                        .as_deref()
+                        .ok_or("このつきつけの要求では人物ファイルをつきつけられません")?
+                } else {
+                    options
+                };
                 self.s.var_ev = Some(ev);
                 self.s.pc = find(list).unwrap_or(*wrong);
             }

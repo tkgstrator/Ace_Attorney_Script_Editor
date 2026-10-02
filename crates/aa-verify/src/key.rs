@@ -26,19 +26,43 @@ pub fn flag_bounds(m: &Model) -> Vec<Option<Bound>> {
     let mut exact = vec![false; n];
     let mut note = |range: &mut Vec<Option<(f64, f64)>>, f: u32, v: f64| {
         let r = &mut range[f as usize];
-        *r = Some(match *r { None => (v, v), Some((lo, hi)) => (lo.min(v), hi.max(v)) });
+        *r = Some(match *r {
+            None => (v, v),
+            Some((lo, hi)) => (lo.min(v), hi.max(v)),
+        });
     };
-    fn walk(e: Option<&Expr>, b: bool, range: &mut Vec<Option<(f64, f64)>>, exact: &mut [bool], note: &mut dyn FnMut(&mut Vec<Option<(f64, f64)>>, u32, f64)) {
+    fn walk(
+        e: Option<&Expr>,
+        b: bool,
+        range: &mut Vec<Option<(f64, f64)>>,
+        exact: &mut [bool],
+        note: &mut dyn FnMut(&mut Vec<Option<(f64, f64)>>, u32, f64),
+    ) {
         let Some(e) = e else { return };
         match e {
-            Expr::Var(f) => if b { note(range, *f, 0.0) } else { exact[*f as usize] = true },
+            Expr::Var(f) => {
+                if b {
+                    note(range, *f, 0.0)
+                } else {
+                    exact[*f as usize] = true
+                }
+            }
             Expr::Not(x) => walk(Some(x), true, range, exact, note),
             Expr::Table(t) => walk(Some(&t.orig), b, range, exact, note),
             Expr::Bin(op, l, r) => {
-                let cmp = matches!(op, BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge);
+                let cmp = matches!(
+                    op,
+                    BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge
+                );
                 if cmp {
-                    if let (Expr::Var(f), Expr::Lit(FVal::Num(v))) = (&**l, &**r) { note(range, *f, *v); return; }
-                    if let (Expr::Lit(FVal::Num(v)), Expr::Var(f)) = (&**l, &**r) { note(range, *f, *v); return; }
+                    if let (Expr::Var(f), Expr::Lit(FVal::Num(v))) = (&**l, &**r) {
+                        note(range, *f, *v);
+                        return;
+                    }
+                    if let (Expr::Lit(FVal::Num(v)), Expr::Var(f)) = (&**l, &**r) {
+                        note(range, *f, *v);
+                        return;
+                    }
                 }
                 let logic = matches!(op, BinOp::And | BinOp::Or);
                 walk(Some(l), logic, range, exact, note);
@@ -52,8 +76,16 @@ pub fn flag_bounds(m: &Model) -> Vec<Option<Bound>> {
         for ins in &sc.program {
             match ins {
                 Op::JumpUnless(c, _) => walk(Some(c), true, &mut range, &mut exact, &mut note),
-                Op::Choice(o) | Op::Pick(o) => o.iter().for_each(|o| walk(o.when.as_ref(), true, &mut range, &mut exact, &mut note)),
-                Op::Add(f, a) => if *a >= 0.0 { up[*f as usize] = true } else { down[*f as usize] = true },
+                Op::Choice(o) | Op::Pick(o) => o
+                    .iter()
+                    .for_each(|o| walk(o.when.as_ref(), true, &mut range, &mut exact, &mut note)),
+                Op::Add(f, a) => {
+                    if *a >= 0.0 {
+                        up[*f as usize] = true
+                    } else {
+                        down[*f as usize] = true
+                    }
+                }
                 _ => {}
             }
         }
@@ -69,12 +101,21 @@ pub fn flag_bounds(m: &Model) -> Vec<Option<Bound>> {
             Kind::Dialogue => {}
         }
     }
-    (0..n).map(|f| {
-        let (lo, hi) = range[f]?;
-        // 増やすのも減らすのもあるフラグは、まとめた値から戻ってこられるので、まとめない
-        if exact[f] || (up[f] && down[f]) { return None; }
-        Some(Bound { lo, hi, up: !down[f], down: !up[f] })
-    }).collect()
+    (0..n)
+        .map(|f| {
+            let (lo, hi) = range[f]?;
+            // 増やすのも減らすのもあるフラグは、まとめた値から戻ってこられるので、まとめない
+            if exact[f] || (up[f] && down[f]) {
+                return None;
+            }
+            Some(Bound {
+                lo,
+                hi,
+                up: !down[f],
+                down: !up[f],
+            })
+        })
+        .collect()
 }
 
 /// 128 ビットのハッシュ（掛け算を畳む方式を 2 本）
@@ -92,7 +133,11 @@ fn fold(x: u64, k: u64) -> u64 {
 
 impl Hasher128 {
     pub fn new() -> Self {
-        Hasher128 { a: 0x243f_6a88_85a3_08d3, b: 0x1319_8a2e_0370_7344, n: 0 }
+        Hasher128 {
+            a: 0x243f_6a88_85a3_08d3,
+            b: 0x1319_8a2e_0370_7344,
+            n: 0,
+        }
     }
     #[inline]
     pub fn write(&mut self, x: u64) {
@@ -108,7 +153,9 @@ impl Hasher128 {
 }
 
 impl Default for Hasher128 {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// 生きている変数の集まりごとの、キーの作り方（種類ごとに分けて並べる）
@@ -134,23 +181,44 @@ pub struct KeyMaker<'a> {
 impl<'a> KeyMaker<'a> {
     pub fn new(m: &'a Model, flow: &'a Flow) -> KeyMaker<'a> {
         let bool_flags = boolean_flags(m);
-        let plans = flow.live_sets().iter().map(|set| {
-            let mut p = Plan { bools: vec![], visits: vec![], seens: vec![], others: vec![] };
-            for &i in set {
-                match flow.vars[i as usize] {
-                    Var::Flag(f) if bool_flags[f as usize] => p.bools.push(f),
-                    Var::Flag(f) => p.others.push(f),
-                    Var::Visit(x) => p.visits.push(x),
-                    Var::Seen(x) => p.seens.push(x),
+        let plans = flow
+            .live_sets()
+            .iter()
+            .map(|set| {
+                let mut p = Plan {
+                    bools: vec![],
+                    visits: vec![],
+                    seens: vec![],
+                    others: vec![],
+                };
+                for &i in set {
+                    match flow.vars[i as usize] {
+                        Var::Flag(f) if bool_flags[f as usize] => p.bools.push(f),
+                        Var::Flag(f) => p.others.push(f),
+                        Var::Visit(x) => p.visits.push(x),
+                        Var::Seen(x) => p.seens.push(x),
+                    }
                 }
-            }
-            p
-        }).collect();
+                p
+            })
+            .collect();
         let ev_words = m.evidence.len().div_ceil(64).max(1);
         let mut ev_mask = vec![0u64; ev_words];
-        for (i, e) in m.evidence.iter().enumerate() { if !e.profile || m.profile_points { ev_mask[i >> 6] |= 1 << (i & 63); } }
+        for (i, e) in m.evidence.iter().enumerate() {
+            if !e.profile || m.profile_points {
+                ev_mask[i >> 6] |= 1 << (i & 63);
+            }
+        }
         let lock = m.evidence.iter().any(|e| e.inspect.is_some());
-        KeyMaker { m, flow, bounds: flag_bounds(m), plans, ev_words, ev_mask, lock }
+        KeyMaker {
+            m,
+            flow,
+            bounds: flag_bounds(m),
+            plans,
+            ev_words,
+            ev_mask,
+            lock,
+        }
     }
 
     /// 地点 node で生きている変数の値をハッシュに入れる（集まりごとに並びが決まっているので、値だけを入れる）
@@ -160,13 +228,25 @@ impl<'a> KeyMaker<'a> {
         let mut bit = |on: bool, h: &mut Hasher128| {
             word |= u64::from(on) << count;
             count += 1;
-            if count == 64 { h.write(word); word = 0; count = 0; }
+            if count == 64 {
+                h.write(word);
+                word = 0;
+                count = 0;
+            }
         };
-        for &f in &p.bools { bit(s.flags[f as usize] == FVal::Bool(true), h); }
-        for &x in &p.visits { bit(s.visited.has(x), h); }
-        for &x in &p.seens { bit(s.seen.has(x), h); }
+        for &f in &p.bools {
+            bit(s.flags[f as usize] == FVal::Bool(true), h);
+        }
+        for &x in &p.visits {
+            bit(s.visited.has(x), h);
+        }
+        for &x in &p.seens {
+            bit(s.seen.has(x), h);
+        }
         h.write(word);
-        for &f in &p.others { self.other(h, f, s.flags[f as usize]); }
+        for &f in &p.others {
+            self.other(h, f, s.flags[f as usize]);
+        }
     }
 
     /// 真偽とは限らないフラグの値（範囲の外はまとめる）
@@ -174,13 +254,26 @@ impl<'a> KeyMaker<'a> {
         match v {
             FVal::Undef => h.write(0),
             FVal::Bool(b) => h.write(1 + u64::from(b)),
-            FVal::Str(i) => { h.write(3); h.write(u64::from(i)); }
+            FVal::Str(i) => {
+                h.write(3);
+                h.write(u64::from(i));
+            }
             FVal::Num(mut n) => {
                 if let Some(b) = self.bounds[f as usize] {
-                    if b.up && n > b.hi { n = b.hi + 1.0 } else if b.down && n < b.lo { n = b.lo - 1.0 }
+                    if b.up && n > b.hi {
+                        n = b.hi + 1.0
+                    } else if b.down && n < b.lo {
+                        n = b.lo - 1.0
+                    }
                 }
                 // String(v) と同じく、-0 と 0・NaN どうしは同じ
-                let bits = if n == 0.0 { 0 } else if n.is_nan() { 1 } else { n.to_bits() };
+                let bits = if n == 0.0 {
+                    0
+                } else if n.is_nan() {
+                    1
+                } else {
+                    n.to_bits()
+                };
                 h.write(4);
                 h.write(bits);
             }
@@ -191,33 +284,60 @@ impl<'a> KeyMaker<'a> {
         let mut h = Hasher128::new();
         let node = self.flow.node_of(s.scene, s.pc, s.mode);
         h.write(u64::from(node));
-        if matches!(self.m.scenes.get(s.scene as usize).map(|x| &x.kind), Some(Kind::Testimony(_))) {
-                h.write(phase_code(s.phase) << 32 | u64::from(s.statement));
+        if matches!(
+            self.m.scenes.get(s.scene as usize).map(|x| &x.kind),
+            Some(Kind::Testimony(_))
+        ) {
+            h.write(phase_code(s.phase) << 32 | u64::from(s.statement));
         }
         self.vars(&mut h, s, node);
         if let Some(f) = s.inspect_from {
             let back = self.flow.node_of(f.scene, f.pc, f.mode);
             h.write(u64::MAX);
             h.write(u64::from(back));
-            if f.mode == Mode::Testimony { h.write(phase_code(f.phase) << 32 | u64::from(f.statement)); }
+            if f.mode == Mode::Testimony {
+                h.write(phase_code(f.phase) << 32 | u64::from(f.statement));
+            }
             self.vars(&mut h, s, back);
         }
         // 証拠品は 256 個までなら、割り当てなしで作る
         let mut small = [0u64; 4];
         let mut big = vec![];
-        let ev: &mut [u64] = if self.ev_words <= 4 { &mut small[..self.ev_words] } else { big.resize(self.ev_words, 0); &mut big };
-        for &e in &s.evidence { ev[e as usize >> 6] |= 1 << (e & 63); }
+        let ev: &mut [u64] = if self.ev_words <= 4 {
+            &mut small[..self.ev_words]
+        } else {
+            big.resize(self.ev_words, 0);
+            &mut big
+        };
+        for &e in &s.evidence {
+            ev[e as usize >> 6] |= 1 << (e & 63);
+        }
         // 生きている証拠品だけを入れる（evflow.rs。詳しく調べている途中なら、戻り先で生きているものも）
         if let Some(live) = self.flow.live_ev(node) {
-            let back = s.inspect_from.map(|f| self.flow.live_ev(self.flow.node_of(f.scene, f.pc, f.mode)).unwrap());
-            for (w, x) in ev.iter_mut().enumerate() { *x &= live[w] | back.map_or(0, |b| b[w]); }
+            let back = s.inspect_from.map(|f| {
+                self.flow
+                    .live_ev(self.flow.node_of(f.scene, f.pc, f.mode))
+                    .unwrap()
+            });
+            for (w, x) in ev.iter_mut().enumerate() {
+                *x &= live[w] | back.map_or(0, |b| b[w]);
+            }
         }
-        for (w, x) in ev.iter().enumerate() { h.write(*x & self.ev_mask[w]); }
-        if self.lock { h.write(u64::from(s.record_locked)); }
+        for (w, x) in ev.iter().enumerate() {
+            h.write(*x & self.ev_mask[w]);
+        }
+        if self.lock {
+            h.write(u64::from(s.record_locked));
+        }
         h.finish()
     }
 }
 
 fn phase_code(p: Phase) -> u64 {
-    match p { Phase::Intro => 0, Phase::Reading => 1, Phase::CrossIntro => 2, Phase::Cross => 3 }
+    match p {
+        Phase::Intro => 0,
+        Phase::Reading => 1,
+        Phase::CrossIntro => 2,
+        Phase::Cross => 3,
+    }
 }

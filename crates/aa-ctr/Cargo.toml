@@ -15,4 +15,6 @@ aes = "0.8"
 ctr = "0.9"
 flate2 = "1"
 rayon = "1"
+regex = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
+unicode-normalization = "0.1"

@@ -90,4 +90,19 @@ describe('診断', () => {
   it('YAML の構文エラー', () => {
     expect(messages('a: [1, 2')[0]).toMatch(/^1:E YAML の構文エラー/);
   });
+
+  it('present が無い証言は、ゆさぶりから移動できるときだけ警告しない', () => {
+    const t = (press: string) => `${HEAD}  s:
+    testimony: 題
+    witness: me
+    statements:
+      - text: 証言
+${press}
+  done:
+    - end: true
+`;
+    const warned = (yaml: string) => messages(yaml).some((m) => m.includes('present がありません'));
+    expect(warned(t('        press: [ { me: ふむ } ]'))).toBe(true);
+    expect(warned(t('        press: [ { goto: done } ]'))).toBe(false);
+  });
 });

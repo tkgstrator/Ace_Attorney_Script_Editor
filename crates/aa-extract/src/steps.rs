@@ -22,7 +22,8 @@ const TITLE: [&str; 9] = [
 
 pub fn run(rom_bytes: &[u8], a: &Args) -> Result<(), aa_rom::Error> {
     let rom = Rom::new(rom_bytes)?;
-    std::fs::create_dir_all(&a.out).map_err(|e| aa_rom::Error(format!("{}: {e}", a.out.display())))?;
+    std::fs::create_dir_all(&a.out)
+        .map_err(|e| aa_rom::Error(format!("{}: {e}", a.out.display())))?;
     let opts = crate::extra::options(a)?;
     let mut st = State::default();
     crate::extra::preload(a, &mut st);

@@ -19,7 +19,10 @@ pub fn split_header(d: &[u8]) -> Result<(Vec<usize>, Vec<(u32, u32)>)> {
     while k < n && v[k] < d.len() && (k == 0 || v[k] > v[k - 1]) && u16_at(d, v[k])? == 0 {
         k += 1;
     }
-    let labels: Vec<(u32, u32)> = v[k..].iter().map(|&x| ((x >> 16) as u32, (x & 0xfffe) as u32)).collect();
+    let labels: Vec<(u32, u32)> = v[k..]
+        .iter()
+        .map(|&x| ((x >> 16) as u32, (x & 0xfffe) as u32))
+        .collect();
     if labels.iter().any(|&(s, _)| s as usize >= k) {
         return err("ラベルの区画が範囲外");
     }
@@ -32,9 +35,15 @@ pub fn labels_json(items: &[Vec<u8>]) -> Result<Json> {
         let (secs, labs) = split_header(d)?;
         let mut l = Json::obj();
         for (j, (s, o)) in labs.iter().enumerate() {
-            l.set((secs.len() + j).to_string(), Json::obj().with("section", *s).with("offset", *o));
+            l.set(
+                (secs.len() + j).to_string(),
+                Json::obj().with("section", *s).with("offset", *o),
+            );
         }
-        all.set(format!("{i:03}"), Json::obj().with("sections", secs.len()).with("labels", l));
+        all.set(
+            format!("{i:03}"),
+            Json::obj().with("sections", secs.len()).with("labels", l),
+        );
     }
     Ok(Json::obj()
         .with("_doc", "項目ごとの区画の数とラベル。ラベルの鍵 = 見出しの添字（54/53(0x80)/120/122 の引数）。offset は区画の先頭からのバイト位置")
@@ -89,9 +98,23 @@ pub fn ds_fx_json(items: &[Vec<u8>]) -> Result<Json> {
     let mut effects = Json::obj();
     let table = statics::get("ds_fx");
     for (fx, count, stages, used) in count_fx(items)? {
-        let mut e = table.get(&fx.to_string()).cloned().unwrap_or_else(|| Json::obj().with("desc", "未調査"));
-        let st = Json::Obj(stages.into_iter().map(|(k, v)| (k, Json::from(v))).collect());
-        e.set("uses", Json::obj().with("count", count).with("stages", st).with("items", used));
+        let mut e = table
+            .get(&fx.to_string())
+            .cloned()
+            .unwrap_or_else(|| Json::obj().with("desc", "未調査"));
+        let st = Json::Obj(
+            stages
+                .into_iter()
+                .map(|(k, v)| (k, Json::from(v)))
+                .collect(),
+        );
+        e.set(
+            "uses",
+            Json::obj()
+                .with("count", count)
+                .with("stages", st)
+                .with("items", used),
+        );
         effects.set(fx.to_string(), e);
     }
     Ok(Json::obj()
@@ -100,11 +123,17 @@ pub fn ds_fx_json(items: &[Vec<u8>]) -> Result<Json> {
 }
 
 fn u16s(a: &Arm9, base: u32, n: u32) -> Result<Json> {
-    Ok(Json::from((0..n).map(|i| a.u16(base + i * 2)).collect::<Result<Vec<u16>>>()?))
+    Ok(Json::from(
+        (0..n)
+            .map(|i| a.u16(base + i * 2))
+            .collect::<Result<Vec<u16>>>()?,
+    ))
 }
 
 pub fn engine_json(a: &Arm9) -> Result<Json> {
-    let en_speed: Vec<u32> = (0..16).map(|i| a.u32(0x020b3e68 + i * 4).map(|v| v & 0xff)).collect::<Result<_>>()?;
+    let en_speed: Vec<u32> = (0..16)
+        .map(|i| a.u32(0x020b3e68 + i * 4).map(|v| v & 0xff))
+        .collect::<Result<_>>()?;
     let text = Json::obj()
         .with("glyph", Json::obj().with("data_bin", 0x01bcb374).with("size", vec![16, 16]).with("bpp", 4).with("bytes", 0x80)
             .with("en_small_font", 0x01bfc374).with("_note", "英語で文字番号 <= 0xff は別の字形（0x01bfc374）"))
@@ -120,17 +149,45 @@ pub fn engine_json(a: &Arm9) -> Result<Json> {
         .with("char_timing", "文字は「速さ」フレームに 1 個（カウンタが速さに達したフレームに出す）。0 = 同じフレームで全部")
         .with("page_advance_se", 0x2f)
         .with("blip", "sound.json の blip");
-    let life = Json::obj().with("max", 5).with("addr", "game+0x6b").with("penalty_se", 0x4c)
+    let life = Json::obj()
+        .with("max", 5)
+        .with("addr", "game+0x6b")
+        .with("penalty_se", 0x4c)
         .with("gameover_section_by_part", u16s(a, 0x020aad40, 35)?)
-        .with("_note", "値は区画 + 128（0 = 無し）。添字 = パート（game+0x69、項目 = 2×パート + 言語）");
+        .with(
+            "_note",
+            "値は区画 + 128（0 = 無し）。添字 = パート（game+0x69、項目 = 2×パート + 言語）",
+        );
     let fade = Json::obj()
-        .with("types", Json::obj().with("1", "BLDY を下げる（黒から戻す）").with("2", "BLDY を上げる（黒へ）").with("3", "白から戻す")
-            .with("4", "白へ").with("5", "白を一度だけ量ぶん足す"))
-        .with("bldcnt_black", "対象 | 0xc0").with("bldcnt_white", "対象 | 0xa0").with("bldcnt_default", 0x1d42)
-        .with("white_flash_769_8_31", "BLDY 24(=16 扱い), 16, 8, 0 → 白 2 フレーム + 半分 1 フレーム");
+        .with(
+            "types",
+            Json::obj()
+                .with("1", "BLDY を下げる（黒から戻す）")
+                .with("2", "BLDY を上げる（黒へ）")
+                .with("3", "白から戻す")
+                .with("4", "白へ")
+                .with("5", "白を一度だけ量ぶん足す"),
+        )
+        .with("bldcnt_black", "対象 | 0xc0")
+        .with("bldcnt_white", "対象 | 0xa0")
+        .with("bldcnt_default", 0x1d42)
+        .with(
+            "white_flash_769_8_31",
+            "BLDY 24(=16 扱い), 16, 8, 0 → 白 2 フレーム + 半分 1 フレーム",
+        );
     let pan = Json::obj()
-        .with("tables", Json::obj().with("short(0..65 tile)", u16s(a, 0x020b3dc0, 16)?).with("long(0..130 tile)", u16s(a, 0x020b3de0, 16)?))
-        .with("frames", 31).with("unit_px", 8).with("counter", "0x020ce16c+0xc を毎フレーム ±1（0x02017e88）、偶数で描く");
+        .with(
+            "tables",
+            Json::obj()
+                .with("short(0..65 tile)", u16s(a, 0x020b3dc0, 16)?)
+                .with("long(0..130 tile)", u16s(a, 0x020b3de0, 16)?),
+        )
+        .with("frames", 31)
+        .with("unit_px", 8)
+        .with(
+            "counter",
+            "0x020ce16c+0xc を毎フレーム ±1（0x02017e88）、偶数で描く",
+        );
     let reset = Json::obj()
         .with("_note", "区画に入るたび（0x02024d5c、13/10/54/8/9 などすべての飛び先）に文脈が初期化される。YAML では各 scene の頭で次の値に戻す")
         .with("text", "消す").with("color", 0).with("speed", 3).with("align", 0).with("speaker(+0x60)", 0).with("blip_kind(+0x33)", 0)
